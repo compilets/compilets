@@ -1,0 +1,28 @@
+{
+  "name": "compilets",
+  "version": "0.0.1-dev",
+  "description": "Compile TypeScript to C++ Executables",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepack": "tsc",
+    "test": "tsx --test tests/*.spec.ts"
+  },
+  "author": "zcbenz",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/compilets/compilets.git"
+  },
+  "bugs": {
+    "url": "https://github.com/compilets/compilets/issues"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.8",
+    "tsx": "4.16.2"
+  },
+  "dependencies": {
+    "typescript": "5.4.5"
+  }
+}
