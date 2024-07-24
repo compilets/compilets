@@ -28,7 +28,7 @@ export class Type {
 };
 
 // A special expression where JS text is same with C++ text.
-class RawExpression extends Expression {
+export class RawExpression extends Expression {
   text: string;
 
   constructor(text: string) {
@@ -41,11 +41,18 @@ class RawExpression extends Expression {
   }
 };
 
-export class Identifier extends RawExpression {};
+export class ParenthesizedExpression extends Expression {
+  expression: Expression;
 
-export class NumericLiteral extends RawExpression {};
+  constructor(expr: Expression) {
+    super();
+    this.expression = expr;
+  }
 
-export class StringLiteral extends RawExpression {};
+  override print(opts: PrintOptions) {
+    return `(${this.expression.print(opts)})`;
+  }
+};
 
 export class PostfixUnaryExpression extends Expression {
   operand: Expression;

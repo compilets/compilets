@@ -1,4 +1,5 @@
 let u: boolean;
+let t = true;
 let s = "str";
 
 let n1 = 123;

@@ -1,4 +1,5 @@
 bool u;
+bool t = true;
 std::string s = "str";
 double n1 = 123;
 double n2 = 4.56;
