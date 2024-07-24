@@ -3,9 +3,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolveJsonModule": true,
+    "module": "commonjs",
     "lib": ["dom", "esnext"],
     "strict": true,
     "esModuleInterop": true
