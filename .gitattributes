@@ -1,0 +1,2 @@
+# Force using \n as line ending as we are comparing files in tests.
+* text=auto eol=lf

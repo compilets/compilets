@@ -17,11 +17,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Test
-        shell: bash
         run: |
           yarn
-          yarn prepack
           yarn test
 
   publish:
@@ -40,6 +42,10 @@ jobs:
         run: |
           npm config set git-tag-version=false
           npm version $VERSION
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Install deps
         run: yarn
