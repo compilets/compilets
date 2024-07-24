@@ -4,6 +4,12 @@ import * as ts from 'typescript';
 import {CppFile} from './cpp-file';
 import * as syntax from './cpp-syntax';
 
+export class UnimplementedError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+};
+
 export class Parser {
   program: ts.Program;
   typeChecker: ts.TypeChecker;
@@ -15,28 +21,36 @@ export class Parser {
 
   parse(sourceFile: ts.SourceFile) {
     const cppFile = new CppFile(path.basename(sourceFile.fileName).replace(/.ts$/, '.cpp'));
-    ts.forEachChild(sourceFile, this.parseNode.bind(this, cppFile));
+    ts.forEachChild(sourceFile, (node: ts.Node) => {
+      switch (node.kind) {
+        case ts.SyntaxKind.VariableStatement:
+        case ts.SyntaxKind.ExpressionStatement:
+          this.parseStatement(node as ts.Statement).forEach(cppFile.addStatement.bind(cppFile));
+          return;
+        case ts.SyntaxKind.EndOfFileToken:
+          return;
+      }
+      throw new UnimplementedError(`Unsupported node: ${node.getText()}`);
+    });
     return cppFile;
   }
 
-  parseNode(cppFile: CppFile, node: ts.Node) {
+  parseStatement(node: ts.Statement): syntax.Statement[] {
     switch (node.kind) {
       case ts.SyntaxKind.VariableStatement:
         // let a = xxx, b = xxx;
+        const statements: syntax.Statement[] = [];
         for (const d of (node as ts.VariableStatement).declarationList.declarations) {
           const decl = this.parseVariableDeclaration(d);
-          cppFile.addStatement(new syntax.VariableStatement(decl));
+          statements.push(new syntax.VariableStatement(decl));
         }
-        return;
+        return statements;
       case ts.SyntaxKind.ExpressionStatement:
         // xxxx;
         const expr = this.parseExpression((node as ts.ExpressionStatement).expression);
-        cppFile.addStatement(new syntax.ExpressionStatement(expr));
-        return;
-      case ts.SyntaxKind.EndOfFileToken:
-        return;
+        return [ new syntax.ExpressionStatement(expr) ];
     }
-    throw new Error(`Unsupported node: ${node.getText()}`);
+    throw new UnimplementedError(`Unsupported statement: ${node.getText()}`);
   }
 
   parseVariableDeclaration(node: ts.VariableDeclaration): syntax.VariableDeclaration {
@@ -54,7 +68,7 @@ export class Parser {
           return new syntax.VariableDeclaration(name, type);
         }
     }
-    throw new Error(`Binding in variable declaration not implemented: ${node.getText()}`);
+    throw new UnimplementedError(`Unsupported variable declaration: ${node.getText()}`);
   }
 
   parseExpression(node: ts.Expression): syntax.Expression {
@@ -92,7 +106,7 @@ export class Parser {
                                            operatorToken.getText());
       }
     }
-    throw new Error(`Unsupported expression: ${node.getText()}`);
+    throw new UnimplementedError(`Unsupported expression: ${node.getText()}`);
   }
 
   parseType(node: ts.Node) {
@@ -104,7 +118,7 @@ export class Parser {
       return new syntax.Type('double', 'primitive');
     if (name == 'string')
       return new syntax.Type('string', 'string');
-    throw new Error(`Unsupported type: "${name}"`);
+    throw new UnimplementedError(`Unsupported type: "${name}"`);
   }
 };
 
