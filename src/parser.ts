@@ -24,36 +24,71 @@ export class Parser {
       case ts.SyntaxKind.VariableStatement:
         // let a = xxx, b = xxx;
         for (const d of (node as ts.VariableStatement).declarationList.declarations) {
-          this.parseVariableDeclaration(cppFile, d);
+          const decl = this.getVariableDeclaration(d);
+          cppFile.addStatement(new syntax.VariableStatement(decl));
         }
-        break;
+        return;
+      case ts.SyntaxKind.ExpressionStatement:
+        // xxxx;
+        const expr = this.getExpression((node as ts.ExpressionStatement).expression);
+        cppFile.addStatement(new syntax.ExpressionStatement(expr));
+        return;
       case ts.SyntaxKind.EndOfFileToken:
         return;
-      default:
-        throw new Error('Not Implemented');
     }
+    throw new Error(`Unsupported node: ${node.getText()}`);
   }
 
-  parseVariableDeclaration(cppFile: CppFile, decl: ts.VariableDeclaration) {
-    switch (decl.name.kind) {
+  getVariableDeclaration(node: ts.VariableDeclaration): syntax.VariableDeclaration {
+    switch (node.name.kind) {
       case ts.SyntaxKind.Identifier:
         // let a = xxx;
-        const name = (decl.name as ts.Identifier).text;
-        const cppType = this.getType(decl.name);
-        let cppDecl: syntax.VariableDeclaration;
-        if (decl.initializer) {
+        const name = (node.name as ts.Identifier).text;
+        const type = this.getType(node.name);
+        if (node.initializer) {
           // let a = 123;
-          const cppInit = this.getInitializer(decl.initializer);
-          cppDecl = new syntax.VariableDeclaration(name, cppType, cppInit);
+          const init = this.getExpression(node.initializer);
+          return new syntax.VariableDeclaration(name, type, init);
         } else {
           // let a;
-          cppDecl = new syntax.VariableDeclaration(name, cppType);
+          return new syntax.VariableDeclaration(name, type);
         }
-        cppFile.addStatement(new syntax.VariableStatement(cppDecl));
-        break;
-      default:
-        throw new Error('Binding in variable declaration is not implemented');
     }
+    throw new Error(`Binding in variable declaration not implemented: ${node.getText()}`);
+  }
+
+  getExpression(node: ts.Expression): syntax.Expression {
+    switch (node.kind) {
+      case ts.SyntaxKind.Identifier:
+        return new syntax.Identifier(node.getText());
+      case ts.SyntaxKind.NumericLiteral:
+        return new syntax.NumericLiteral(node.getText());
+      case ts.SyntaxKind.StringLiteral:
+        return new syntax.StringLiteral(node.getText());
+      case ts.SyntaxKind.PostfixUnaryExpression: {
+        const {operand, operator} = node as ts.PostfixUnaryExpression;
+        return new syntax.PostfixUnaryExpression(this.getExpression(operand),
+                                                 getOperator(operator));
+      }
+      case ts.SyntaxKind.PrefixUnaryExpression: {
+        const {operand, operator} = node as ts.PrefixUnaryExpression;
+        return new syntax.PrefixUnaryExpression(this.getExpression(operand),
+                                                getOperator(operator));
+      }
+      case ts.SyntaxKind.ConditionalExpression: {
+        const {condition, whenTrue, whenFalse} = node as ts.ConditionalExpression;
+        return new syntax.ConditionalExpression(this.getExpression(condition),
+                                                this.getExpression(whenTrue),
+                                                this.getExpression(whenFalse));
+      }
+      case ts.SyntaxKind.BinaryExpression: {
+        const {left, right, operatorToken} = node as ts.BinaryExpression;
+        return new syntax.BinaryExpression(this.getExpression(left),
+                                           this.getExpression(right),
+                                           operatorToken.getText());
+      }
+    }
+    throw new Error(`Unsupported expression: ${node.getText()}`);
   }
 
   getType(node: ts.Node) {
@@ -67,14 +102,24 @@ export class Parser {
       return new syntax.Type('string', 'string');
     throw new Error(`Unsupported type: "${name}"`);
   }
+};
 
-  getInitializer(node: ts.Expression) {
-    switch (node.kind) {
-      case ts.SyntaxKind.NumericLiteral:
-      case ts.SyntaxKind.StringLiteral:
-        return new syntax.NumericLiteral(node.getText());
-      default:
-        throw new Error(`Unsupported initializer: "${node.getText()}"`);
-    }
+// Return whether the expression can be directly kept as it is in C++.
+function isCppLiteral(node: ts.Expression) {
+  return node.kind == ts.SyntaxKind.NumericLiteral ||
+         node.kind == ts.SyntaxKind.StringLiteral ||
+         node.kind == ts.SyntaxKind.Identifier;
+};
+
+// Convert JS operator to C++.
+function getOperator(operator: ts.SyntaxKind) {
+  switch (operator) {
+    case ts.SyntaxKind.EqualsToken:
+      return '=';
+    case ts.SyntaxKind.PlusPlusToken:
+      return '++';
+    case ts.SyntaxKind.MinusMinusToken:
+      return '--';
   }
+  throw Error(`Unsupported operator: ${operator}`);
 }

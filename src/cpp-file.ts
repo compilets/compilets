@@ -22,11 +22,11 @@ export class CppFile {
     this.paragraphs[this.paragraphs.length - 1].statements.push(statement);
   }
 
-  toString(): string {
+  print(): string {
     let text = '';
     for (const p of this.paragraphs) {
       for (const s of p.statements)
-        text += s.toString() + '\n';
+        text += s.print({}) + '\n';
     }
     return text;
   }

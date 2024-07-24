@@ -14,7 +14,7 @@ describe('Conversion', () => {
 
 function testDir(dir) {
   // Compare the compiled results with the .h/.cpp files in dir.
-  const result = compileDirectory(dir).sources.map(s => [ s.name, s.toString() ]);
+  const result = compileDirectory(dir).sources.map(s => [ s.name, s.print() ]);
   const expected = fs.readdirSync(dir).filter(f => f.endsWith('.h') || f.endsWith('.cpp'))
                                  .map(f => [ f, fs.readFileSync(`${dir}/${f}`).toString() ]);
   assert.deepStrictEqual(result, expected);
