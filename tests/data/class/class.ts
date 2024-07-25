@@ -17,3 +17,6 @@ class Simple {
     return true;
   }
 }
+
+const s = new Simple(false);
+const r = s.method();

@@ -40,7 +40,7 @@ export abstract class Statement {
   abstract print(ctx: PrintContext): string;
 }
 
-export type TypeCategory = 'primitive' | 'string';
+export type TypeCategory = 'primitive' | 'string' | 'class';
 
 export class Type {
   name: string;
@@ -58,6 +58,8 @@ export class Type {
   print(ctx: PrintContext) {
     if (this.category == 'string')
       return 'std::string';
+    if (this.category == 'class')
+      return this.name + '*';
     return this.name;
   }
 }
@@ -156,6 +158,55 @@ export class ConditionalExpression extends Expression {
 
   override print(ctx: PrintContext) {
     return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
+  }
+}
+
+export class CallExpression extends Expression {
+  expression: Expression;
+  args: Expression[];
+
+  constructor(expression: Expression, args: Expression[]) {
+    super();
+    this.expression = expression;
+    this.args = args;
+  }
+
+  override print(ctx: PrintContext) {
+    const args = this.args.map(a => a.print(ctx)).join(', ');
+    return `${this.expression.print(ctx)}(${args})`;
+  }
+}
+
+export class NewExpression extends Expression {
+  expression: Expression;
+  args: Expression[];
+
+  constructor(expression: Expression, args: Expression[]) {
+    super();
+    this.expression = expression;
+    this.args = args;
+  }
+
+  override print(ctx: PrintContext) {
+    return 'new ' + CallExpression.prototype.print.call(this, ctx);
+  }
+}
+
+export class PropertyAccessExpression extends Expression {
+  expression: Expression;
+  type: Type;
+  member: string;
+
+  constructor(expression: Expression, type: Type, member: string) {
+    super();
+    this.expression = expression;
+    this.type = type;
+    this.member = member;
+  }
+
+  override print(ctx: PrintContext) {
+    const dot = this.type.category == 'class' ? '->' : '.';
+    return this.expression.print(ctx) + dot + this.member;
   }
 }
 

@@ -202,30 +202,67 @@ export class Parser {
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral((node as ts.StringLiteral).text);
       case ts.SyntaxKind.ParenthesizedExpression: {
+        // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
         return new syntax.ParenthesizedExpression(this.parseExpression(expression));
       }
       case ts.SyntaxKind.PostfixUnaryExpression: {
+        // a++
         const {operand, operator} = node as ts.PostfixUnaryExpression;
         return new syntax.PostfixUnaryExpression(this.parseExpression(operand),
                                                  getOperator(operator));
       }
       case ts.SyntaxKind.PrefixUnaryExpression: {
+        // ++a
         const {operand, operator} = node as ts.PrefixUnaryExpression;
         return new syntax.PrefixUnaryExpression(this.parseExpression(operand),
                                                 getOperator(operator));
       }
       case ts.SyntaxKind.ConditionalExpression: {
+        // a ? b : c
         const {condition, whenTrue, whenFalse} = node as ts.ConditionalExpression;
         return new syntax.ConditionalExpression(this.parseExpression(condition),
                                                 this.parseExpression(whenTrue),
                                                 this.parseExpression(whenFalse));
       }
       case ts.SyntaxKind.BinaryExpression: {
+        // a + b
         const {left, right, operatorToken} = node as ts.BinaryExpression;
         return new syntax.BinaryExpression(this.parseExpression(left),
                                            this.parseExpression(right),
                                            operatorToken.getText());
+      }
+      case ts.SyntaxKind.CallExpression: {
+        // func(xxx)
+        const {expression, typeArguments, questionDotToken} = node as ts.CallExpression;
+        if (typeArguments)
+          throw new UnimplementedError(node, 'Generic call is not supported');
+        if (questionDotToken)
+          throw new UnimplementedError(node, 'The ?. operator is not supported');
+        return new syntax.CallExpression(this.parseExpression(expression),
+                                         (node as ts.CallExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+      }
+      case ts.SyntaxKind.NewExpression: {
+        // new Class(xxx)
+        const {expression, typeArguments} = node as ts.NewExpression;
+        if (typeArguments)
+          throw new UnimplementedError(node, 'Generic new is not supported');
+        return new syntax.NewExpression(this.parseExpression(expression),
+                                        (node as ts.NewExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+      }
+      case ts.SyntaxKind.PropertyAccessExpression: {
+        // obj.prop
+        const {expression, name, questionDotToken} = node as ts.PropertyAccessExpression;
+        if (questionDotToken)
+          throw new UnimplementedError(node, 'The ?. operator is not supported');
+        if (name.kind != ts.SyntaxKind.Identifier)
+          throw new UnimplementedError(name, 'Only identifier can be used as member name');
+        const type = this.parseVariableType(expression);
+        if (type.category != 'class')
+          throw new UnimplementedError(name, 'Only support accessing properties of class');
+        return new syntax.PropertyAccessExpression(this.parseExpression(expression),
+                                                   type,
+                                                   (name as ts.Identifier).text);
       }
     }
     throw new UnimplementedError(node, 'Unsupported expression');
@@ -250,6 +287,8 @@ export class Parser {
       return new syntax.Type('double', 'primitive');
     if (name == 'string')
       return new syntax.Type('string', 'string');
+    if (ts.isClassDeclaration(type.symbol.valueDeclaration!))
+      return new syntax.Type(name, 'class');
     throw new UnimplementedError(node, 'Unsupported type');
   }
 }

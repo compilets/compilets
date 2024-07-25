@@ -20,3 +20,6 @@ class Simple {
  private:
   std::string prop = "For a breath I tarry.";
 };
+
+Simple* s = new Simple(false);
+bool r = s->method();
