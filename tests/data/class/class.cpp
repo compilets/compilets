@@ -1,14 +1,17 @@
-class Empty {};
+class Empty {
+};
 
 class EmptyConstructor {
-  constructor() {}
+ public:
+  EmptyConstructor() {}
 };
 
 class Simple {
-  std::string prop = "For a breath I tarry.";
-
-  constructor(bool a, double b = 123) {
+ public:
+  Simple(bool a, double b = 123) {
     double c = a ? b : 456;
   }
-};
 
+ private:
+  std::string prop = "For a breath I tarry.";
+};

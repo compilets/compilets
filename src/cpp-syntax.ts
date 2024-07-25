@@ -193,14 +193,21 @@ export class VariableDeclarationList extends Declaration {
   }
 }
 
-export class ParameterDeclaration extends Declaration {
+export abstract class NamedDeclaration extends Declaration {
   name: string;
+
+  constructor(name: string) {
+    super();
+    this.name = name;
+  }
+}
+
+export class ParameterDeclaration extends NamedDeclaration {
   type: Type;
   initializer?: Expression;
 
   constructor(name: string, type: Type, initializer?: Expression) {
-    super();
-    this.name = name;
+    super(name);
     this.type = type;
     this.initializer = initializer;
   }
@@ -213,11 +220,11 @@ export class ParameterDeclaration extends Declaration {
   }
 }
 
-export abstract class ClassElement extends Declaration {
+export abstract class ClassElement extends NamedDeclaration {
   modifiers: string[];
 
-  constructor(modifiers?: string[]) {
-    super();
+  constructor(name: string, modifiers?: string[]) {
+    super(name);
     this.modifiers = modifiers ?? [];
   }
 }
@@ -226,14 +233,14 @@ export class ConstructorDeclaration extends ClassElement {
   parameters: ParameterDeclaration[];
   body?: Block;
 
-  constructor(parameters: ParameterDeclaration[], body?: Block) {
-    super();
+  constructor(name: string, parameters: ParameterDeclaration[], body?: Block) {
+    super(name);
     this.parameters = parameters;
     this.body = body;
   }
 
   print(ctx: PrintContext) {
-    let result = `${ctx.padding}constructor(`;
+    let result = `${ctx.padding}${this.name}(`;
     if (this.parameters.length > 0)
       result += this.parameters.map(p => p.print(ctx)).join(', ');
     result += ') ';
@@ -246,13 +253,11 @@ export class ConstructorDeclaration extends ClassElement {
 }
 
 export class PropertyDeclaration extends ClassElement {
-  name: string;
   type: Type;
   initializer?: Expression;
 
-  constructor(modifiers: string[], name: string, type: Type, initializer?: Expression) {
-    super(modifiers);
-    this.name = name;
+  constructor(name: string, modifiers: string[], type: Type, initializer?: Expression) {
+    super(name, modifiers);
     this.type = type;
     this.initializer = initializer;
   }
@@ -275,19 +280,44 @@ export abstract class DeclarationStatement extends Statement {
 }
 
 export class ClassDeclaration extends DeclarationStatement {
-  members: ClassElement[];
+  publicMembers: ClassElement[] = [];
+  protectedMembers: ClassElement[] = [];
+  privateMembers: ClassElement[] = [];
 
   constructor(name: string, members: ClassElement[]) {
     super(name);
-    this.members = members;
+    for (const member of members) {
+      if (member.modifiers.includes('private'))
+        this.privateMembers.push(member);
+      else if (member.modifiers.includes('protected'))
+        this.protectedMembers.push(member);
+      else
+        this.publicMembers.push(member);
+    }
   }
 
   override print(ctx: PrintContext) {
-    if (this.members.length == 0)
-      return `class ${this.name} {};\n`;
-    using scope = new PrintScope(ctx);
-    const body = this.members.map(m => m.print(ctx)).join('\n\n');
-    return `class ${this.name} {\n${body}\n};\n`;
+    const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
+    let result = `${ctx.padding}class ${this.name} {\n`;
+    {
+      using scope = new PrintScope(ctx);
+      if (this.publicMembers.length > 0) {
+        result += `${halfPadding}public:\n`;
+        result += this.publicMembers.map(m => m.print(ctx) + '\n\n');
+      }
+      if (this.protectedMembers.length > 0) {
+        result += `${halfPadding}protected:\n`;
+        result += this.protectedMembers.map(m => m.print(ctx) + '\n\n');
+      }
+      if (this.privateMembers.length > 0) {
+        result += `${halfPadding}private:\n`;
+        result += this.privateMembers.map(m => m.print(ctx) + '\n\n');
+      }
+    }
+    if (result.endsWith('\n\n'))
+      result = result.slice(0, -1);
+    result += ctx.padding + '};\n';
+    return result;
   }
 }
 

@@ -19,6 +19,10 @@ export class CppFile {
 
   print(): string {
     const ctx = new syntax.PrintContext(2);
-    return this.body.print(ctx) + '\n';
+    const result = this.body.print(ctx);
+    if (result.endsWith('\n'))
+      return result;
+    else
+      return result + '\n';
   }
 }

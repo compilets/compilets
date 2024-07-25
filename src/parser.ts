@@ -140,16 +140,17 @@ export class Parser {
       throw new UnimplementedError(node, 'Generic class is not supported');
     if (node.heritageClauses)
       throw new UnimplementedError(node, 'Class inheritance is not supported');
-    const members = node.members.map(this.parseClassElement.bind(this));
+    const members = node.members.map(this.parseClassElement.bind(this, node));
     return new syntax.ClassDeclaration(node.name.text, members);
   }
 
-  parseClassElement(node: ts.ClassElement): syntax.ClassElement {
+  parseClassElement(parent: ts.ClassDeclaration, node: ts.ClassElement): syntax.ClassElement {
     switch (node.kind) {
       case ts.SyntaxKind.Constructor: {
         // constructor(xxx) { yyy }
         const {body, parameters} = node as ts.ConstructorDeclaration;
-        return new syntax.ConstructorDeclaration(parameters.map(this.parseParameterDeclaration.bind(this)),
+        return new syntax.ConstructorDeclaration(parent.name!.text,
+                                                 parameters.map(this.parseParameterDeclaration.bind(this)),
                                                  body ? this.parseStatement(body) as syntax.Block : undefined);
       }
       case ts.SyntaxKind.PropertyDeclaration: {
@@ -159,8 +160,8 @@ export class Parser {
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
         if (questionToken)
           throw new UnimplementedError(name, 'Question token in property is not supported');
-        return new syntax.PropertyDeclaration(modifiers?.map(modifierToString) ?? [],
-                                              (name as ts.Identifier).text,
+        return new syntax.PropertyDeclaration((name as ts.Identifier).text,
+                                              modifiers?.map(modifierToString) ?? [],
                                               this.parseType(name),
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
