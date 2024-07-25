@@ -13,11 +13,15 @@ export type TypeCategory = 'primitive' | 'string';
 
 export class Type {
   name: string;
-  category: string;
+  category: TypeCategory;
 
-  constructor(name: string, category: string) {
+  constructor(name: string, category: TypeCategory) {
     this.name = name;
     this.category = category;
+  }
+
+  equal(other: Type) {
+    return this.name == other.name && this.category == other.category;
   }
 
   print(opts: PrintOptions) {
@@ -38,6 +42,12 @@ export class RawExpression extends Expression {
 
   print(opts: PrintOptions) {
     return this.text;
+  }
+};
+
+export class StringLiteral extends RawExpression {
+  constructor(text: string) {
+    super(`"${text}"`);
   }
 };
 
@@ -130,25 +140,57 @@ export class VariableDeclaration {
   }
 
   print(opts: PrintOptions) {
-    let result = `${this.type.print(opts)} ${this.identifier}`
     if (this.initializer)
-      result += ` = ${this.initializer.print(opts)}`;
-    return result;
+      return `${this.identifier} = ${this.initializer.print(opts)}`;
+    else
+      return this.identifier;
   }
 };
 
-export class VariableStatement extends Statement {
-  declarationList: VariableDeclaration[] = [];
+export class VariableDeclarationList {
+  declarations: VariableDeclaration[];
 
-  constructor(decl: VariableDeclaration) {
+  constructor(decls: VariableDeclaration[]) {
+    this.declarations = decls;
+  }
+
+  print(opts: PrintOptions) {
+    let type = this.declarations[0].type.print(opts);
+    return `${type} ${this.declarations.map(d => d.print(opts)).join(', ')}`;
+  }
+}
+
+// Multiple statements without a scope, this is used for convenient internal
+// implementations where one JS statement maps to multiple C++ ones.
+export class Paragraph extends Statement {
+  statements: Statement[];
+
+  constructor(statements: Statement[]) {
     super();
-    this.declarationList.push(decl);
+    this.statements = statements;
   }
 
   override print(opts: PrintOptions) {
-    if (this.declarationList.length > 1)
-      throw new Error(`Multi-variable declarations is not implemented`);
-    return `${this.declarationList[0].print(opts)};`;
+    return this.statements.map(s => s.print(opts)).join('\n');
+  }
+}
+
+export class Block extends Paragraph {
+  override print(opts: PrintOptions) {
+    return '{\n' + super.print(opts) + '\n}';
+  }
+}
+
+export class VariableStatement extends Statement {
+  declarationList: VariableDeclarationList;
+
+  constructor(list: VariableDeclarationList) {
+    super();
+    this.declarationList = list;
+  }
+
+  override print(opts: PrintOptions) {
+    return `${this.declarationList.print(opts)};`;
   }
 };
 
@@ -162,5 +204,57 @@ export class ExpressionStatement extends Statement {
 
   override print(opts: PrintOptions) {
     return `${this.expression.print(opts)};`;
+  }
+};
+
+export class DoStatement extends Statement {
+  statement: Statement;
+  expression: Expression;
+
+  constructor(stat: Statement, expr: Expression) {
+    super();
+    this.statement = stat;
+    this.expression = expr;
+  }
+
+  override print(opts: PrintOptions) {
+    return `do ${this.statement.print(opts)} while (${this.expression.print(opts)});`;
+  }
+};
+
+export class WhileStatement extends Statement {
+  statement: Statement;
+  expression: Expression;
+
+  constructor(stat: Statement, expr: Expression) {
+    super();
+    this.statement = stat;
+    this.expression = expr;
+  }
+
+  override print(opts: PrintOptions) {
+    return `while (${this.expression.print(opts)}) ${this.statement.print(opts)}`;
+  }
+};
+
+export class ForStatement extends Statement {
+  statement: Statement;
+  initializer?: VariableDeclarationList | Expression;
+  condition?: Expression;
+  incrementor?: Expression;
+
+  constructor(statement: Statement,
+              initializer?: VariableDeclarationList | Expression,
+              condition?: Expression,
+              incrementor?: Expression) {
+    super();
+    this.statement = statement;
+    this.initializer = initializer;
+    this.condition = condition;
+    this.incrementor = incrementor;
+  }
+
+  override print(opts: PrintOptions) {
+    return `for (${this.initializer?.print(opts) ?? ''}; ${this.condition?.print(opts) ?? ''}; ${this.incrementor?.print(opts) ?? ''}) ${this.statement.print(opts)}`;
   }
 };
