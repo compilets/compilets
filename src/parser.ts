@@ -99,9 +99,20 @@ export class Parser {
           throw new UnimplementedError(node, 'Generic function is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
+        let cppBody: undefined | syntax.Block;
+        if (body) {
+          if (ts.isBlock(body)) {
+            cppBody = this.parseStatement(body) as syntax.Block;
+          } else {
+            // Arrow function may use expression as body, convert it to block.
+            cppBody = new syntax.Block([
+              new syntax.ReturnStatement(this.parseExpression(body)),
+            ]);
+          }
+        }
         return new syntax.FunctionExpression(this.parseFunctionReturnType(node),
                                              parameters.map(this.parseParameterDeclaration.bind(this)),
-                                             body ? this.parseStatement(body) as syntax.Block : undefined);
+                                             cppBody);
       }
       case ts.SyntaxKind.CallExpression: {
         // func(xxx)
@@ -322,19 +333,19 @@ export class Parser {
 
   parseFunctionReturnType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
-    const signature = this.typeChecker.getSignaturesOfType(type, ts.SignatureKind.Call)[0];
+    const signature = type.getCallSignatures()[0];
     return this.parseType(node, signature.getReturnType());
   }
 
   parseType(node: ts.Node, type: ts.Type) {
+    // Check if it is a function.
+    if (type.getCallSignatures().length > 0)
+      return this.parseSignatureType(node, type.getCallSignatures()[0]);
+    // Check class.
     const name = this.typeChecker.typeToString(type);
-    if (type.symbol?.valueDeclaration) {
-      const {valueDeclaration} = type.symbol;
-      if (ts.isClassDeclaration(valueDeclaration))
-        return new syntax.Type(name, 'class');
-      if (ts.isFunctionExpression(valueDeclaration) || ts.isArrowFunction(valueDeclaration))
-        return this.parseFunctionType(node, type);
-    }
+    if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
+      return new syntax.Type(name, 'class');
+    // Check builtin types.
     if (name == 'void')
       return new syntax.Type('void', 'void');
     if (name == 'boolean')
@@ -346,8 +357,7 @@ export class Parser {
     throw new UnimplementedError(node, `Unsupported type "${name}"`);
   }
 
-  parseFunctionType(node: ts.Node, type: ts.Type): syntax.Type {
-    const signature = this.typeChecker.getSignaturesOfType(type, ts.SignatureKind.Call)[0];
+  parseSignatureType(node: ts.Node, signature: ts.Signature): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext();
     const returnType = this.parseType(node, signature.getReturnType()).print(ctx);

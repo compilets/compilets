@@ -3,3 +3,6 @@ function simple(a = 1, b = true) {
 }
 let func = function(a: string, b: string) { return a + b };
 let arrow = () => {};
+function complex(input: string, callback: (input: string) => number) {
+  return () => callback(input);
+}

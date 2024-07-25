@@ -165,7 +165,7 @@ export class FunctionExpression extends Expression {
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const body = this.body?.print(ctx) ?? '{}';
-    return `[](${parameters}) -> ${returnType} ${body}`;
+    return `[=](${parameters}) -> ${returnType} ${body}`;
   }
 }
 
