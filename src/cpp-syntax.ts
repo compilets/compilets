@@ -1,9 +1,11 @@
 // Control indentation and other formating options when printing AST to C++.
 export class PrintContext {
+  // How many spaces for 1 indentation.
   indent: number;
+  // The depth of indentation.
   level = 0;
 
-  constructor(indent: number) {
+  constructor(indent: number = 2) {
     this.indent = indent;
   }
 
@@ -12,35 +14,9 @@ export class PrintContext {
   }
 }
 
-// Increase the indentaion level.
-export class PrintScope {
-  context: PrintContext;
-
-  constructor(context: PrintContext) {
-    this.context = context;
-    this.context.level++;
-  }
-
-  [Symbol.dispose]() {
-    this.context.level--;
-  }
-}
-
 // ===================== Defines the syntax of C++ below =====================
 
-export abstract class Declaration {
-  abstract print(ctx: PrintContext): string;
-}
-
-export abstract class Expression {
-  abstract print(ctx: PrintContext): string;
-}
-
-export abstract class Statement {
-  abstract print(ctx: PrintContext): string;
-}
-
-export type TypeCategory = 'void' | 'primitive' | 'string' | 'class';
+export type TypeCategory = 'void' | 'primitive' | 'string' | 'functor' | 'class';
 
 export class Type {
   name: string;
@@ -62,6 +38,18 @@ export class Type {
       return this.name + '*';
     return this.name;
   }
+}
+
+export abstract class Expression {
+  abstract print(ctx: PrintContext): string;
+}
+
+export abstract class Declaration {
+  abstract print(ctx: PrintContext): string;
+}
+
+export abstract class Statement {
+  abstract print(ctx: PrintContext): string;
 }
 
 // A special expression where JS text is same with C++ text.
@@ -158,6 +146,26 @@ export class ConditionalExpression extends Expression {
 
   override print(ctx: PrintContext) {
     return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
+  }
+}
+
+export class FunctionExpression extends Expression {
+  returnType: Type;
+  parameters: ParameterDeclaration[];
+  body?: Block;
+
+  constructor(returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+    super();
+    this.returnType = returnType;
+    this.parameters = parameters;
+    this.body = body;
+  }
+
+  override print(ctx: PrintContext) {
+    const returnType = this.returnType.print(ctx);
+    const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const body = this.body?.print(ctx) ?? '{}';
+    return `[](${parameters}) -> ${returnType} ${body}`;
   }
 }
 
@@ -269,6 +277,13 @@ export class ParameterDeclaration extends NamedDeclaration {
       result += ` = ${this.initializer.print(ctx)}`;
     return result;
   }
+
+  static printParameters(ctx: PrintContext, parameters: ParameterDeclaration[]) {
+    if (parameters.length > 0)
+      return parameters.map(p => p.print(ctx)).join(', ');
+    else
+      return '';
+  }
 }
 
 export abstract class ClassElement extends NamedDeclaration {
@@ -301,15 +316,9 @@ export class ConstructorDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.padding}${this.name}(`;
-    if (this.parameters.length > 0)
-      result += this.parameters.map(p => p.print(ctx)).join(', ');
-    result += ') ';
-    if (this.body)
-      result += this.body.print(ctx);
-    else
-      result += '{}';
-    return result;
+    const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const body = this.body?.print(ctx) ?? '{}';
+    return `${ctx.padding}${this.name}(${parameters}) ${body}`;
   }
 }
 
@@ -377,21 +386,20 @@ export class ClassDeclaration extends DeclarationStatement {
   override print(ctx: PrintContext) {
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
     let result = `${ctx.padding}class ${this.name} {\n`;
-    {
-      using scope = new PrintScope(ctx);
-      if (this.publicMembers.length > 0) {
-        result += `${halfPadding}public:\n`;
-        result += this.publicMembers.map(m => m.print(ctx) + '\n\n');
-      }
-      if (this.protectedMembers.length > 0) {
-        result += `${halfPadding}protected:\n`;
-        result += this.protectedMembers.map(m => m.print(ctx) + '\n\n');
-      }
-      if (this.privateMembers.length > 0) {
-        result += `${halfPadding}private:\n`;
-        result += this.privateMembers.map(m => m.print(ctx) + '\n\n');
-      }
+    ctx.level++;
+    if (this.publicMembers.length > 0) {
+      result += `${halfPadding}public:\n`;
+      result += this.publicMembers.map(m => m.print(ctx) + '\n\n');
     }
+    if (this.protectedMembers.length > 0) {
+      result += `${halfPadding}protected:\n`;
+      result += this.protectedMembers.map(m => m.print(ctx) + '\n\n');
+    }
+    if (this.privateMembers.length > 0) {
+      result += `${halfPadding}private:\n`;
+      result += this.privateMembers.map(m => m.print(ctx) + '\n\n');
+    }
+    ctx.level--;
     if (result.endsWith('\n\n'))
       result = result.slice(0, -1);
     result += ctx.padding + '};\n';
@@ -442,9 +450,11 @@ export class Paragraph extends Statement {
 export class Block extends Paragraph {
   override print(ctx: PrintContext) {
     if (this.statements?.length > 0) {
-      const end = '\n' + ctx.padding + '}';
-      using scope = new PrintScope(ctx);
-      return '{\n' + super.print(ctx) + end;
+      ctx.level++;
+      let result = `{\n${super.print(ctx)}`;
+      ctx.level--;
+      result += `\n${ctx.padding}}`;
+      return result;
     } else {
       return '{}';
     }

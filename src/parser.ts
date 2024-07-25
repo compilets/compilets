@@ -45,6 +45,100 @@ export class Parser {
     return cppFile;
   }
 
+  parseExpression(node: ts.Expression): syntax.Expression {
+    switch (node.kind) {
+      case ts.SyntaxKind.Identifier:
+      case ts.SyntaxKind.NumericLiteral:
+      case ts.SyntaxKind.TrueKeyword:
+      case ts.SyntaxKind.FalseKeyword:
+        return new syntax.RawExpression(node.getText());
+      case ts.SyntaxKind.StringLiteral:
+        return new syntax.StringLiteral((node as ts.StringLiteral).text);
+      case ts.SyntaxKind.ParenthesizedExpression: {
+        // (a + b) * (c + d)
+        const {expression} = node as ts.ParenthesizedExpression;
+        return new syntax.ParenthesizedExpression(this.parseExpression(expression));
+      }
+      case ts.SyntaxKind.PostfixUnaryExpression: {
+        // a++
+        const {operand, operator} = node as ts.PostfixUnaryExpression;
+        return new syntax.PostfixUnaryExpression(this.parseExpression(operand),
+                                                 getOperator(operator));
+      }
+      case ts.SyntaxKind.PrefixUnaryExpression: {
+        // ++a
+        const {operand, operator} = node as ts.PrefixUnaryExpression;
+        return new syntax.PrefixUnaryExpression(this.parseExpression(operand),
+                                                getOperator(operator));
+      }
+      case ts.SyntaxKind.ConditionalExpression: {
+        // a ? b : c
+        const {condition, whenTrue, whenFalse} = node as ts.ConditionalExpression;
+        return new syntax.ConditionalExpression(this.parseExpression(condition),
+                                                this.parseExpression(whenTrue),
+                                                this.parseExpression(whenFalse));
+      }
+      case ts.SyntaxKind.BinaryExpression: {
+        // a + b
+        const {left, right, operatorToken} = node as ts.BinaryExpression;
+        return new syntax.BinaryExpression(this.parseExpression(left),
+                                           this.parseExpression(right),
+                                           operatorToken.getText());
+      }
+      case ts.SyntaxKind.ArrowFunction:
+      case ts.SyntaxKind.FunctionExpression: {
+        // function() { xxx }
+        const {body, parameters, modifiers, asteriskToken, exclamationToken, questionToken, typeParameters} = node as ts.FunctionExpression;
+        if (asteriskToken)
+          throw new UnimplementedError(node, 'Generator is not supported');
+        if (questionToken)
+          throw new UnimplementedError(node, 'Question token in function is not supported');
+        if (exclamationToken)
+          throw new UnimplementedError(node, 'Exclamation token in function is not supported');
+        if (typeParameters)
+          throw new UnimplementedError(node, 'Generic function is not supported');
+        if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
+          throw new UnimplementedError(node, 'Async function is not supported');
+        return new syntax.FunctionExpression(this.parseFunctionReturnType(node),
+                                             parameters.map(this.parseParameterDeclaration.bind(this)),
+                                             body ? this.parseStatement(body) as syntax.Block : undefined);
+      }
+      case ts.SyntaxKind.CallExpression: {
+        // func(xxx)
+        const {expression, typeArguments, questionDotToken} = node as ts.CallExpression;
+        if (typeArguments)
+          throw new UnimplementedError(node, 'Generic call is not supported');
+        if (questionDotToken)
+          throw new UnimplementedError(node, 'The ?. operator is not supported');
+        return new syntax.CallExpression(this.parseExpression(expression),
+                                         (node as ts.CallExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+      }
+      case ts.SyntaxKind.NewExpression: {
+        // new Class(xxx)
+        const {expression, typeArguments} = node as ts.NewExpression;
+        if (typeArguments)
+          throw new UnimplementedError(node, 'Generic new is not supported');
+        return new syntax.NewExpression(this.parseExpression(expression),
+                                        (node as ts.NewExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+      }
+      case ts.SyntaxKind.PropertyAccessExpression: {
+        // obj.prop
+        const {expression, name, questionDotToken} = node as ts.PropertyAccessExpression;
+        if (questionDotToken)
+          throw new UnimplementedError(node, 'The ?. operator is not supported');
+        if (name.kind != ts.SyntaxKind.Identifier)
+          throw new UnimplementedError(name, 'Only identifier can be used as member name');
+        const type = this.parseVariableType(expression);
+        if (type.category != 'class')
+          throw new UnimplementedError(name, 'Only support accessing properties of class');
+        return new syntax.PropertyAccessExpression(this.parseExpression(expression),
+                                                   type,
+                                                   (name as ts.Identifier).text);
+      }
+    }
+    throw new UnimplementedError(node, 'Unsupported expression');
+  }
+
   parseStatement(node: ts.Statement): syntax.Statement {
     switch (node.kind) {
       case ts.SyntaxKind.Block: {
@@ -221,82 +315,6 @@ export class Parser {
     throw new UnimplementedError(node, 'Unsupported class element');
   }
 
-  parseExpression(node: ts.Expression): syntax.Expression {
-    switch (node.kind) {
-      case ts.SyntaxKind.Identifier:
-      case ts.SyntaxKind.NumericLiteral:
-      case ts.SyntaxKind.TrueKeyword:
-      case ts.SyntaxKind.FalseKeyword:
-        return new syntax.RawExpression(node.getText());
-      case ts.SyntaxKind.StringLiteral:
-        return new syntax.StringLiteral((node as ts.StringLiteral).text);
-      case ts.SyntaxKind.ParenthesizedExpression: {
-        // (a + b) * (c + d)
-        const {expression} = node as ts.ParenthesizedExpression;
-        return new syntax.ParenthesizedExpression(this.parseExpression(expression));
-      }
-      case ts.SyntaxKind.PostfixUnaryExpression: {
-        // a++
-        const {operand, operator} = node as ts.PostfixUnaryExpression;
-        return new syntax.PostfixUnaryExpression(this.parseExpression(operand),
-                                                 getOperator(operator));
-      }
-      case ts.SyntaxKind.PrefixUnaryExpression: {
-        // ++a
-        const {operand, operator} = node as ts.PrefixUnaryExpression;
-        return new syntax.PrefixUnaryExpression(this.parseExpression(operand),
-                                                getOperator(operator));
-      }
-      case ts.SyntaxKind.ConditionalExpression: {
-        // a ? b : c
-        const {condition, whenTrue, whenFalse} = node as ts.ConditionalExpression;
-        return new syntax.ConditionalExpression(this.parseExpression(condition),
-                                                this.parseExpression(whenTrue),
-                                                this.parseExpression(whenFalse));
-      }
-      case ts.SyntaxKind.BinaryExpression: {
-        // a + b
-        const {left, right, operatorToken} = node as ts.BinaryExpression;
-        return new syntax.BinaryExpression(this.parseExpression(left),
-                                           this.parseExpression(right),
-                                           operatorToken.getText());
-      }
-      case ts.SyntaxKind.CallExpression: {
-        // func(xxx)
-        const {expression, typeArguments, questionDotToken} = node as ts.CallExpression;
-        if (typeArguments)
-          throw new UnimplementedError(node, 'Generic call is not supported');
-        if (questionDotToken)
-          throw new UnimplementedError(node, 'The ?. operator is not supported');
-        return new syntax.CallExpression(this.parseExpression(expression),
-                                         (node as ts.CallExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
-      }
-      case ts.SyntaxKind.NewExpression: {
-        // new Class(xxx)
-        const {expression, typeArguments} = node as ts.NewExpression;
-        if (typeArguments)
-          throw new UnimplementedError(node, 'Generic new is not supported');
-        return new syntax.NewExpression(this.parseExpression(expression),
-                                        (node as ts.NewExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
-      }
-      case ts.SyntaxKind.PropertyAccessExpression: {
-        // obj.prop
-        const {expression, name, questionDotToken} = node as ts.PropertyAccessExpression;
-        if (questionDotToken)
-          throw new UnimplementedError(node, 'The ?. operator is not supported');
-        if (name.kind != ts.SyntaxKind.Identifier)
-          throw new UnimplementedError(name, 'Only identifier can be used as member name');
-        const type = this.parseVariableType(expression);
-        if (type.category != 'class')
-          throw new UnimplementedError(name, 'Only support accessing properties of class');
-        return new syntax.PropertyAccessExpression(this.parseExpression(expression),
-                                                   type,
-                                                   (name as ts.Identifier).text);
-      }
-    }
-    throw new UnimplementedError(node, 'Unsupported expression');
-  }
-
   parseVariableType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
     return this.parseType(node, type);
@@ -310,6 +328,13 @@ export class Parser {
 
   parseType(node: ts.Node, type: ts.Type) {
     const name = this.typeChecker.typeToString(type);
+    if (type.symbol?.valueDeclaration) {
+      const {valueDeclaration} = type.symbol;
+      if (ts.isClassDeclaration(valueDeclaration))
+        return new syntax.Type(name, 'class');
+      if (ts.isFunctionExpression(valueDeclaration) || ts.isArrowFunction(valueDeclaration))
+        return this.parseFunctionType(node, type);
+    }
     if (name == 'void')
       return new syntax.Type('void', 'void');
     if (name == 'boolean')
@@ -318,9 +343,19 @@ export class Parser {
       return new syntax.Type('double', 'primitive');
     if (name == 'string')
       return new syntax.Type('string', 'string');
-    if (ts.isClassDeclaration(type.symbol.valueDeclaration!))
-      return new syntax.Type(name, 'class');
-    throw new UnimplementedError(node, 'Unsupported type');
+    throw new UnimplementedError(node, `Unsupported type "${name}"`);
+  }
+
+  parseFunctionType(node: ts.Node, type: ts.Type): syntax.Type {
+    const signature = this.typeChecker.getSignaturesOfType(type, ts.SignatureKind.Call)[0];
+    // Receive the C++ representations of returnType and parameters.
+    const ctx = new syntax.PrintContext();
+    const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
+    const parameters = signature.parameters.map((param) => {
+      const decl = this.parseParameterDeclaration(param.valueDeclaration as ts.ParameterDeclaration);
+      return decl.print(ctx);
+    });
+    return new syntax.Type(`std::function<${returnType}(${parameters.join(', ')})>`, 'functor');
   }
 }
 
