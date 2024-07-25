@@ -21,4 +21,4 @@ export class CppFile {
     const ctx = new syntax.PrintContext(2);
     return this.body.print(ctx) + '\n';
   }
-};
+}

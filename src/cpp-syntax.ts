@@ -10,7 +10,7 @@ export class PrintContext {
   get padding() {
     return ' '.repeat(this.level * this.indent);
   }
-};
+}
 
 // Increase the indentaion level.
 export class PrintScope {
@@ -24,17 +24,21 @@ export class PrintScope {
   [Symbol.dispose]() {
     this.context.level--;
   }
-};
+}
 
 // ===================== Defines the syntax of C++ below =====================
 
+export abstract class Declaration {
+  abstract print(ctx: PrintContext): string;
+}
+
 export abstract class Expression {
   abstract print(ctx: PrintContext): string;
-};
+}
 
 export abstract class Statement {
   abstract print(ctx: PrintContext): string;
-};
+}
 
 export type TypeCategory = 'primitive' | 'string';
 
@@ -56,7 +60,7 @@ export class Type {
       return 'std::string';
     return this.name;
   }
-};
+}
 
 // A special expression where JS text is same with C++ text.
 export class RawExpression extends Expression {
@@ -70,13 +74,13 @@ export class RawExpression extends Expression {
   print(ctx: PrintContext) {
     return this.text;
   }
-};
+}
 
 export class StringLiteral extends RawExpression {
   constructor(text: string) {
     super(`"${text}"`);
   }
-};
+}
 
 export class ParenthesizedExpression extends Expression {
   expression: Expression;
@@ -89,7 +93,7 @@ export class ParenthesizedExpression extends Expression {
   override print(ctx: PrintContext) {
     return `(${this.expression.print(ctx)})`;
   }
-};
+}
 
 export class PostfixUnaryExpression extends Expression {
   operand: Expression;
@@ -136,7 +140,7 @@ export class BinaryExpression extends Expression {
   override print(ctx: PrintContext) {
     return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
   }
-};
+}
 
 export class ConditionalExpression extends Expression {
   condition: Expression;
@@ -153,14 +157,15 @@ export class ConditionalExpression extends Expression {
   override print(ctx: PrintContext) {
     return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
   }
-};
+}
 
-export class VariableDeclaration {
+export class VariableDeclaration extends Declaration {
   identifier: string;
   type: Type;
   initializer?: Expression;
 
   constructor(identifier: string, type: Type, initializer?: Expression) {
+    super();
     this.identifier = identifier;
     this.type = type;
     this.initializer = initializer;
@@ -172,18 +177,117 @@ export class VariableDeclaration {
     else
       return this.identifier;
   }
-};
+}
 
-export class VariableDeclarationList {
+export class VariableDeclarationList extends Declaration {
   declarations: VariableDeclaration[];
 
   constructor(decls: VariableDeclaration[]) {
+    super();
     this.declarations = decls;
   }
 
   print(ctx: PrintContext) {
     let type = this.declarations[0].type.print(ctx);
     return `${type} ${this.declarations.map(d => d.print(ctx)).join(', ')}`;
+  }
+}
+
+export class ParameterDeclaration extends Declaration {
+  name: string;
+  type: Type;
+  initializer?: Expression;
+
+  constructor(name: string, type: Type, initializer?: Expression) {
+    super();
+    this.name = name;
+    this.type = type;
+    this.initializer = initializer;
+  }
+
+  print(ctx: PrintContext) {
+    let result = `${this.type.print(ctx)} ${this.name}`;
+    if (this.initializer)
+      result += ` = ${this.initializer.print(ctx)}`;
+    return result;
+  }
+}
+
+export abstract class ClassElement extends Declaration {
+  modifiers: string[];
+
+  constructor(modifiers?: string[]) {
+    super();
+    this.modifiers = modifiers ?? [];
+  }
+}
+
+export class ConstructorDeclaration extends ClassElement {
+  parameters: ParameterDeclaration[];
+  body?: Block;
+
+  constructor(parameters: ParameterDeclaration[], body?: Block) {
+    super();
+    this.parameters = parameters;
+    this.body = body;
+  }
+
+  print(ctx: PrintContext) {
+    let result = `${ctx.padding}constructor(`;
+    if (this.parameters.length > 0)
+      result += this.parameters.map(p => p.print(ctx)).join(', ');
+    result += ') ';
+    if (this.body)
+      result += this.body.print(ctx);
+    else
+      result += '{}';
+    return result;
+  }
+}
+
+export class PropertyDeclaration extends ClassElement {
+  name: string;
+  type: Type;
+  initializer?: Expression;
+
+  constructor(modifiers: string[], name: string, type: Type, initializer?: Expression) {
+    super(modifiers);
+    this.name = name;
+    this.type = type;
+    this.initializer = initializer;
+  }
+
+  print(ctx: PrintContext) {
+    let result = `${ctx.padding}${this.type.print(ctx)} ${this.name}`;
+    if (this.initializer)
+      result += ` = ${this.initializer.print(ctx)}`;
+    return result + ';';
+  }
+}
+
+export abstract class DeclarationStatement extends Statement {
+  name: string;
+
+  constructor(name: string) {
+    super();
+    this.name = name;
+  }
+}
+
+export class ClassDeclaration extends DeclarationStatement {
+  members: ClassElement[];
+
+  constructor(name: string, members: ClassElement[]) {
+    super(name);
+    this.members = members;
+  }
+
+  override print(ctx: PrintContext) {
+    if (this.members.length == 0)
+      return `class ${this.name} {};\n`;
+    using scope = new PrintScope(ctx);
+    const body = this.members.map(m => m.print(ctx)).join('\n\n');
+    return `class ${this.name} {\n${body}\n};\n`;
   }
 }
 
@@ -204,8 +308,13 @@ export class Paragraph extends Statement {
 
 export class Block extends Paragraph {
   override print(ctx: PrintContext) {
-    using scope = new PrintScope(ctx);
-    return '{\n' + super.print(ctx) + '\n}';
+    if (this.statements?.length > 0) {
+      const end = '\n' + ctx.padding + '}';
+      using scope = new PrintScope(ctx);
+      return '{\n' + super.print(ctx) + end;
+    } else {
+      return '{}';
+    }
   }
 }
 
@@ -220,7 +329,7 @@ export class VariableStatement extends Statement {
   override print(ctx: PrintContext) {
     return `${this.declarationList.print(ctx)};`;
   }
-};
+}
 
 export class ExpressionStatement extends Statement {
   expression: Expression;
@@ -233,7 +342,7 @@ export class ExpressionStatement extends Statement {
   override print(ctx: PrintContext) {
     return `${this.expression.print(ctx)};`;
   }
-};
+}
 
 export class DoStatement extends Statement {
   statement: Statement;
@@ -248,7 +357,7 @@ export class DoStatement extends Statement {
   override print(ctx: PrintContext) {
     return `do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
   }
-};
+}
 
 export class WhileStatement extends Statement {
   statement: Statement;
@@ -263,7 +372,7 @@ export class WhileStatement extends Statement {
   override print(ctx: PrintContext) {
     return `while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
   }
-};
+}
 
 export class ForStatement extends Statement {
   statement: Statement;
@@ -285,4 +394,4 @@ export class ForStatement extends Statement {
   override print(ctx: PrintContext) {
     return `for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
   }
-};
+}

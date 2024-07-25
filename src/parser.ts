@@ -8,7 +8,7 @@ export class UnimplementedError extends Error {
   constructor(node: ts.Node, message: string) {
     super(`${message}: ${node.getText()}`);
   }
-};
+}
 
 export class Parser {
   program: ts.Program;
@@ -31,6 +31,10 @@ export class Parser {
         case ts.SyntaxKind.ForStatement:
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
           return;
+        case ts.SyntaxKind.ClassDeclaration:
+          cppFile.addStatement(this.parseClassDeclaration(node as ts.ClassDeclaration));
+          return;
+        case ts.SyntaxKind.EmptyStatement:
         case ts.SyntaxKind.EndOfFileToken:
           return;
       }
@@ -118,6 +122,52 @@ export class Parser {
     throw new UnimplementedError(node, 'Unsupported variable declaration');
   }
 
+  parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
+    if (node.questionToken)
+      throw new UnimplementedError(node, 'Question token in parameter is not supported');
+    const {name, initializer} = node;
+    if (name.kind != ts.SyntaxKind.Identifier)
+      throw new UnimplementedError(node, 'Binding in parameter is not supported');
+    return new syntax.ParameterDeclaration((name as ts.Identifier).text,
+                                           this.parseType(name),
+                                           initializer ? this.parseExpression(initializer) : undefined);
+  }
+
+  parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
+    if (!node.name)
+      throw new UnimplementedError(node, 'Empty class name is not supported');
+    if (node.typeParameters)
+      throw new UnimplementedError(node, 'Generic class is not supported');
+    if (node.heritageClauses)
+      throw new UnimplementedError(node, 'Class inheritance is not supported');
+    const members = node.members.map(this.parseClassElement.bind(this));
+    return new syntax.ClassDeclaration(node.name.text, members);
+  }
+
+  parseClassElement(node: ts.ClassElement): syntax.ClassElement {
+    switch (node.kind) {
+      case ts.SyntaxKind.Constructor: {
+        // constructor(xxx) { yyy }
+        const {body, parameters} = node as ts.ConstructorDeclaration;
+        return new syntax.ConstructorDeclaration(parameters.map(this.parseParameterDeclaration.bind(this)),
+                                                 body ? this.parseStatement(body) as syntax.Block : undefined);
+      }
+      case ts.SyntaxKind.PropertyDeclaration: {
+        // prop: type = xxx;
+        const {modifiers, name, initializer, questionToken} = node as ts.PropertyDeclaration;
+        if (name.kind != ts.SyntaxKind.Identifier)
+          throw new UnimplementedError(name, 'Only identifier can be used as property name');
+        if (questionToken)
+          throw new UnimplementedError(name, 'Question token in property is not supported');
+        return new syntax.PropertyDeclaration(modifiers?.map(modifierToString) ?? [],
+                                              (name as ts.Identifier).text,
+                                              this.parseType(name),
+                                              initializer ? this.parseExpression(initializer) : undefined);
+      }
+    }
+    throw new UnimplementedError(node, 'Unsupported class element');
+  }
+
   parseExpression(node: ts.Expression): syntax.Expression {
     switch (node.kind) {
       case ts.SyntaxKind.Identifier:
@@ -168,7 +218,7 @@ export class Parser {
       return new syntax.Type('string', 'string');
     throw new UnimplementedError(node, 'Unsupported type');
   }
-};
+}
 
 // Convert JS operator to C++.
 function getOperator(operator: ts.SyntaxKind) {
@@ -187,4 +237,17 @@ function getOperator(operator: ts.SyntaxKind) {
       return '--';
   }
   throw Error(`Unsupported operator: ${operator}`);
+}
+
+// Convert JS modifiers to C++.
+function modifierToString(modifier: ts.ModifierLike): string {
+  switch (modifier.kind) {
+    case ts.SyntaxKind.PrivateKeyword:
+      return 'private';
+    case ts.SyntaxKind.ProtectedKeyword:
+      return 'protected';
+    case ts.SyntaxKind.PublicKeyword:
+      return 'public';
+  }
+  throw new Error(`Unsupported modifier: ${modifier}`);
 }
