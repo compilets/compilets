@@ -1,12 +1,39 @@
-export interface PrintOptions {
+// Control indentation and other formating options when printing AST to C++.
+export class PrintContext {
+  indent: number;
+  level = 0;
+
+  constructor(indent: number) {
+    this.indent = indent;
+  }
+
+  get padding() {
+    return ' '.repeat(this.level * this.indent);
+  }
 };
 
+// Increase the indentaion level.
+export class PrintScope {
+  context: PrintContext;
+
+  constructor(context: PrintContext) {
+    this.context = context;
+    this.context.level++;
+  }
+
+  [Symbol.dispose]() {
+    this.context.level--;
+  }
+};
+
+// ===================== Defines the syntax of C++ below =====================
+
 export abstract class Expression {
-  abstract print(opts: PrintOptions): string;
+  abstract print(ctx: PrintContext): string;
 };
 
 export abstract class Statement {
-  abstract print(opts: PrintOptions): string;
+  abstract print(ctx: PrintContext): string;
 };
 
 export type TypeCategory = 'primitive' | 'string';
@@ -24,7 +51,7 @@ export class Type {
     return this.name == other.name && this.category == other.category;
   }
 
-  print(opts: PrintOptions) {
+  print(ctx: PrintContext) {
     if (this.category == 'string')
       return 'std::string';
     return this.name;
@@ -40,7 +67,7 @@ export class RawExpression extends Expression {
     this.text = text;
   }
 
-  print(opts: PrintOptions) {
+  print(ctx: PrintContext) {
     return this.text;
   }
 };
@@ -59,8 +86,8 @@ export class ParenthesizedExpression extends Expression {
     this.expression = expr;
   }
 
-  override print(opts: PrintOptions) {
-    return `(${this.expression.print(opts)})`;
+  override print(ctx: PrintContext) {
+    return `(${this.expression.print(ctx)})`;
   }
 };
 
@@ -74,8 +101,8 @@ export class PostfixUnaryExpression extends Expression {
     this.operator = operator;
   }
 
-  print(opts: PrintOptions) {
-    return `${this.operand.print(opts)}${this.operator}`;
+  print(ctx: PrintContext) {
+    return `${this.operand.print(ctx)}${this.operator}`;
   }
 }
 
@@ -89,8 +116,8 @@ export class PrefixUnaryExpression extends Expression {
     this.operator = operator;
   }
 
-  print(opts: PrintOptions) {
-    return `${this.operator}${this.operand.print(opts)}`;
+  print(ctx: PrintContext) {
+    return `${this.operator}${this.operand.print(ctx)}`;
   }
 }
 
@@ -106,8 +133,8 @@ export class BinaryExpression extends Expression {
     this.operator = operator;
   }
 
-  override print(opts: PrintOptions) {
-    return `${this.left.print(opts)} ${this.operator} ${this.right.print(opts)}`;
+  override print(ctx: PrintContext) {
+    return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
   }
 };
 
@@ -123,8 +150,8 @@ export class ConditionalExpression extends Expression {
     this.whenFalse = whenFalse;
   }
 
-  override print(opts: PrintOptions) {
-    return `${this.condition.print(opts)} ? ${this.whenTrue.print(opts)} : ${this.whenFalse.print(opts)}`;
+  override print(ctx: PrintContext) {
+    return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
   }
 };
 
@@ -139,9 +166,9 @@ export class VariableDeclaration {
     this.initializer = initializer;
   }
 
-  print(opts: PrintOptions) {
+  print(ctx: PrintContext) {
     if (this.initializer)
-      return `${this.identifier} = ${this.initializer.print(opts)}`;
+      return `${this.identifier} = ${this.initializer.print(ctx)}`;
     else
       return this.identifier;
   }
@@ -154,30 +181,31 @@ export class VariableDeclarationList {
     this.declarations = decls;
   }
 
-  print(opts: PrintOptions) {
-    let type = this.declarations[0].type.print(opts);
-    return `${type} ${this.declarations.map(d => d.print(opts)).join(', ')}`;
+  print(ctx: PrintContext) {
+    let type = this.declarations[0].type.print(ctx);
+    return `${type} ${this.declarations.map(d => d.print(ctx)).join(', ')}`;
   }
 }
 
-// Multiple statements without a scope, this is used for convenient internal
+// Multiple statements without {}, this is used for convenient internal
 // implementations where one JS statement maps to multiple C++ ones.
 export class Paragraph extends Statement {
   statements: Statement[];
 
-  constructor(statements: Statement[]) {
+  constructor(statements?: Statement[]) {
     super();
-    this.statements = statements;
+    this.statements = statements ?? [];
   }
 
-  override print(opts: PrintOptions) {
-    return this.statements.map(s => s.print(opts)).join('\n');
+  override print(ctx: PrintContext) {
+    return this.statements.map(s => ctx.padding + s.print(ctx)).join('\n');
   }
 }
 
 export class Block extends Paragraph {
-  override print(opts: PrintOptions) {
-    return '{\n' + super.print(opts) + '\n}';
+  override print(ctx: PrintContext) {
+    using scope = new PrintScope(ctx);
+    return '{\n' + super.print(ctx) + '\n}';
   }
 }
 
@@ -189,8 +217,8 @@ export class VariableStatement extends Statement {
     this.declarationList = list;
   }
 
-  override print(opts: PrintOptions) {
-    return `${this.declarationList.print(opts)};`;
+  override print(ctx: PrintContext) {
+    return `${this.declarationList.print(ctx)};`;
   }
 };
 
@@ -202,8 +230,8 @@ export class ExpressionStatement extends Statement {
     this.expression = expr;
   }
 
-  override print(opts: PrintOptions) {
-    return `${this.expression.print(opts)};`;
+  override print(ctx: PrintContext) {
+    return `${this.expression.print(ctx)};`;
   }
 };
 
@@ -217,8 +245,8 @@ export class DoStatement extends Statement {
     this.expression = expr;
   }
 
-  override print(opts: PrintOptions) {
-    return `do ${this.statement.print(opts)} while (${this.expression.print(opts)});`;
+  override print(ctx: PrintContext) {
+    return `do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
   }
 };
 
@@ -232,8 +260,8 @@ export class WhileStatement extends Statement {
     this.expression = expr;
   }
 
-  override print(opts: PrintOptions) {
-    return `while (${this.expression.print(opts)}) ${this.statement.print(opts)}`;
+  override print(ctx: PrintContext) {
+    return `while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
   }
 };
 
@@ -254,7 +282,7 @@ export class ForStatement extends Statement {
     this.incrementor = incrementor;
   }
 
-  override print(opts: PrintOptions) {
-    return `for (${this.initializer?.print(opts) ?? ''}; ${this.condition?.print(opts) ?? ''}; ${this.incrementor?.print(opts) ?? ''}) ${this.statement.print(opts)}`;
+  override print(ctx: PrintContext) {
+    return `for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
   }
 };
