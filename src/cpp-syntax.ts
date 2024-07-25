@@ -40,7 +40,7 @@ export abstract class Statement {
   abstract print(ctx: PrintContext): string;
 }
 
-export type TypeCategory = 'primitive' | 'string' | 'class';
+export type TypeCategory = 'void' | 'primitive' | 'string' | 'class';
 
 export class Type {
   name: string;
@@ -344,15 +344,7 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
-    if (this.parameters.length > 0)
-      result += this.parameters.map(p => p.print(ctx)).join(', ');
-    result += ') ';
-    if (this.body)
-      result += this.body.print(ctx);
-    else
-      result += '{}';
-    return result;
+    return FunctionDeclaration.prototype.print.call(this, ctx);
   }
 }
 
@@ -407,6 +399,31 @@ export class ClassDeclaration extends DeclarationStatement {
   }
 }
 
+export class FunctionDeclaration extends DeclarationStatement {
+  returnType: Type;
+  parameters: ParameterDeclaration[];
+  body?: Block;
+
+  constructor(name: string, returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+    super(name);
+    this.returnType = returnType;
+    this.parameters = parameters;
+    this.body = body;
+  }
+
+  override print(ctx: PrintContext) {
+    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
+    if (this.parameters.length > 0)
+      result += this.parameters.map(p => p.print(ctx)).join(', ');
+    result += ') ';
+    if (this.body)
+      result += this.body.print(ctx);
+    else
+      result += '{}';
+    return result;
+  }
+}
+
 // Multiple statements without {}, this is used for convenient internal
 // implementations where one JS statement maps to multiple C++ ones.
 export class Paragraph extends Statement {
@@ -418,7 +435,7 @@ export class Paragraph extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return this.statements.map(s => ctx.padding + s.print(ctx)).join('\n');
+    return this.statements.map(s => s.print(ctx)).join('\n');
   }
 }
 
@@ -443,7 +460,7 @@ export class VariableStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${this.declarationList.print(ctx)};`;
+    return `${ctx.padding}${this.declarationList.print(ctx)};`;
   }
 }
 
@@ -456,7 +473,7 @@ export class ExpressionStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${this.expression.print(ctx)};`;
+    return `${ctx.padding}${this.expression.print(ctx)};`;
   }
 }
 
@@ -522,8 +539,8 @@ export class ReturnStatement extends Statement {
 
   override print(ctx: PrintContext) {
     if (this.expression)
-      return `return ${this.expression!.print(ctx)};`;
+      return `${ctx.padding}return ${this.expression!.print(ctx)};`;
     else
-      return 'return;';
+      return `${ctx.padding}return;`;
   }
 }

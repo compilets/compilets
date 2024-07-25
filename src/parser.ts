@@ -25,6 +25,7 @@ export class Parser {
       switch (node.kind) {
         case ts.SyntaxKind.Block:
         case ts.SyntaxKind.VariableStatement:
+        case ts.SyntaxKind.FunctionDeclaration:
         case ts.SyntaxKind.ExpressionStatement:
         case ts.SyntaxKind.DoStatement:
         case ts.SyntaxKind.WhileStatement:
@@ -55,6 +56,10 @@ export class Parser {
         // let a = xxx, b = xxx;
         const {declarationList} = node as ts.VariableStatement;
         return new syntax.VariableStatement(this.parseVariableDeclarationList(declarationList));
+      }
+      case ts.SyntaxKind.FunctionDeclaration: {
+        // function func() { xxx }
+        return this.parseFunctionDeclaration(node as ts.FunctionDeclaration);
       }
       case ts.SyntaxKind.ExpressionStatement: {
         // xxxx;
@@ -139,6 +144,28 @@ export class Parser {
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
+  parseFunctionDeclaration(node: ts.FunctionDeclaration): syntax.FunctionDeclaration {
+    if (!node.name)
+      throw new UnimplementedError(node, 'Empty function name is not supported');
+    if (node.asteriskToken)
+      throw new UnimplementedError(node, 'Generator is not supported');
+    if (node.questionToken)
+      throw new UnimplementedError(node, 'Question token in function is not supported');
+    if (node.exclamationToken)
+      throw new UnimplementedError(node, 'Exclamation token in function is not supported');
+    if (node.typeParameters)
+      throw new UnimplementedError(node, 'Generic function is not supported');
+    if (node.modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
+      throw new UnimplementedError(node, 'Async function is not supported');
+    if (!ts.isSourceFile(node.parent))
+      throw new UnimplementedError(node, 'Local function is not supported');
+    const {body, name, parameters} = node;
+    return new syntax.FunctionDeclaration(name.text,
+                                          this.parseFunctionReturnType(node),
+                                          parameters.map(this.parseParameterDeclaration.bind(this)),
+                                          body ? this.parseStatement(body) as syntax.Block : undefined);
+  }
+
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
     if (!node.name)
       throw new UnimplementedError(node, 'Empty class name is not supported');
@@ -180,6 +207,8 @@ export class Parser {
           throw new UnimplementedError(name, 'Question token in method is not supported');
         if (typeParameters)
           throw new UnimplementedError(name, 'Generic method is not supported');
+        if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
+          throw new UnimplementedError(node, 'Async function is not supported');
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
                                             modifiers?.map(modifierToString) ?? [],
                                             this.parseFunctionReturnType(node),
@@ -281,6 +310,8 @@ export class Parser {
 
   parseType(node: ts.Node, type: ts.Type) {
     const name = this.typeChecker.typeToString(type);
+    if (name == 'void')
+      return new syntax.Type('void', 'void');
     if (name == 'boolean')
       return new syntax.Type('bool', 'primitive');
     if (name == 'number')
