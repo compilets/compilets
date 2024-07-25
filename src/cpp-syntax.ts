@@ -71,7 +71,7 @@ export class RawExpression extends Expression {
     this.text = text;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     return this.text;
   }
 }
@@ -105,7 +105,7 @@ export class PostfixUnaryExpression extends Expression {
     this.operator = operator;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     return `${this.operand.print(ctx)}${this.operator}`;
   }
 }
@@ -120,7 +120,7 @@ export class PrefixUnaryExpression extends Expression {
     this.operator = operator;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     return `${this.operator}${this.operand.print(ctx)}`;
   }
 }
@@ -171,7 +171,7 @@ export class VariableDeclaration extends Declaration {
     this.initializer = initializer;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     if (this.initializer)
       return `${this.identifier} = ${this.initializer.print(ctx)}`;
     else
@@ -187,7 +187,7 @@ export class VariableDeclarationList extends Declaration {
     this.declarations = decls;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     let type = this.declarations[0].type.print(ctx);
     return `${type} ${this.declarations.map(d => d.print(ctx)).join(', ')}`;
   }
@@ -212,7 +212,7 @@ export class ParameterDeclaration extends NamedDeclaration {
     this.initializer = initializer;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     let result = `${this.type.print(ctx)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
@@ -229,6 +229,16 @@ export abstract class ClassElement extends NamedDeclaration {
   }
 }
 
+export class SemicolonClassElement extends ClassElement {
+  constructor() {
+    super(';');
+  }
+
+  override print(ctx: PrintContext) {
+    return '';
+  }
+}
+
 export class ConstructorDeclaration extends ClassElement {
   parameters: ParameterDeclaration[];
   body?: Block;
@@ -239,7 +249,7 @@ export class ConstructorDeclaration extends ClassElement {
     this.body = body;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     let result = `${ctx.padding}${this.name}(`;
     if (this.parameters.length > 0)
       result += this.parameters.map(p => p.print(ctx)).join(', ');
@@ -262,11 +272,36 @@ export class PropertyDeclaration extends ClassElement {
     this.initializer = initializer;
   }
 
-  print(ctx: PrintContext) {
+  override print(ctx: PrintContext) {
     let result = `${ctx.padding}${this.type.print(ctx)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
+  }
+}
+
+export class MethodDeclaration extends ClassElement {
+  returnType: Type;
+  parameters: ParameterDeclaration[];
+  body?: Block;
+
+  constructor(name: string, modifiers: string[], returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+    super(name, modifiers);
+    this.returnType = returnType;
+    this.parameters = parameters;
+    this.body = body;
+  }
+
+  override print(ctx: PrintContext) {
+    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
+    if (this.parameters.length > 0)
+      result += this.parameters.map(p => p.print(ctx)).join(', ');
+    result += ') ';
+    if (this.body)
+      result += this.body.print(ctx);
+    else
+      result += '{}';
+    return result;
   }
 }
 
@@ -423,5 +458,21 @@ export class ForStatement extends Statement {
 
   override print(ctx: PrintContext) {
     return `for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
+  }
+}
+
+export class ReturnStatement extends Statement {
+  expression?: Expression;
+
+  constructor(expression?: Expression) {
+    super();
+    this.expression = expression;
+  }
+
+  override print(ctx: PrintContext) {
+    if (this.expression)
+      return `return ${this.expression!.print(ctx)};`;
+    else
+      return 'return;';
   }
 }

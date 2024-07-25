@@ -12,6 +12,11 @@ class Simple {
     double c = a ? b : 456;
   }
 
+ protected:
+  bool method() {
+    return true;
+  }
+
  private:
   std::string prop = "For a breath I tarry.";
 };

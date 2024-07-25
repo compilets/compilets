@@ -12,4 +12,8 @@ class Simple {
   constructor(a: boolean, b = 123) {
     let c = a ? b : 456;
   }
+
+  protected method() {
+    return true;
+  }
 }

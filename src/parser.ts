@@ -29,6 +29,7 @@ export class Parser {
         case ts.SyntaxKind.DoStatement:
         case ts.SyntaxKind.WhileStatement:
         case ts.SyntaxKind.ForStatement:
+        case ts.SyntaxKind.ReturnStatement:
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
           return;
         case ts.SyntaxKind.ClassDeclaration:
@@ -87,6 +88,11 @@ export class Parser {
                                        condition ? this.parseExpression(condition) : undefined,
                                        incrementor ? this.parseExpression(incrementor) : undefined);
       }
+      case ts.SyntaxKind.ReturnStatement: {
+        // return xxx
+        const {expression} = node as ts.ReturnStatement;
+        return new syntax.ReturnStatement(expression ? this.parseExpression(expression) : undefined);
+      }
       case ts.SyntaxKind.ForInStatement:
         throw new UnimplementedError(node, 'The for...in loop is not supported');
       case ts.SyntaxKind.ForOfStatement:
@@ -109,7 +115,7 @@ export class Parser {
       case ts.SyntaxKind.Identifier:
         // let a = xxx;
         const name = (node.name as ts.Identifier).text;
-        const type = this.parseType(node.name);
+        const type = this.parseVariableType(node.name);
         if (node.initializer) {
           // let a = 123;
           const init = this.parseExpression(node.initializer);
@@ -129,7 +135,7 @@ export class Parser {
     if (name.kind != ts.SyntaxKind.Identifier)
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
     return new syntax.ParameterDeclaration((name as ts.Identifier).text,
-                                           this.parseType(name),
+                                           this.parseVariableType(name),
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
@@ -162,9 +168,26 @@ export class Parser {
           throw new UnimplementedError(name, 'Question token in property is not supported');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
-                                              this.parseType(name),
+                                              this.parseVariableType(name),
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
+      case ts.SyntaxKind.MethodDeclaration: {
+        // method() { xxx }
+        const {modifiers, name, body, parameters, questionToken, typeParameters} = node as ts.MethodDeclaration;
+        if (name.kind != ts.SyntaxKind.Identifier)
+          throw new UnimplementedError(name, 'Only identifier can be used as method name');
+        if (questionToken)
+          throw new UnimplementedError(name, 'Question token in method is not supported');
+        if (typeParameters)
+          throw new UnimplementedError(name, 'Generic method is not supported');
+        return new syntax.MethodDeclaration((name as ts.Identifier).text,
+                                            modifiers?.map(modifierToString) ?? [],
+                                            this.parseFunctionReturnType(node),
+                                            parameters.map(this.parseParameterDeclaration.bind(this)),
+                                            body ? this.parseStatement(body) as syntax.Block : undefined);
+      }
+      case ts.SyntaxKind.SemicolonClassElement:
+        return new syntax.SemicolonClassElement();
     }
     throw new UnimplementedError(node, 'Unsupported class element');
   }
@@ -208,8 +231,18 @@ export class Parser {
     throw new UnimplementedError(node, 'Unsupported expression');
   }
 
-  parseType(node: ts.Node) {
+  parseVariableType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
+    return this.parseType(node, type);
+  }
+
+  parseFunctionReturnType(node: ts.Node) {
+    const type = this.typeChecker.getTypeAtLocation(node);
+    const signature = this.typeChecker.getSignaturesOfType(type, ts.SignatureKind.Call)[0];
+    return this.parseType(node, signature.getReturnType());
+  }
+
+  parseType(node: ts.Node, type: ts.Type) {
     const name = this.typeChecker.typeToString(type);
     if (name == 'boolean')
       return new syntax.Type('bool', 'primitive');
