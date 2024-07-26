@@ -4,6 +4,7 @@
     "rootDir": "src",
     "declaration": true,
     "module": "commonjs",
+    "target": "es2023",
     "lib": ["dom", "esnext"],
     "strict": true,
     "allowJs": false,

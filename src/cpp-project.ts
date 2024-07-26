@@ -6,39 +6,47 @@ import {execFile} from 'node:child_process';
 import {unzip} from '@compilets/unzip-url';
 
 import CppFile from './cpp-file';
+import * as syntax from './cpp-syntax';
 
 const execFileAsync = promisify(execFile);
+
+interface GenerationOptions {
+  mode: syntax.GenerationMode;
+}
 
 /**
  * Represent a C++ project that can be compiled to executable.
  */
 export default class CppProject {
   name: string;
-  files: [string, CppFile][] = [];
+  files = new Map<string, CppFile>();
 
   constructor(name: string) {
     this.name = name;
   }
 
   addFile(name: string, file: CppFile) {
-    this.files.push([name, file]);
+    if (this.files.has(name))
+      throw new Error(`The file "${name}" already exists in project`);
+    this.files.set(name, file);
   }
 
-  getFiles(): [string, CppFile][] {
-    return this.files;
+  getFiles(): CppFile[] {
+    return Array.from(this.files.values());
   }
 
   /**
    * Create a C++ project at `target` directory.
    */
-  async writeTo(target: string) {
+  async writeTo(target: string, options: GenerationOptions) {
     await fs.ensureDir(target);
-    const tasks: Promise<void>[] = this.files.map(async ([name, file]) => {
+    const tasks: Promise<void>[] = [];
+    tasks.push(this.writeGnFiles(target));
+    for (const [name, file] of this.files.entries()) {
       const filepath = `${target}/${name}`;
       await fs.ensureFile(filepath);
-      await fs.writeFile(filepath, file.print());
-    });
-    tasks.push(this.writeGnFiles(target));
+      await fs.writeFile(filepath, file.print(options));
+    }
     return Promise.all(tasks);
   }
 
@@ -64,8 +72,11 @@ export default class CppProject {
     await execFileAsync(ninja, [ '-C', 'out' ], {cwd: target});
   }
 
+  /**
+   * Create a minimal GN project at the `target` directory.
+   */
   private async writeGnFiles(target: string) {
-    const sources = this.files.map(([name]) => `"${name}",`).join('\n');
+    const sources = Array.from(this.files.keys()).map(k => `"${k}",`).join('\n');
     const buildgn =
 `executable("${this.name}") {
   sources = [
@@ -78,14 +89,21 @@ export default class CppProject {
     ]);
   }
 
-  private async downloadGn() {
+  /**
+   * Download standalone GN to user's cache directory.
+   * @returns The directory of GN.
+   */
+  private async downloadGn(): Promise<string> {
     const version = 'v0.11.1';
     const gnDir = `${getCacheDir()}/build-gn`;
+    // Check if downloaded version matches target.
     const versionFile = `${gnDir}/.version`;
     try {
       if (version == (await fs.readFile(versionFile)).toString())
         return gnDir;
+      await fs.remove(gnDir);
     } catch {}
+    // Download and unzip GN.
     const platform = ({
       win32: 'win',
       linux: 'linux',
@@ -98,6 +116,7 @@ export default class CppProject {
   }
 }
 
+// Helper to return the user's cache directory.
 function getCacheDir() {
   const {env, platform} = process;
   if (env.XDG_CACHE_HOME)

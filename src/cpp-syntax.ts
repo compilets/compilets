@@ -1,8 +1,14 @@
-// Control indentation and other formating options when printing AST to C++.
+/**
+ * Control indentation and other formating options when printing AST to C++.
+ */
 export class PrintContext {
-  // How many spaces for 1 indentation.
+  /**
+   * How many spaces for 1 indentation.
+   */
   indent: number;
-  // The depth of indentation.
+  /**
+   * The depth of indentation.
+   */
   level = 0;
 
   constructor(indent: number = 2) {
@@ -13,6 +19,11 @@ export class PrintContext {
     return ' '.repeat(this.level * this.indent);
   }
 }
+
+/**
+ * Possible modes for generating the project.
+ */
+export type GenerationMode = 'lib' | 'exe' | 'napi';
 
 // ===================== Defines the syntax of C++ below =====================
 

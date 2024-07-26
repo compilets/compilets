@@ -16,11 +16,13 @@ import {
  */
 export default class Parser {
   rootDir: string;
+  mainFileName: string;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
 
-  constructor(rootDir: string, program: ts.Program) {
+  constructor(rootDir: string, mainFileName: string, program: ts.Program) {
     this.rootDir = rootDir;
+    this.mainFileName = mainFileName;
     this.program = program;
     this.typeChecker = program.getTypeChecker();
   }
@@ -30,14 +32,15 @@ export default class Parser {
     for (const fileName of this.program.getRootFileNames()) {
       const name = path.relative(this.rootDir, fileName)
                        .replace(/.ts$/, '.cpp');
+      const isMain = fileName == this.mainFileName;
       const sourceFile = this.program.getSourceFile(fileName)!;
-      project.addFile(name, this.parseSourceFile(sourceFile));
+      project.addFile(name, this.parseSourceFile(isMain, sourceFile));
     }
     return project;
   }
 
-  parseSourceFile(sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile();
+  parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
+    const cppFile = new CppFile(isMain);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.Block:

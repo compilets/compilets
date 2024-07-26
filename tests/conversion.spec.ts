@@ -14,10 +14,10 @@ describe('Conversion', () => {
 
 function testDir(dir) {
   // Compare the compiled results with the .h/.cpp files in dir.
-  const files = compileDirectory(dir).getFiles()
-                                     .map(([n, f]) => [n, f.print()]);
+  const entries = Array.from(compileDirectory(dir).files.entries());
+  const result = entries.map(([n, f]) => [n, f.print({mode: 'lib'})]);
   const expected = fs.readdirSync(dir)
                      .filter(f => f.endsWith('.h') || f.endsWith('.cpp'))
                      .map(f => [ f, fs.readFileSync(`${dir}/${f}`).toString() ]);
-  assert.deepStrictEqual(files, expected);
+  assert.deepStrictEqual(result, expected);
 }
