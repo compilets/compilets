@@ -7,7 +7,7 @@
   "scripts": {
     "prepack": "tsc",
     "pretest": "tsc --noEmit",
-    "test": "glob -c \"tsx --test\" \"tests/*.spec.ts\""
+    "test": "tsx --test tests/*.spec.ts"
   },
   "author": "zcbenz",
   "license": "MIT",
@@ -19,11 +19,13 @@
     "url": "https://github.com/compilets/compilets/issues"
   },
   "devDependencies": {
+    "@types/fs-extra": "11.0.4",
     "@types/node": "20.12.8",
-    "glob": "11.0.0",
     "tsx": "4.16.2"
   },
   "dependencies": {
+    "@compilets/unzip-url": "1.0.3",
+    "fs-extra": "11.2.0",
     "typescript": "5.5.4"
   }
 }
