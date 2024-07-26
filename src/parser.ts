@@ -1,26 +1,43 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 
-import {CppFile} from './cpp-file';
+import CppFile from './cpp-file';
+import CppProject from './cpp-project';
 import * as syntax from './cpp-syntax';
 
-export class UnimplementedError extends Error {
-  constructor(node: ts.Node, message: string) {
-    super(`${message}: ${node.getText()}`);
-  }
-}
+import {
+  UnimplementedError,
+  operatorToString,
+  modifierToString,
+} from './parser-utils';
 
-export class Parser {
+/**
+ * Convert TypeScript AST to C++ source code.
+ */
+export default class Parser {
+  rootDir: string;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
 
-  constructor(program: ts.Program) {
+  constructor(rootDir: string, program: ts.Program) {
+    this.rootDir = rootDir;
     this.program = program;
     this.typeChecker = program.getTypeChecker();
   }
 
-  parse(sourceFile: ts.SourceFile) {
-    const cppFile = new CppFile(path.basename(sourceFile.fileName).replace(/.ts$/, '.cpp'));
+  parse(): CppProject {
+    const project = new CppProject(path.basename(this.rootDir));
+    for (const fileName of this.program.getRootFileNames()) {
+      const name = path.relative(this.rootDir, fileName)
+                       .replace(/.ts$/, '.cpp');
+      const sourceFile = this.program.getSourceFile(fileName)!;
+      project.addFile(name, this.parseSourceFile(sourceFile));
+    }
+    return project;
+  }
+
+  parseSourceFile(sourceFile: ts.SourceFile): CppFile {
+    const cppFile = new CppFile();
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.Block:
@@ -63,13 +80,13 @@ export class Parser {
         // a++
         const {operand, operator} = node as ts.PostfixUnaryExpression;
         return new syntax.PostfixUnaryExpression(this.parseExpression(operand),
-                                                 getOperator(operator));
+                                                 operatorToString(operator));
       }
       case ts.SyntaxKind.PrefixUnaryExpression: {
         // ++a
         const {operand, operator} = node as ts.PrefixUnaryExpression;
         return new syntax.PrefixUnaryExpression(this.parseExpression(operand),
-                                                getOperator(operator));
+                                                operatorToString(operator));
       }
       case ts.SyntaxKind.ConditionalExpression: {
         // a ? b : c
@@ -367,36 +384,4 @@ export class Parser {
     });
     return new syntax.Type(`std::function<${returnType}(${parameters.join(', ')})>`, 'functor');
   }
-}
-
-// Convert JS operator to C++.
-function getOperator(operator: ts.SyntaxKind) {
-  switch (operator) {
-    case ts.SyntaxKind.EqualsToken:
-      return '=';
-    case ts.SyntaxKind.TildeToken:
-      return '~';
-    case ts.SyntaxKind.PlusToken:
-      return '+';
-    case ts.SyntaxKind.PlusPlusToken:
-      return '++';
-    case ts.SyntaxKind.MinusToken:
-      return '-';
-    case ts.SyntaxKind.MinusMinusToken:
-      return '--';
-  }
-  throw Error(`Unsupported operator: ${operator}`);
-}
-
-// Convert JS modifiers to C++.
-function modifierToString(modifier: ts.ModifierLike): string {
-  switch (modifier.kind) {
-    case ts.SyntaxKind.PrivateKeyword:
-      return 'private';
-    case ts.SyntaxKind.ProtectedKeyword:
-      return 'protected';
-    case ts.SyntaxKind.PublicKeyword:
-      return 'public';
-  }
-  throw new Error(`Unsupported modifier: ${modifier}`);
 }

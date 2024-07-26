@@ -1,14 +1,11 @@
 import fs from 'node:fs';
 import * as ts from 'typescript';
 
-import {CppFile} from './cpp-file';
-import {Parser} from './parser';
+import CppFile from './cpp-file';
+import CppProject from './cpp-project';
+import Parser from './parser';
 
-export interface CompileResult {
-  sources: CppFile[];
-};
-
-export function compileDirectory(dir: string): CompileResult {
+export function compileDirectory(dir: string): CppProject {
   const filenames = fs.readdirSync(dir).filter(f => f.endsWith('.ts'))
                                        .map(f => `${dir}/${f}`);
   const program = ts.createProgram(filenames, {
@@ -16,11 +13,6 @@ export function compileDirectory(dir: string): CompileResult {
     target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.CommonJS,
   });
-  const parser = new Parser(program);
-  const sources: CppFile[] = [];
-  for (const f of filenames) {
-    const sourceFile = program.getSourceFile(f);
-    sources.push(parser.parse(sourceFile!));
-  }
-  return {sources};
+  const parser = new Parser(dir, program);
+  return parser.parse();
 }
