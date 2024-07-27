@@ -11,7 +11,7 @@ import * as syntax from './cpp-syntax';
 const execFileAsync = promisify(execFile);
 
 interface GenerationOptions {
-  mode: syntax.GenerationMode;
+  generationMode: syntax.GenerationMode;
 }
 
 /**

@@ -10,7 +10,7 @@ describe('CppProject', () => {
   it('generation', async () => {
     const project = compileDirectory(`${__dirname}/data-cpp-project/noop`);
     using target = tempDirSync();
-    await project.writeTo(target.path, {mode: 'exe'});
+    await project.writeTo(target.path, {generationMode: 'exe'});
     assert.deepStrictEqual(fs.readdirSync(target.path),
                            [ '.gn', 'BUILD.gn', 'noop.cpp' ]);
     await project.gnGen(target.path);

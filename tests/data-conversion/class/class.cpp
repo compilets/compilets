@@ -21,5 +21,7 @@ class Simple {
   std::string prop = "For a breath I tarry.";
 };
 
-Simple* s = new Simple(false);
-bool r = s->method();
+void TestClass() {
+  Simple* s = new Simple(false);
+  bool r = s->method();
+}

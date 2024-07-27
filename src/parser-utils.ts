@@ -10,6 +10,15 @@ export class UnimplementedError extends Error {
 }
 
 /**
+ * An error indicating a TypeScript feature not supported in C++.
+ */
+export class UnsupportedError extends Error {
+  constructor(node: ts.Node, message: string) {
+    super(`${message}: ${node.getText()}`);
+  }
+}
+
+/**
  * Convert JS operator to C++.
  */
 export function operatorToString(operator: ts.SyntaxKind) {

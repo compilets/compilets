@@ -18,5 +18,7 @@ class Simple {
   }
 }
 
-const s = new Simple(false);
-const r = s.method();
+function TestClass() {
+  const s = new Simple(false);
+  const r = s.method();
+}

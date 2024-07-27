@@ -1,7 +1,25 @@
 /**
+ * Possible modes for generating the project.
+ */
+export type GenerationMode = 'lib' | 'exe' | 'napi';
+
+/**
+ * Possible modes for printing the syntax node.
+ */
+export type PrintMode = 'impl' | 'header';
+
+/**
  * Control indentation and other formating options when printing AST to C++.
  */
 export class PrintContext {
+  /**
+   * The generation mode.
+   */
+  generationMode: GenerationMode;
+  /**
+   * The print mode.
+   */
+  mode: PrintMode;
   /**
    * How many spaces for 1 indentation.
    */
@@ -11,7 +29,9 @@ export class PrintContext {
    */
   level = 0;
 
-  constructor(indent: number = 2) {
+  constructor(generationMode: GenerationMode, mode: PrintMode, indent: number = 2) {
+    this.generationMode = generationMode;
+    this.mode = mode;
     this.indent = indent;
   }
 
@@ -19,11 +39,6 @@ export class PrintContext {
     return ' '.repeat(this.level * this.indent);
   }
 }
-
-/**
- * Possible modes for generating the project.
- */
-export type GenerationMode = 'lib' | 'exe' | 'napi';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -443,6 +458,31 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 }
 
+// A special declaration for putting the top-level statements of the entry
+// script into the "main" function.
+export class MainFunction extends DeclarationStatement {
+  body: Block;
+
+  constructor() {
+    super('main');
+    this.body = new Block([ new ReturnStatement(new RawExpression('0')) ]);
+  }
+
+  override print(ctx: PrintContext) {
+    const main = ctx.generationMode == 'exe' ? 'main(int, const char*[])'
+                                             : 'Main()';
+    return `${ctx.padding}int ${main} ${this.body.print(ctx)}`;
+  }
+
+  addStatement(statement: Statement) {
+    this.body.statements.splice(this.body.statements.length - 1, 0, statement);
+  }
+
+  isEmpty() {
+    return this.body.statements.length == 1;
+  }
+}
+
 // Multiple statements without {}, this is used for convenient internal
 // implementations where one JS statement maps to multiple C++ ones.
 export class Paragraph extends Statement {
@@ -509,7 +549,7 @@ export class DoStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
+    return `${ctx.padding}do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
   }
 }
 
@@ -524,7 +564,7 @@ export class WhileStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
+    return `${ctx.padding}while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
   }
 }
 
@@ -546,7 +586,7 @@ export class ForStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
+    return `${ctx.padding}for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
   }
 }
 

@@ -7,6 +7,7 @@ import * as syntax from './cpp-syntax';
 
 import {
   UnimplementedError,
+  UnsupportedError,
   operatorToString,
   modifierToString,
 } from './parser-utils';
@@ -43,24 +44,32 @@ export default class Parser {
     const cppFile = new CppFile(isMain);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
+        case ts.SyntaxKind.ClassDeclaration:
+          if (!cppFile.canAddDeclaration())
+            throw new UnsupportedError(node, 'Can not add class declaration after statements');
+          cppFile.addDeclaration(this.parseClassDeclaration(node as ts.ClassDeclaration));
+          return;
+        case ts.SyntaxKind.FunctionDeclaration:
+          if (!cppFile.canAddDeclaration())
+            throw new UnsupportedError(node, 'Can not add function declaration after statements');
+          cppFile.addDeclaration(this.parseFunctionDeclaration(node as ts.FunctionDeclaration));
+          return;
         case ts.SyntaxKind.Block:
         case ts.SyntaxKind.VariableStatement:
-        case ts.SyntaxKind.FunctionDeclaration:
         case ts.SyntaxKind.ExpressionStatement:
         case ts.SyntaxKind.DoStatement:
         case ts.SyntaxKind.WhileStatement:
         case ts.SyntaxKind.ForStatement:
         case ts.SyntaxKind.ReturnStatement:
+          if (!cppFile.isMain)
+            throw new UnsupportedError(node, 'In C++ only class and function declarations can be made top-level, unless it is the main script');
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
-          return;
-        case ts.SyntaxKind.ClassDeclaration:
-          cppFile.addStatement(this.parseClassDeclaration(node as ts.ClassDeclaration));
           return;
         case ts.SyntaxKind.EmptyStatement:
         case ts.SyntaxKind.EndOfFileToken:
           return;
       }
-      throw new UnimplementedError(node, 'Unsupported node');
+      throw new UnimplementedError(node, 'Unsupported top-level node');
     });
     return cppFile;
   }
@@ -182,10 +191,6 @@ export default class Parser {
         const {declarationList} = node as ts.VariableStatement;
         return new syntax.VariableStatement(this.parseVariableDeclarationList(declarationList));
       }
-      case ts.SyntaxKind.FunctionDeclaration: {
-        // function func() { xxx }
-        return this.parseFunctionDeclaration(node as ts.FunctionDeclaration);
-      }
       case ts.SyntaxKind.ExpressionStatement: {
         // xxxx;
         const expr = this.parseExpression((node as ts.ExpressionStatement).expression);
@@ -227,6 +232,10 @@ export default class Parser {
         throw new UnimplementedError(node, 'The for...in loop is not supported');
       case ts.SyntaxKind.ForOfStatement:
         throw new UnimplementedError(node, 'The for...of loop is not supported');
+      case ts.SyntaxKind.ClassDeclaration:
+        throw new UnsupportedError(node, 'C++ only supports top-level classes');
+      case ts.SyntaxKind.FunctionDeclaration:
+        throw new UnsupportedError(node, 'C++ only supports top-level functions');
     }
     throw new UnimplementedError(node, 'Unsupported statement');
   }
@@ -379,7 +388,7 @@ export default class Parser {
 
   parseSignatureType(node: ts.Node, signature: ts.Signature): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
-    const ctx = new syntax.PrintContext();
+    const ctx = new syntax.PrintContext('lib', 'header');
     const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
     const parameters = signature.parameters.map((param) => {
       const decl = this.parseParameterDeclaration(param.valueDeclaration as ts.ParameterDeclaration);
