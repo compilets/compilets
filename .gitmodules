@@ -1,0 +1,3 @@
+[submodule "cpp/cppgc"]
+	path = cpp/cppgc
+	url = https://github.com/compilets/cppgc.git

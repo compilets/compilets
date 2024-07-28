@@ -1,17 +1,23 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import os from 'node:os';
-import {promisify} from 'node:util';
-import {execFile} from 'node:child_process';
+import {spawn, execSync, SpawnOptions} from 'node:child_process';
 import {unzip} from '@compilets/unzip-url';
 
 import CppFile from './cpp-file';
 import * as syntax from './cpp-syntax';
 
-const execFileAsync = promisify(execFile);
-
 interface GenerationOptions {
   generationMode: syntax.GenerationMode;
+}
+
+interface GnGenOptions {
+  config: 'Release' | 'Debug';
+  ccWrapper?: string;
+}
+
+interface GnBuildOptions {
+  config: 'Release' | 'Debug';
 }
 
 /**
@@ -53,39 +59,66 @@ export default class CppProject {
   /**
    * Run `gn gen` at `target` directory.
    */
-  async gnGen(target: string) {
+  async gnGen(target: string, options: GnGenOptions) {
     const gnDir = await this.downloadGn();
     let gn = `${gnDir}/gn`;
     if (process.platform == 'win32')
       gn += '.exe';
-    await execFileAsync(gn, [ 'gen', 'out' ], {cwd: target});
+    const args = [
+      `is_debug=${options.config == 'Debug'}`,
+      'is_component_build=false',
+      'clang_use_chrome_plugins=false',
+    ];
+    if (options.ccWrapper)
+      args.push(`cc_wrapper="${options.ccWrapper}"`);
+    else if (hasCcache())
+      args.push('cc_wrapper="ccache"');
+    const outDir = 'out/' + options.config ?? 'Release';
+    await spawnAsync(gn,
+                     [ 'gen', outDir, `--args=${args.join(' ')}` ],
+                     {cwd: target, stdio: 'inherit'});
   }
 
   /**
    * Compile the project at `target`
    */
-  async ninjaBuild(target: string) {
+  async ninjaBuild(target: string, options: GnBuildOptions) {
     const gnDir = await this.downloadGn();
     let ninja = `${gnDir}/ninja`;
     if (process.platform == 'win32')
       ninja += '.exe';
-    await execFileAsync(ninja, [ '-C', 'out' ], {cwd: target});
+    const outDir = 'out/' + options.config ?? 'Release';
+    await spawnAsync(ninja,
+                     [ '-C', outDir, this.name ],
+                     {cwd: target, stdio: 'inherit'});
   }
 
   /**
    * Create a minimal GN project at the `target` directory.
    */
   private async writeGnFiles(target: string) {
-    const sources = Array.from(this.files.keys()).map(k => `"${k}",`).join('\n');
+    const sources = Array.from(this.files.keys()).map(k => `    "${k}",`).join('\n');
     const buildgn =
 `executable("${this.name}") {
+  deps = [ "cppgc" ]
   sources = [
-    ${sources}
+${sources}
   ]
-}`;
+}
+`;
+    const dotgn =
+`use_chromium_config = true
+
+default_args = {
+  is_clang = true
+  use_xcode_clang = false
+  use_custom_libcxx = true
+}
+`;
     await Promise.all([
       fs.writeFile(`${target}/BUILD.gn`, buildgn),
-      fs.writeFile(`${target}/.gn`, 'use_chromium_config = true\n'),
+      fs.writeFile(`${target}/.gn`, dotgn),
+      fs.copy(`${__dirname}/../cpp/cppgc`, `${target}/cppgc`),
     ]);
   }
 
@@ -112,12 +145,15 @@ export default class CppProject {
     const url = `https://github.com/yue/build-gn/releases/download/${version}/gn_${version}_${platform}_${process.arch}.zip`;
     await unzip(url, gnDir);
     await fs.writeFile(versionFile, version);
+    // Download clang.
+    const python = process.platform == 'darwin' ? 'python3' : 'python';
+    await spawnAsync(python, [ 'tools/clang/scripts/update.py' ], {cwd: gnDir});
     return gnDir;
   }
 }
 
 // Helper to return the user's cache directory.
-function getCacheDir() {
+function getCacheDir(): string {
   const {env, platform} = process;
   if (env.XDG_CACHE_HOME)
     return path.join(env.XDG_CACHE_HOME, 'compilets');
@@ -128,4 +164,30 @@ function getCacheDir() {
   if (env.LOCALAPPDATA)
     return path.join(env.LOCALAPPDATA, 'compilets-cache');
   return path.join(os.homedir(), '.compilets-cache');
+}
+
+// Helper to return whether ccache is available.
+function hasCcache(): boolean {
+  try {
+    execSync('ccache -s');
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Await until spawn finishes.
+function spawnAsync(cmd: string, args: string[], options: SpawnOptions): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let child = spawn(cmd, args, options);
+    let output = '';
+    child.stdout?.on('data', (chunk) => output += chunk);
+    child.stderr?.on('data', (chunk) => output += chunk);
+    child.once('close', (code) => {
+      if (code == 0)
+        resolve();
+      else
+        reject(new Error(`spawn "${cmd}" exited with ${code}: ${output}`));
+    });
+  });
 }
