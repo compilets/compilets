@@ -19,17 +19,18 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Use Ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: ${{ matrix.os }}
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: true
 
+      - name: Use ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: renew-${{ matrix.os }}
+
       - name: Test
+        shell: bash  # required by ccache
         run: |
           yarn
           yarn test
