@@ -331,11 +331,10 @@ export default class Parser {
         const {modifiers, name, initializer, questionToken} = node as ts.PropertyDeclaration;
         if (name.kind != ts.SyntaxKind.Identifier)
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
-        if (questionToken)
-          throw new UnimplementedError(name, 'Question token in property is not supported');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
                                               this.parseVariableType(name),
+                                              questionToken !== undefined,
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
       case ts.SyntaxKind.MethodDeclaration: {

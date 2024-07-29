@@ -395,11 +395,13 @@ export class ConstructorDeclaration extends ClassElement {
 
 export class PropertyDeclaration extends ClassElement {
   type: Type;
+  optional: boolean;
   initializer?: Expression;
 
-  constructor(name: string, modifiers: string[], type: Type, initializer?: Expression) {
+  constructor(name: string, modifiers: string[], type: Type, optional: boolean, initializer?: Expression) {
     super(name, modifiers);
     this.type = type;
+    this.optional = optional;
     this.initializer = initializer;
   }
 
