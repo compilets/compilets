@@ -158,7 +158,9 @@ export default class Parser {
         const {expression, typeArguments} = node as ts.NewExpression;
         if (typeArguments)
           throw new UnimplementedError(node, 'Generic new is not supported');
-        return new syntax.NewExpression(this.parseExpression(expression),
+        if (!ts.isIdentifier(expression))
+          throw new UnsupportedError(node, 'The new operator only accepts class name');
+        return new syntax.NewExpression(this.parseVariableType(expression),
                                         (node as ts.NewExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
       }
       case ts.SyntaxKind.PropertyAccessExpression: {
@@ -166,10 +168,10 @@ export default class Parser {
         const {expression, name, questionDotToken} = node as ts.PropertyAccessExpression;
         if (questionDotToken)
           throw new UnimplementedError(node, 'The ?. operator is not supported');
-        if (name.kind != ts.SyntaxKind.Identifier)
+        if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         const type = this.parseVariableType(expression);
-        if (type.category != 'class')
+        if (!type.isClass())
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseExpression(expression),
                                                    type,
@@ -308,7 +310,7 @@ export default class Parser {
     if (node.heritageClauses)
       throw new UnimplementedError(node, 'Class inheritance is not supported');
     const members = node.members.map(this.parseClassElement.bind(this, node));
-    return new syntax.ClassDeclaration(node.name.text, members);
+    return new syntax.ClassDeclaration(this.parseVariableType(node), members);
   }
 
   parseClassElement(parent: ts.ClassDeclaration, node: ts.ClassElement): syntax.ClassElement {
@@ -371,10 +373,10 @@ export default class Parser {
     if (type.getCallSignatures().length > 0)
       return this.parseSignatureType(node, type.getCallSignatures()[0]);
     // Check class.
-    const name = this.typeChecker.typeToString(type);
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
-      return new syntax.Type(name, 'class');
+      return new syntax.Type(type.symbol.name, 'gced-class');
     // Check builtin types.
+    const name = this.typeChecker.typeToString(type);
     if (name == 'void')
       return new syntax.Type('void', 'void');
     if (name == 'boolean')

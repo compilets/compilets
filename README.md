@@ -2,6 +2,11 @@
 
 ## Contributions
 
+The documentations of Oilpan GC (cppgc) can be found at:
+
+* [Oilpan: C++ Garbage Collection](https://github.com/compilets/cppgc)
+* [Oilpan API reference](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/heap/BlinkGCAPIReference.md)
+
 You can get familiar with TypeScript's compiler APIs with following articles:
 
 * [Gentle Introduction To Typescript Compiler API](https://january.sh/posts/gentle-introduction-to-typescript-compiler-api)

@@ -37,10 +37,15 @@ export default class CppFile {
     return !this.isMain || this.body.isEmpty();
   }
 
+  /**
+   * Print the file to C++ source code.
+   */
   print(options: PrintOptions): string {
     const ctx = new syntax.PrintContext(options.generationMode, 'impl', 2);
-    // Put declarations at first.
-    let result = this.declarations.print(ctx);
+    // Put headers at first.
+    let result = this.getHeaders(ctx).print(ctx);
+    // Then print declarations.
+    result += this.declarations.print(ctx);
     // Add empty line between declarations and main.
     if (this.declarations.statements.length > 0 && !this.body.isEmpty())
       result += '\n';
@@ -54,5 +59,23 @@ export default class CppFile {
       return result;
     else
       return result + '\n';
+  }
+
+  /**
+   * Return whether this file needs to include headers of runtime.
+   */
+  private needsRuntimeHeaders(ctx: syntax.PrintContext): boolean {
+    return (this.isMain && ctx.generationMode == 'exe') ||
+           this.declarations.statements.find(d => d instanceof syntax.ClassDeclaration) != undefined;
+  }
+
+  /**
+   * Get required headers for this file.
+   */
+  private getHeaders(ctx: syntax.PrintContext): syntax.Headers {
+    const headers = new syntax.Headers();
+    if (this.needsRuntimeHeaders(ctx))
+      headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/runtime.h'));
+    return headers;
   }
 }

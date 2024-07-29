@@ -10,4 +10,4 @@ package-lock.json
 npm-debug.log
 yarn-error.log
 /node_modules/
-/tests/build-
+/tests/build-*

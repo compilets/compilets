@@ -42,7 +42,11 @@ export class PrintContext {
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' | 'primitive' | 'string' | 'functor' | 'class';
+export type TypeCategory = 'void' |
+                           'primitive' |
+                           'string' |
+                           'functor' |
+                           'raw-class' | 'stack-class' | 'gced-class';
 
 export class Type {
   name: string;
@@ -53,16 +57,22 @@ export class Type {
     this.category = category;
   }
 
+  print(ctx: PrintContext) {
+    if (this.category == 'string')
+      return 'std::string';
+    if (this.isClass())
+      return this.name + '*';
+    return this.name;
+  }
+
   equal(other: Type) {
     return this.name == other.name && this.category == other.category;
   }
 
-  print(ctx: PrintContext) {
-    if (this.category == 'string')
-      return 'std::string';
-    if (this.category == 'class')
-      return this.name + '*';
-    return this.name;
+  isClass() {
+    return this.category == 'raw-class' ||
+           this.category == 'stack-class' ||
+           this.category == 'gced-class';
   }
 }
 
@@ -212,17 +222,23 @@ export class CallExpression extends Expression {
 }
 
 export class NewExpression extends Expression {
-  expression: Expression;
+  type: Type;
   args: Expression[];
 
-  constructor(expression: Expression, args: Expression[]) {
+  constructor(type: Type, args: Expression[]) {
     super();
-    this.expression = expression;
+    this.type = type;
     this.args = args;
   }
 
   override print(ctx: PrintContext) {
-    return 'new ' + CallExpression.prototype.print.call(this, ctx);
+    const args = this.args.map(a => a.print(ctx))
+    if (this.type.category == 'gced-class') {
+      args.unshift('compilets::GetAllocationHandle()');
+      return `cppgc::MakeGarbageCollected<${this.type.name}>(${args.join(', ')})`;
+    } else {
+      return `new ${this.type.name}(${args.join(', ')})`;
+    }
   }
 }
 
@@ -239,7 +255,7 @@ export class PropertyAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    const dot = this.type.category == 'class' ? '->' : '.';
+    const dot = this.type.isClass() ? '->' : '.';
     return this.expression.print(ctx) + dot + this.member;
   }
 }
@@ -379,7 +395,13 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    return FunctionDeclaration.prototype.print.call(this, ctx);
+    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
+    result += ParameterDeclaration.printParameters(ctx, this.parameters);
+    result += ') ';
+    if (this.modifiers.includes('const'))
+      result += 'const ';
+    result += this.body?.print(ctx) ?? '{}';
+    return result;
   }
 }
 
@@ -393,12 +415,14 @@ export abstract class DeclarationStatement extends Statement {
 }
 
 export class ClassDeclaration extends DeclarationStatement {
+  type: Type;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
 
-  constructor(name: string, members: ClassElement[]) {
-    super(name);
+  constructor(type: Type, members: ClassElement[]) {
+    super(type.name);
+    this.type = type;
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);
@@ -407,23 +431,33 @@ export class ClassDeclaration extends DeclarationStatement {
       else
         this.publicMembers.push(member);
     }
+    if (this.type.category == 'gced-class') {
+      this.publicMembers.push(new MethodDeclaration(
+        'Trace',
+        [ 'public', 'const' ],
+        new Type('void', 'void'),
+        [
+          new ParameterDeclaration('visitor', new Type('cppgc::Visitor', 'raw-class')),
+        ]));
+    }
   }
 
   override print(ctx: PrintContext) {
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
-    let result = `${ctx.padding}class ${this.name} {\n`;
+    const inheritance = this.type.category == 'gced-class' ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
+    let result = `${ctx.padding}class ${this.name}${inheritance} {\n`;
     ctx.level++;
     if (this.publicMembers.length > 0) {
       result += `${halfPadding}public:\n`;
-      result += this.publicMembers.map(m => m.print(ctx) + '\n\n');
+      result += this.publicMembers.map(m => m.print(ctx) + '\n\n').join('');
     }
     if (this.protectedMembers.length > 0) {
       result += `${halfPadding}protected:\n`;
-      result += this.protectedMembers.map(m => m.print(ctx) + '\n\n');
+      result += this.protectedMembers.map(m => m.print(ctx) + '\n\n').join('');
     }
     if (this.privateMembers.length > 0) {
       result += `${halfPadding}private:\n`;
-      result += this.privateMembers.map(m => m.print(ctx) + '\n\n');
+      result += this.privateMembers.map(m => m.print(ctx) + '\n\n').join('');
     }
     ctx.level--;
     if (result.endsWith('\n\n'))
@@ -446,15 +480,10 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
-    if (this.parameters.length > 0)
-      result += this.parameters.map(p => p.print(ctx)).join(', ');
-    result += ') ';
-    if (this.body)
-      result += this.body.print(ctx);
-    else
-      result += '{}';
-    return result;
+    const returnType = this.returnType.print(ctx);
+    const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const body = this.body?.print(ctx) ?? '{}';
+    return `${returnType} ${this.name}(${parameters}) ${body}`;
   }
 }
 
@@ -471,6 +500,9 @@ export class MainFunction extends DeclarationStatement {
   override print(ctx: PrintContext) {
     const main = ctx.generationMode == 'exe' ? 'main(int, const char*[])'
                                              : 'Main()';
+    if (ctx.generationMode == 'exe') {
+      this.body.statements.unshift(new ExpressionStatement(new RawExpression("compilets::State state;")));
+    }
     return `${ctx.padding}int ${main} ${this.body.print(ctx)}`;
   }
 
@@ -603,5 +635,42 @@ export class ReturnStatement extends Statement {
       return `${ctx.padding}return ${this.expression!.print(ctx)};`;
     else
       return `${ctx.padding}return;`;
+  }
+}
+
+export type IncludeStatementType = 'angle-bracket' | 'quoted';
+
+export class IncludeStatement extends Statement {
+  type: IncludeStatementType;
+  path: string;
+
+  constructor(type: IncludeStatementType, path: string) {
+    super();
+    this.type = type;
+    this.path = path;
+  }
+
+  override print(ctx: PrintContext) {
+    if (this.type == 'angle-bracket')
+      return `#include <${this.path}>\n`;
+    else
+      return `#include "${this.path}"\n`;
+  }
+}
+
+export class Headers extends Statement {
+  c: IncludeStatement[] = [];
+  stl: IncludeStatement[] = [];
+  files: IncludeStatement[] = [];
+
+  override print(ctx: PrintContext) {
+    let results: string[] = [];
+    if (this.c.length > 0)
+      results.push(this.c.map(h => h.print(ctx)).join(''));
+    if (this.stl.length > 0)
+      results.push(this.stl.map(h => h.print(ctx)).join(''));
+    if (this.files.length > 0)
+      results.push(this.files.map(h => h.print(ctx)).join(''));
+    return results.map(h => h + '\n').join('');
   }
 }

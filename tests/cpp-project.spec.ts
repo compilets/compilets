@@ -12,12 +12,12 @@ process.env.CCACHE_NOHASHDIR = 'true';
 process.env.CCACHE_COMPILERCHECK = 'none';
 
 describe('CppProject', () => {
-  it('generation', async () => {
+  it('simple-generation', async () => {
     const project = compileDirectory(`${__dirname}/data-cpp-project/noop`);
     using target = tempDirSync(`${__dirname}/build-`);
     await project.writeTo(target.path, {generationMode: 'exe'});
     assert.deepStrictEqual(fs.readdirSync(target.path),
-                           [ '.gn', 'BUILD.gn', 'cppgc', 'noop.cpp' ]);
+                           [ '.gn', 'BUILD.gn', 'cpp', 'noop.cpp' ]);
     await project.gnGen(target.path, {config: 'Debug'});
     assert.ok(fs.statSync(`${target.path}/out`).isDirectory());
     await project.ninjaBuild(target.path, {config: 'Debug'});
@@ -26,4 +26,25 @@ describe('CppProject', () => {
       exe += '.exe';
     assert.doesNotThrow(() => execFileSync(exe));
   });
+
+  describe('build-and-run', () => {
+    // Every data-cpp-project/run-* subdir is a subtest.
+    const dirs = fs.readdirSync(`${__dirname}/data-cpp-project`)
+                   .filter(f => f.startsWith('run-'));
+    for (const dir of dirs) {
+      it(dir, () => runDir(`${__dirname}/data-cpp-project/${dir}`));
+    }
+  });
 });
+
+async function runDir(dir) {
+  const project = compileDirectory(dir);
+  using target = tempDirSync(`${__dirname}/build-`);
+  await project.writeTo(target.path, {generationMode: 'exe'});
+  await project.gnGen(target.path, {config: 'Debug'});
+  await project.ninjaBuild(target.path, {config: 'Debug'});
+  let exe = `${target.path}/out/Debug/${project.name}`;
+  if (process.platform == 'win32')
+    exe += '.exe';
+  assert.doesNotThrow(() => execFileSync(exe));
+}

@@ -5,7 +5,7 @@ import {describe, it} from 'node:test';
 import {compileDirectory} from '../src/index.ts';
 
 describe('Conversion', () => {
-  // Every subdir under data/ is a subtest.
+  // Every subdir under data-conversion/ is a subtest.
   const dirs = fs.readdirSync(`${__dirname}/data-conversion`);
   for (const dir of dirs) {
     it(dir, () => testDir(`${__dirname}/data-conversion/${dir}`));

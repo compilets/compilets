@@ -1,0 +1,14 @@
+config("runtime_config") {
+  include_dirs = [ "." ]
+}
+
+source_set("runtime") {
+  public_configs = [ ":runtime_config" ]
+  public_deps = [ "cppgc" ]
+  sources = [
+    "runtime/runtime.cc",
+    "runtime/runtime.h",
+    "runtime/exe/state_exe.cc",
+    "runtime/exe/state_exe.h",
+  ]
+}

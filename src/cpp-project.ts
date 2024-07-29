@@ -74,9 +74,7 @@ export default class CppProject {
     else if (hasCcache())
       args.push('cc_wrapper="ccache"');
     const outDir = 'out/' + options.config ?? 'Release';
-    await spawnAsync(gn,
-                     [ 'gen', outDir, `--args=${args.join(' ')}` ],
-                     {cwd: target, stdio: 'inherit'});
+    await spawnAsync(gn, [ 'gen', outDir, `--args=${args.join(' ')}` ], {cwd: target});
   }
 
   /**
@@ -88,9 +86,7 @@ export default class CppProject {
     if (process.platform == 'win32')
       ninja += '.exe';
     const outDir = 'out/' + options.config ?? 'Release';
-    await spawnAsync(ninja,
-                     [ '-C', outDir, this.name ],
-                     {cwd: target, stdio: 'inherit'});
+    await spawnAsync(ninja, [ '-C', outDir, this.name ], {cwd: target});
   }
 
   /**
@@ -100,25 +96,20 @@ export default class CppProject {
     const sources = Array.from(this.files.keys()).map(k => `    "${k}",`).join('\n');
     const buildgn =
 `executable("${this.name}") {
-  deps = [ "cppgc" ]
+  deps = [ "cpp:runtime" ]
+  include_dirs = [ "." ]
   sources = [
 ${sources}
   ]
-}
-`;
-    const dotgn =
-`use_chromium_config = true
 
-default_args = {
-  is_clang = true
-  use_xcode_clang = false
-  use_custom_libcxx = true
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
 }
 `;
     await Promise.all([
       fs.writeFile(`${target}/BUILD.gn`, buildgn),
-      fs.writeFile(`${target}/.gn`, dotgn),
-      fs.copy(`${__dirname}/../cpp/cppgc`, `${target}/cppgc`),
+      fs.copy(`${__dirname}/../cpp`, `${target}/cpp`),
+      fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`),
     ]);
   }
 

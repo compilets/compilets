@@ -1,16 +1,24 @@
-class Empty {
+#include "runtime/runtime.h"
+
+class Empty : public cppgc::GarbageCollected<Empty> {
+ public:
+  void Trace(cppgc::Visitor* visitor) const {}
 };
 
-class EmptyConstructor {
+class EmptyConstructor : public cppgc::GarbageCollected<EmptyConstructor> {
  public:
   EmptyConstructor() {}
+
+  void Trace(cppgc::Visitor* visitor) const {}
 };
 
-class Simple {
+class Simple : public cppgc::GarbageCollected<Simple> {
  public:
   Simple(bool a, double b = 123) {
     double c = a ? b : 456;
   }
+
+  void Trace(cppgc::Visitor* visitor) const {}
 
  protected:
   bool method() {
@@ -22,6 +30,6 @@ class Simple {
 };
 
 void TestClass() {
-  Simple* s = new Simple(false);
+  Simple* s = cppgc::MakeGarbageCollected<Simple>(compilets::GetAllocationHandle(), false);
   bool r = s->method();
 }

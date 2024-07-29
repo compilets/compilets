@@ -1,0 +1,7 @@
+use_chromium_config = true
+
+default_args = {
+  is_clang = true
+  use_xcode_clang = false
+  use_custom_libcxx = true
+}
