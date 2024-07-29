@@ -69,12 +69,14 @@ export class Type {
       return 'std::string';
     if (this.isClass()) {
       if (this.isGCedClass()) {
-        if (typeContext == 'new')
-          return `${this.name}*`;
-        else if (typeContext == 'gced-class-property')
-          return `cppgc::Member<${this.name}>`;
-        else
-          return `cppgc::Persistent<${this.name}>`;
+        switch (typeContext) {
+          case 'new':
+            return `${this.name}*`;
+          case 'gced-class-property':
+            return `cppgc::Member<${this.name}>`;
+          default:
+            return `cppgc::Persistent<${this.name}>`;
+        }
       } else {
         return `${this.name}*`;
       }
@@ -98,6 +100,8 @@ export class Type {
 }
 
 export abstract class Expression {
+  hand?: 'left' | 'right';
+
   abstract print(ctx: PrintContext): string;
 }
 
@@ -180,7 +184,9 @@ export class BinaryExpression extends Expression {
   constructor(left: Expression, right: Expression, operator: string) {
     super();
     this.left = left;
+    this.left.hand = 'left';
     this.right = right;
+    this.right.hand = 'right';
     this.operator = operator;
   }
 
@@ -265,19 +271,28 @@ export class NewExpression extends Expression {
 
 export class PropertyAccessExpression extends Expression {
   expression: Expression;
-  type: Type;
+  objectType: Type;
+  propertyType: Type;
   member: string;
 
-  constructor(expression: Expression, type: Type, member: string) {
+  constructor(expression: Expression, objectType: Type, propertyType: Type, member: string) {
     super();
     this.expression = expression;
-    this.type = type;
+    this.objectType = objectType;
+    this.propertyType = propertyType;
     this.member = member;
   }
 
   override print(ctx: PrintContext) {
-    const dot = this.type.isClass() ? '->' : '.';
-    return this.expression.print(ctx) + dot + this.member;
+    // Pointer or value access.
+    const dot = this.objectType.isGCedClass() ? '->' : '.';
+    // GCed class member is a smart pointer.
+    let member = this.member;
+    if (this.propertyType.isGCedClass()) {
+      if (this.hand != 'left')
+        member += '.Get()';
+    }
+    return this.expression.print(ctx) + dot + member;
   }
 }
 

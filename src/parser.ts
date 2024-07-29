@@ -170,11 +170,12 @@ export default class Parser {
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
-        const type = this.parseVariableType(expression);
-        if (!type.isClass())
+        const objectType = this.parseVariableType(expression);
+        if (!objectType.isClass())
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseExpression(expression),
-                                                   type,
+                                                   objectType,
+                                                   this.parseVariableType(name),
                                                    (name as ts.Identifier).text);
       }
     }

@@ -20,4 +20,5 @@ class Owner : public cppgc::GarbageCollected<Owner> {
 
 void TestNested() {
   Owner* o = cppgc::MakeGarbageCollected<Owner>(compilets::GetAllocationHandle());
+  o->prop1 = o->prop2.Get();
 }
