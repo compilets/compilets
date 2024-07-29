@@ -7,6 +7,11 @@ class Prop : public cppgc::GarbageCollected<Prop> {
 
 class Owner : public cppgc::GarbageCollected<Owner> {
  public:
+  Owner(Prop* prop) {
+    this->prop1 = prop;
+    this->prop2 = prop;
+  }
+
   void Trace(cppgc::Visitor* visitor) const {
     visitor->Trace(prop1);
     visitor->Trace(prop2);

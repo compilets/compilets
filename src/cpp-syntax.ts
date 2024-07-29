@@ -45,7 +45,7 @@ export class PrintContext {
 /**
  * Extra options for printing type.
  */
-type TypePrintContext = 'new' | 'gced-class-property';
+type TypePrintContext = 'gced-class-property';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -68,18 +68,10 @@ export class Type {
     if (this.category == 'string')
       return 'std::string';
     if (this.isClass()) {
-      if (this.isGCedClass()) {
-        switch (typeContext) {
-          case 'new':
-            return `${this.name}*`;
-          case 'gced-class-property':
-            return `cppgc::Member<${this.name}>`;
-          default:
-            return `cppgc::Persistent<${this.name}>`;
-        }
-      } else {
+      if (this.isGCedClass() && typeContext == 'gced-class-property')
+        return `cppgc::Member<${this.name}>`;
+      else
         return `${this.name}*`;
-      }
     }
     return this.name;
   }
@@ -325,7 +317,7 @@ export class VariableDeclarationList extends Declaration {
   }
 
   override print(ctx: PrintContext) {
-    const type = this.declarations[0].type.print(ctx, 'new');
+    const type = this.declarations[0].type.print(ctx);
     return `${type} ${this.declarations.map(d => d.print(ctx)).join(', ')}`;
   }
 }

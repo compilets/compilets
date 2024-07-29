@@ -80,6 +80,7 @@ export default class Parser {
       case ts.SyntaxKind.NumericLiteral:
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
+      case ts.SyntaxKind.ThisKeyword:
         return new syntax.RawExpression(node.getText());
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral((node as ts.StringLiteral).text);
