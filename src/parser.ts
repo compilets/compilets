@@ -310,7 +310,9 @@ export default class Parser {
     if (node.heritageClauses)
       throw new UnimplementedError(node, 'Class inheritance is not supported');
     const members = node.members.map(this.parseClassElement.bind(this, node));
-    return new syntax.ClassDeclaration(this.parseVariableType(node), members);
+    const cl = new syntax.ClassDeclaration(this.parseVariableType(node), members);
+    members.forEach(m => m.parent = cl);
+    return cl;
   }
 
   parseClassElement(parent: ts.ClassDeclaration, node: ts.ClassElement): syntax.ClassElement {

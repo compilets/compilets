@@ -1,3 +1,5 @@
+import {createTraceMethod} from './cpp-syntax-class';
+
 /**
  * Possible modes for generating the project.
  */
@@ -40,6 +42,11 @@ export class PrintContext {
   }
 }
 
+/**
+ * Extra options for printing type.
+ */
+type TypePrintContext = 'new' | 'gced-class-property';
+
 // ===================== Defines the syntax of C++ below =====================
 
 export type TypeCategory = 'void' |
@@ -57,11 +64,21 @@ export class Type {
     this.category = category;
   }
 
-  print(ctx: PrintContext) {
+  print(ctx: PrintContext, typeContext?: TypePrintContext) {
     if (this.category == 'string')
       return 'std::string';
-    if (this.isClass())
-      return this.name + '*';
+    if (this.isClass()) {
+      if (this.isGCedClass()) {
+        if (typeContext == 'new')
+          return `${this.name}*`;
+        else if (typeContext == 'gced-class-property')
+          return `cppgc::Member<${this.name}>`;
+        else
+          return `cppgc::Persistent<${this.name}>`;
+      } else {
+        return `${this.name}*`;
+      }
+    }
     return this.name;
   }
 
@@ -73,6 +90,10 @@ export class Type {
     return this.category == 'raw-class' ||
            this.category == 'stack-class' ||
            this.category == 'gced-class';
+  }
+
+  isGCedClass() {
+    return this.category == 'gced-class';
   }
 }
 
@@ -233,7 +254,7 @@ export class NewExpression extends Expression {
 
   override print(ctx: PrintContext) {
     const args = this.args.map(a => a.print(ctx))
-    if (this.type.category == 'gced-class') {
+    if (this.type.isGCedClass()) {
       args.unshift('compilets::GetAllocationHandle()');
       return `cppgc::MakeGarbageCollected<${this.type.name}>(${args.join(', ')})`;
     } else {
@@ -289,7 +310,7 @@ export class VariableDeclarationList extends Declaration {
   }
 
   override print(ctx: PrintContext) {
-    let type = this.declarations[0].type.print(ctx);
+    const type = this.declarations[0].type.print(ctx, 'new');
     return `${type} ${this.declarations.map(d => d.print(ctx)).join(', ')}`;
   }
 }
@@ -330,6 +351,7 @@ export class ParameterDeclaration extends NamedDeclaration {
 
 export abstract class ClassElement extends NamedDeclaration {
   modifiers: string[];
+  parent?: ClassDeclaration;
 
   constructor(name: string, modifiers?: string[]) {
     super(name);
@@ -375,7 +397,8 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.padding}${this.type.print(ctx)} ${this.name}`;
+    const typeContext = this.parent?.type.isGCedClass() ? 'gced-class-property' : undefined;
+    let result = `${ctx.padding}${this.type.print(ctx, typeContext)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
@@ -431,20 +454,14 @@ export class ClassDeclaration extends DeclarationStatement {
       else
         this.publicMembers.push(member);
     }
-    if (this.type.category == 'gced-class') {
-      this.publicMembers.push(new MethodDeclaration(
-        'Trace',
-        [ 'public', 'const' ],
-        new Type('void', 'void'),
-        [
-          new ParameterDeclaration('visitor', new Type('cppgc::Visitor', 'raw-class')),
-        ]));
+    if (this.type.isGCedClass()) {
+      this.publicMembers.push(createTraceMethod(this));
     }
   }
 
   override print(ctx: PrintContext) {
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
-    const inheritance = this.type.category == 'gced-class' ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
+    const inheritance = this.type.isGCedClass() ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
     let result = `${ctx.padding}class ${this.name}${inheritance} {\n`;
     ctx.level++;
     if (this.publicMembers.length > 0) {
