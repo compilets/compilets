@@ -20,5 +20,7 @@ class LinkNode : public cppgc::GarbageCollected<LinkNode> {
 
 void TestQuestionToken() {
   LinkNode* head = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 0);
-  head->next = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 1);
+  if (!head->next.Get()) {
+    head->next = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 1);
+  }
 }

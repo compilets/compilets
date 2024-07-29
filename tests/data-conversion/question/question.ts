@@ -9,5 +9,7 @@ class LinkNode {
 
 function TestQuestionToken() {
   const head = new LinkNode(0);
-  head.next = new LinkNode(1);
+  if (!head.next) {
+    head.next = new LinkNode(1);
+  }
 }

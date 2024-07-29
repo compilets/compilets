@@ -30,6 +30,12 @@ export class PrintContext {
    * The depth of indentation.
    */
   level = 0;
+  /**
+   * Whether the node should put padding in the beginning.
+   * TODO(zcbenz): This was introduced to handle the formatting of if statement,
+   * consider using a better approach.
+   */
+  concatenateNextLine = false;
 
   constructor(generationMode: GenerationMode, mode: PrintMode, indent: number = 2) {
     this.generationMode = generationMode;
@@ -37,8 +43,21 @@ export class PrintContext {
     this.indent = indent;
   }
 
+  join() {
+    this.concatenateNextLine = true;
+    return this;
+  }
+
   get padding() {
     return ' '.repeat(this.level * this.indent);
+  }
+
+  get prefix() {
+    if (this.concatenateNextLine) {
+      this.concatenateNextLine = false;
+      return '';
+    }
+    return this.padding;
   }
 }
 
@@ -389,7 +408,7 @@ export class ConstructorDeclaration extends ClassElement {
   override print(ctx: PrintContext) {
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const body = this.body?.print(ctx) ?? '{}';
-    return `${ctx.padding}${this.name}(${parameters}) ${body}`;
+    return `${ctx.prefix}${this.name}(${parameters}) ${body}`;
   }
 }
 
@@ -407,7 +426,7 @@ export class PropertyDeclaration extends ClassElement {
 
   override print(ctx: PrintContext) {
     const typeContext = this.parent?.type.isGCedClass() ? 'gced-class-property' : undefined;
-    let result = `${ctx.padding}${this.type.print(ctx, typeContext)} ${this.name}`;
+    let result = `${ctx.prefix}${this.type.print(ctx, typeContext)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
@@ -427,7 +446,7 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.padding}${this.returnType.print(ctx)} ${this.name}(`;
+    let result = `${ctx.prefix}${this.returnType.print(ctx)} ${this.name}(`;
     result += ParameterDeclaration.printParameters(ctx, this.parameters);
     result += ') ';
     if (this.modifiers.includes('const'))
@@ -473,7 +492,7 @@ export class ClassDeclaration extends DeclarationStatement {
       return `class ${this.name};`;
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
     const inheritance = this.type.isGCedClass() ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
-    let result = `${ctx.padding}class ${this.name}${inheritance} {\n`;
+    let result = `${ctx.prefix}class ${this.name}${inheritance} {\n`;
     ctx.level++;
     if (this.publicMembers.length > 0) {
       result += `${halfPadding}public:\n`;
@@ -533,7 +552,7 @@ export class MainFunction extends DeclarationStatement {
     if (ctx.generationMode == 'exe') {
       this.body.statements.unshift(new ExpressionStatement(new RawExpression("compilets::State state;")));
     }
-    return `${ctx.padding}int ${main} ${this.body.print(ctx)}`;
+    return `${ctx.prefix}int ${main} ${this.body.print(ctx)}`;
   }
 
   addStatement(statement: Statement) {
@@ -564,6 +583,7 @@ export class Block extends Paragraph {
   override print(ctx: PrintContext) {
     if (this.statements?.length > 0) {
       ctx.level++;
+      ctx.concatenateNextLine = false;
       let result = `{\n${super.print(ctx)}`;
       ctx.level--;
       result += `\n${ctx.padding}}`;
@@ -583,7 +603,7 @@ export class VariableStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${ctx.padding}${this.declarationList.print(ctx)};`;
+    return `${ctx.prefix}${this.declarationList.print(ctx)};`;
   }
 }
 
@@ -596,7 +616,27 @@ export class ExpressionStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${ctx.padding}${this.expression.print(ctx)};`;
+    return `${ctx.prefix}${this.expression.print(ctx)};`;
+  }
+}
+
+export class IfStatement extends Statement {
+  expression: Expression;
+  thenStatement: Statement;
+  elseStatement?: Statement;
+
+  constructor(expression: Expression, thenStatement: Statement, elseStatement?: Statement) {
+    super();
+    this.expression = expression;
+    this.thenStatement = thenStatement;
+    this.elseStatement = elseStatement;
+  }
+
+  override print(ctx: PrintContext) {
+    let result = `${ctx.prefix}if (${this.expression.print(ctx)}) ${this.thenStatement.print(ctx.join())}`;
+    if (this.elseStatement)
+      result += ` else ${this.elseStatement.print(ctx.join())}`;
+    return result;
   }
 }
 
@@ -611,7 +651,7 @@ export class DoStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${ctx.padding}do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
+    return `${ctx.prefix}do ${this.statement.print(ctx)} while (${this.expression.print(ctx)});`;
   }
 }
 
@@ -626,7 +666,7 @@ export class WhileStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${ctx.padding}while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
+    return `${ctx.prefix}while (${this.expression.print(ctx)}) ${this.statement.print(ctx)}`;
   }
 }
 
@@ -648,7 +688,7 @@ export class ForStatement extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return `${ctx.padding}for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
+    return `${ctx.prefix}for (${this.initializer?.print(ctx) ?? ''}; ${this.condition?.print(ctx) ?? ''}; ${this.incrementor?.print(ctx) ?? ''}) ${this.statement.print(ctx)}`;
   }
 }
 
@@ -662,9 +702,9 @@ export class ReturnStatement extends Statement {
 
   override print(ctx: PrintContext) {
     if (this.expression)
-      return `${ctx.padding}return ${this.expression!.print(ctx)};`;
+      return `${ctx.prefix}return ${this.expression!.print(ctx)};`;
     else
-      return `${ctx.padding}return;`;
+      return `${ctx.prefix}return;`;
   }
 }
 

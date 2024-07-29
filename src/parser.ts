@@ -200,6 +200,13 @@ export default class Parser {
         const expr = this.parseExpression((node as ts.ExpressionStatement).expression);
         return new syntax.ExpressionStatement(expr);
       }
+      case ts.SyntaxKind.IfStatement: {
+        // if (xxx) { yyy } else { zzz }
+        const {expression, thenStatement, elseStatement} = node as ts.IfStatement;
+        return new syntax.IfStatement(this.parseExpression(expression),
+                                      this.parseStatement(thenStatement),
+                                      elseStatement ? this.parseStatement(elseStatement) : undefined);
+      }
       case ts.SyntaxKind.DoStatement: {
         // do { xxx } while (yyy)
         const {expression, statement} = node as ts.DoStatement;

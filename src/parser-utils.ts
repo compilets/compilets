@@ -25,6 +25,11 @@ export function operatorToString(operator: ts.SyntaxKind) {
   switch (operator) {
     case ts.SyntaxKind.EqualsToken:
       return '=';
+    case ts.SyntaxKind.EqualsEqualsToken:
+    case ts.SyntaxKind.EqualsEqualsEqualsToken:
+      return '==';
+    case ts.SyntaxKind.ExclamationToken:
+      return '!';
     case ts.SyntaxKind.TildeToken:
       return '~';
     case ts.SyntaxKind.PlusToken:
