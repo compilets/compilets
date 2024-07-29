@@ -1,5 +1,10 @@
 #include "runtime/runtime.h"
 
+class Empty;
+class EmptyConstructor;
+class Simple;
+void TestClass();
+
 class Empty : public cppgc::GarbageCollected<Empty> {
  public:
   void Trace(cppgc::Visitor* visitor) const {}

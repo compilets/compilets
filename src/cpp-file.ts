@@ -44,7 +44,11 @@ export default class CppFile {
     const ctx = new syntax.PrintContext(options.generationMode, 'impl', 2);
     // Put headers at first.
     let result = this.getHeaders(ctx).print(ctx);
-    // Then print declarations.
+    // Then forward declarations.
+    result += this.declarations.print(new syntax.PrintContext(options.generationMode, 'forward', 2));
+    if (this.declarations.statements.length > 0)
+      result += '\n\n';
+    // Then declarations.
     result += this.declarations.print(ctx);
     // Add empty line between declarations and main.
     if (this.declarations.statements.length > 0 && !this.body.isEmpty())

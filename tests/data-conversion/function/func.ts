@@ -4,7 +4,7 @@ function simple(a = 1, b = true) {
 function complex(input: string, callback: (input: string) => number) {
   return () => callback(input);
 }
-function testLocalFunction() {
+function TestLocalFunction() {
   let func = function(a: string, b: string) { return a + b };
   let arrow = () => {};
 }

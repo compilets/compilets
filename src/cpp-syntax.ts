@@ -8,7 +8,7 @@ export type GenerationMode = 'lib' | 'exe' | 'napi';
 /**
  * Possible modes for printing the syntax node.
  */
-export type PrintMode = 'impl' | 'header';
+export type PrintMode = 'impl' | 'header' | 'forward';
 
 /**
  * Control indentation and other formating options when printing AST to C++.
@@ -467,6 +467,8 @@ export class ClassDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
+    if (ctx.mode == 'forward')
+      return `class ${this.name};`;
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
     const inheritance = this.type.isGCedClass() ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
     let result = `${ctx.padding}class ${this.name}${inheritance} {\n`;
@@ -506,6 +508,8 @@ export class FunctionDeclaration extends DeclarationStatement {
   override print(ctx: PrintContext) {
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    if (ctx.mode == 'forward')
+      return `${returnType} ${this.name}(${parameters});`;
     const body = this.body?.print(ctx) ?? '{}';
     return `${returnType} ${this.name}(${parameters}) ${body}`;
   }

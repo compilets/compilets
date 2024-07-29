@@ -1,5 +1,9 @@
 #include "runtime/runtime.h"
 
+class Prop;
+class Owner;
+void TestNested();
+
 class Prop : public cppgc::GarbageCollected<Prop> {
  public:
   void Trace(cppgc::Visitor* visitor) const {}

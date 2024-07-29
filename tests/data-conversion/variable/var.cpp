@@ -1,3 +1,5 @@
+void TestVariable();
+
 void TestVariable() {
   bool u;
   bool t = true;

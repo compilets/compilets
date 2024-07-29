@@ -1,3 +1,5 @@
+void TestLoop();
+
 void TestLoop() {
   do {
     1 + 2;

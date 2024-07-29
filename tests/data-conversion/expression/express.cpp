@@ -1,3 +1,5 @@
+void TestExpression();
+
 void TestExpression() {
   double a = 0;
   a++;
