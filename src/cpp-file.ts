@@ -1,4 +1,3 @@
-import {getSTLUsages} from './cpp-syntax-utils';
 import * as syntax from './cpp-syntax';
 
 interface PrintOptions {
@@ -10,11 +9,13 @@ interface PrintOptions {
  */
 export default class CppFile {
   isMain: boolean;
+  features: Set<syntax.Feature>;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   body = new syntax.MainFunction();
 
-  constructor(isMain = false) {
+  constructor(isMain: boolean, features: Set<syntax.Feature>) {
     this.isMain = isMain;
+    this.features = features;
   }
 
   /**
@@ -28,7 +29,7 @@ export default class CppFile {
    * Add statements to the main body.
    */
   addStatement(statement: syntax.Statement) {
-    this.body.addStatement(statement);
+    this.body.body.statements.push(statement);
   }
 
   /**
@@ -69,23 +70,28 @@ export default class CppFile {
   }
 
   /**
-   * Return whether this file needs to include headers of runtime.
-   */
-  private needsRuntimeHeaders(ctx: syntax.PrintContext): boolean {
-    return (this.isMain && ctx.generationMode == 'exe') ||
-           this.declarations.statements.find(d => d instanceof syntax.ClassDeclaration) != undefined;
-  }
-
-  /**
    * Get required headers for this file.
    */
   private getHeaders(ctx: syntax.PrintContext): syntax.Headers {
+    let features = this.features;
+    // If this is the main file of an exe, it requires runtime headers.
+    if (this.isMain && ctx.generationMode == 'exe')
+      features = features.union(new Set([ 'class' ]));
+    // Add headers according to used features.
     const headers = new syntax.Headers();
-    const stlUsages = getSTLUsages(this.declarations.statements);
-    if (stlUsages.useOptional)
-      headers.stl.push(new syntax.IncludeStatement('angle-bracket', 'optional'));
-    if (this.needsRuntimeHeaders(ctx))
-      headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/runtime.h'));
+    for (const feature of features) {
+      switch (feature) {
+        case 'optional':
+          headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
+          break;
+        case 'class':
+          headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/runtime.h'));
+          break;
+        case 'functor':
+          headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/function.h'));
+          break;
+      }
+    }
     return headers;
   }
 }

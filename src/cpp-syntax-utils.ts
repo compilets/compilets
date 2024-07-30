@@ -32,24 +32,3 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   // Create the method.
   return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
 }
-
-/**
- * Iterate through declarations to find out usages of STL headers.
- */
-export interface STLUsages {
-  useOptional: boolean;
-}
-export function getSTLUsages(decls: DeclarationStatement[]): STLUsages {
-  const result = {useOptional: false};
-  for (const decl of decls) {
-    if (decl instanceof ClassDeclaration) {
-      for (const member of decl.getMembers()) {
-        if (member instanceof PropertyDeclaration) {
-          if (member.type.optional)
-            result.useOptional = true;
-        }
-      }
-    }
-  }
-  return result;
-}

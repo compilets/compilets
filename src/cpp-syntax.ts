@@ -62,6 +62,11 @@ export class PrintContext {
 }
 
 /**
+ * Optional C++ features used in the code.
+ */
+export type Feature = 'optional' | 'class' | 'functor';
+
+/**
  * Extra options for printing type.
  */
 export type TypeModifier = 'gced-class-property';
@@ -582,28 +587,31 @@ export class FunctionDeclaration extends DeclarationStatement {
 // A special declaration for putting the top-level statements of the entry
 // script into the "main" function.
 export class MainFunction extends DeclarationStatement {
-  body: Block;
+  body: Block = new Block();
 
   constructor() {
     super('main');
-    this.body = new Block([ new ReturnStatement(new RawExpression('0')) ]);
   }
 
   override print(ctx: PrintContext) {
-    const main = ctx.generationMode == 'exe' ? 'main(int, const char*[])'
-                                             : 'Main()';
+    let signature: string;
+    let body: Block;
     if (ctx.generationMode == 'exe') {
-      this.body.statements.unshift(new ExpressionStatement(new RawExpression("compilets::State state;")));
+      signature = 'int main(int, const char*[])';
+      body = new Block([
+        new ExpressionStatement(new RawExpression("compilets::State state")),
+        ...this.body.statements,
+        new ReturnStatement(new RawExpression('0')),
+      ]);
+    } else {
+      signature = 'void Main()';
+      body = this.body;
     }
-    return `${ctx.prefix}int ${main} ${this.body.print(ctx)}`;
-  }
-
-  addStatement(statement: Statement) {
-    this.body.statements.splice(this.body.statements.length - 1, 0, statement);
+    return `${ctx.prefix}${signature} ${body.print(ctx)}`;
   }
 
   isEmpty() {
-    return this.body.statements.length == 1;
+    return this.body.statements.length == 0;
   }
 }
 

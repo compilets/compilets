@@ -21,6 +21,8 @@ export default class Parser {
   program: ts.Program;
   typeChecker: ts.TypeChecker;
 
+  features?: Set<syntax.Feature>;
+
   constructor(rootDir: string, mainFileName: string, program: ts.Program) {
     this.rootDir = rootDir;
     this.mainFileName = mainFileName;
@@ -41,7 +43,8 @@ export default class Parser {
   }
 
   parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(isMain);
+    this.features = new Set<syntax.Feature>();
+    const cppFile = new CppFile(isMain, this.features);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.ClassDeclaration:
@@ -140,6 +143,7 @@ export default class Parser {
             ]);
           }
         }
+        this.features!.add('functor');
         return new syntax.FunctionExpression(this.parseFunctionReturnType(node),
                                              parameters.map(this.parseParameterDeclaration.bind(this)),
                                              cppBody);
@@ -321,6 +325,7 @@ export default class Parser {
     const members = node.members.map(this.parseClassElement.bind(this, node));
     const cl = new syntax.ClassDeclaration(this.parseVariableType(node), members);
     members.forEach(m => m.parent = cl);
+    this.features!.add('class');
     return cl;
   }
 
@@ -390,6 +395,8 @@ export default class Parser {
     let isOptional = false;
     if (symbol?.valueDeclaration && ts.isPropertyDeclaration(symbol?.valueDeclaration))
       isOptional = (symbol?.valueDeclaration as ts.PropertyDeclaration).questionToken !== undefined;
+    if (isOptional)
+      this.features!.add('optional');
     // Check builtin types.
     const name = this.typeChecker.typeToString(type);
     if (name == 'void')

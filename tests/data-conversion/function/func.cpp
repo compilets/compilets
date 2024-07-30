@@ -1,3 +1,5 @@
+#include "runtime/function.h"
+
 double simple(double a = 1, bool b = true);
 std::function<double()> complex(std::string input, std::function<double(std::string input)> callback);
 void TestLocalFunction();
