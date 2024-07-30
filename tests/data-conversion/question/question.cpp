@@ -24,9 +24,9 @@ class LinkNode : public compilets::Object {
 };
 
 void TestQuestionTokenInClass() {
-  LinkNode* head = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 0);
+  LinkNode* head = compilets::MakeObject<LinkNode>(0);
   if (!head->next.Get()) {
-    head->next = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 1);
+    head->next = compilets::MakeObject<LinkNode>(1);
   }
   double n = head->item.value();
   head->next.Get()->item = 3;

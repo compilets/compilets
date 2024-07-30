@@ -31,6 +31,6 @@ class NonSimple : public compilets::Object {
 };
 
 void TestClass() {
-  NonSimple* s = cppgc::MakeGarbageCollected<NonSimple>(compilets::GetAllocationHandle(), false);
+  NonSimple* s = compilets::MakeObject<NonSimple>(false);
   bool r = s->method();
 }

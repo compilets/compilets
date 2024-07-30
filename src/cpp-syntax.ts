@@ -1,4 +1,4 @@
-import {createTraceMethod} from './cpp-syntax-utils';
+import {createTraceMethod, convertArgs} from './cpp-syntax-utils';
 
 /**
  * Possible modes for generating the project.
@@ -260,12 +260,40 @@ export class FunctionExpression extends Expression {
   }
 }
 
+// Represent the arguments of a call-like expression.
+export class CallArguments extends Expression {
+  args: Expression[];
+
+  constructor(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
+    super();
+    this.args = convertArgs(args, sourceTypes, targetTypes);
+  }
+
+  override print(ctx: PrintContext) {
+    return this.args.map(a => a.print(ctx)).join(', ');
+  }
+}
+
+// Helper that converts function to functor.
+export class ToFunctorExpression extends Expression {
+  expression: Expression;
+
+  constructor(expression: Expression) {
+    super();
+    this.expression = expression;
+  }
+
+  override print(ctx: PrintContext) {
+    return `compilets::MakeFunction(${this.expression.print(ctx)})`;
+  }
+}
+
 export class CallExpression extends Expression {
   callee: Expression;
   calleeType: Type;
-  args: Expression[];
+  args: CallArguments;
 
-  constructor(callee: Expression, calleeType: Type, args: Expression[]) {
+  constructor(callee: Expression, calleeType: Type, args: CallArguments) {
     super();
     this.callee = callee;
     this.calleeType = calleeType;
@@ -276,29 +304,26 @@ export class CallExpression extends Expression {
     let callee = this.callee.print(ctx);
     if (this.calleeType.category == 'functor')
       callee = `(*${callee})`;
-    const args = this.args.map(a => a.print(ctx)).join(', ');
-    return `${callee}(${args})`;
+    return `${callee}(${this.args.print(ctx)})`;
   }
 }
 
 export class NewExpression extends Expression {
   type: Type;
-  args: Expression[];
+  args: CallArguments;
 
-  constructor(type: Type, args: Expression[]) {
+  constructor(type: Type, args: CallArguments) {
     super();
     this.type = type;
     this.args = args;
   }
 
   override print(ctx: PrintContext) {
-    const args = this.args.map(a => a.print(ctx))
-    if (this.type.isGCedType()) {
-      args.unshift('compilets::GetAllocationHandle()');
-      return `cppgc::MakeGarbageCollected<${this.type.name}>(${args.join(', ')})`;
-    } else {
-      return `new ${this.type.name}(${args.join(', ')})`;
-    }
+    const args = this.args.print(ctx);
+    if (this.type.isGCedType())
+      return `compilets::MakeObject<${this.type.name}>(${args})`;
+    else
+      return `new ${this.type.name}(${args})`;
   }
 }
 

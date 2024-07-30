@@ -150,24 +150,28 @@ export default class Parser {
       }
       case ts.SyntaxKind.CallExpression: {
         // func(xxx)
-        const {expression, typeArguments, questionDotToken} = node as ts.CallExpression;
+        const callExpression = node as ts.CallExpression;
+        const {expression, typeArguments, questionDotToken} = callExpression;
+        const args = callExpression['arguments'];  // arguments is a keyword
         if (typeArguments)
           throw new UnimplementedError(node, 'Generic call is not supported');
         if (questionDotToken)
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         return new syntax.CallExpression(this.parseExpression(expression),
-                                         this.parseVariableType(expression),
-                                         (node as ts.CallExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+                                         this.parseNodeType(expression),
+                                         this.parseArguments(callExpression, args));
       }
       case ts.SyntaxKind.NewExpression: {
         // new Class(xxx)
-        const {expression, typeArguments} = node as ts.NewExpression;
+        const newExpression = node as ts.NewExpression;
+        const {expression, typeArguments} = newExpression;
+        const args = newExpression['arguments'];  // arguments is a keyword
         if (typeArguments)
           throw new UnimplementedError(node, 'Generic new is not supported');
         if (!ts.isIdentifier(expression))
           throw new UnsupportedError(node, 'The new operator only accepts class name');
-        return new syntax.NewExpression(this.parseVariableType(expression),
-                                        (node as ts.NewExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
+        return new syntax.NewExpression(this.parseNodeType(expression),
+                                        this.parseArguments(newExpression, args));
       }
       case ts.SyntaxKind.PropertyAccessExpression: {
         // obj.prop
@@ -176,12 +180,12 @@ export default class Parser {
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
-        const objectType = this.parseVariableType(expression);
+        const objectType = this.parseNodeType(expression);
         if (!objectType.isClass())
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseExpression(expression),
                                                    objectType,
-                                                   this.parseVariableType(name),
+                                                   this.parseNodeType(name),
                                                    (name as ts.Identifier).text);
       }
     }
@@ -270,7 +274,7 @@ export default class Parser {
       case ts.SyntaxKind.Identifier:
         // let a = xxx;
         const name = (node.name as ts.Identifier).text;
-        const type = this.parseVariableType(node.name);
+        const type = this.parseNodeType(node.name);
         if (node.initializer) {
           // let a = 123;
           const init = this.parseExpression(node.initializer);
@@ -290,7 +294,7 @@ export default class Parser {
     if (name.kind != ts.SyntaxKind.Identifier)
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
     return new syntax.ParameterDeclaration((name as ts.Identifier).text,
-                                           this.parseVariableType(name),
+                                           this.parseNodeType(name),
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
@@ -324,7 +328,7 @@ export default class Parser {
     if (node.heritageClauses)
       throw new UnimplementedError(node, 'Class inheritance is not supported');
     const members = node.members.map(this.parseClassElement.bind(this, node));
-    const cl = new syntax.ClassDeclaration(this.parseVariableType(node), members);
+    const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members);
     members.forEach(m => m.parent = cl);
     this.features!.add('class');
     return cl;
@@ -346,7 +350,7 @@ export default class Parser {
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
-                                              this.parseVariableType(name),
+                                              this.parseNodeType(name),
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
       case ts.SyntaxKind.MethodDeclaration: {
@@ -372,7 +376,20 @@ export default class Parser {
     throw new UnimplementedError(node, 'Unsupported class element');
   }
 
-  parseVariableType(node: ts.Node) {
+  parseArguments(node: ts.CallLikeExpression, args?: ts.NodeArray<ts.Expression>) {
+    if (!args)
+      return new syntax.CallArguments([], [], []);
+    const resolvedSignature = this.typeChecker.getResolvedSignature(node);
+    if (!resolvedSignature)
+      throw new UnimplementedError(node, 'Can not get resolved signature');
+    const sourceTypes = args.map(this.parseNodeType.bind(this));
+    const targetTypes = resolvedSignature.parameters.map(m => this.parseNodeType(m.valueDeclaration!));
+    return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
+                                    sourceTypes,
+                                    targetTypes);
+  }
+
+  parseNodeType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
     return this.parseType(node, type);
   }
@@ -384,30 +401,39 @@ export default class Parser {
   }
 
   parseType(node: ts.Node, type: ts.Type) {
-    // Check if it is a function.
+    // Check function.
     if (type.getCallSignatures().length > 0)
       return this.parseSignatureType(node, type, type.getCallSignatures()[0]);
-    // Check the type of the node.
+    // Check class.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
       return new syntax.Type(type.symbol.name, 'gced-class');
-    // Check the symbol of the node.
+    // Check optional.
     const symbol = this.typeChecker.getSymbolAtLocation(node);
-    // Does it have question token in the type?
     let isOptional = false;
-    if (symbol?.valueDeclaration && ts.isPropertyDeclaration(symbol?.valueDeclaration))
-      isOptional = (symbol?.valueDeclaration as ts.PropertyDeclaration).questionToken !== undefined;
+    if (symbol?.valueDeclaration && ts.isPropertyDeclaration(symbol.valueDeclaration))
+      isOptional = (symbol.valueDeclaration as ts.PropertyDeclaration).questionToken !== undefined;
     if (isOptional)
       this.features!.add('optional');
+    // Check literals.
+    if (type.isNumberLiteral())
+      return new syntax.Type('double', 'primitive', isOptional);
+    if (type.isStringLiteral())
+      return new syntax.Type('string', 'string', isOptional);
     // Check builtin types.
     const name = this.typeChecker.typeToString(type);
-    if (name == 'void')
-      return new syntax.Type('void', 'void');
-    if (name == 'boolean')
-      return new syntax.Type('bool', 'primitive', isOptional);
-    if (name == 'number')
-      return new syntax.Type('double', 'primitive', isOptional);
-    if (name == 'string')
-      return new syntax.Type('string', 'string', isOptional);
+    switch (name) {
+      case 'void':
+        return new syntax.Type('void', 'void');
+      case 'true':
+      case 'false':
+        return new syntax.Type('bool', 'primitive');
+      case 'boolean':
+        return new syntax.Type('bool', 'primitive', isOptional);
+      case 'number':
+        return new syntax.Type('double', 'primitive', isOptional);
+      case 'string':
+        return new syntax.Type('string', 'string', isOptional);
+    }
     throw new UnimplementedError(node, `Unsupported type "${name}"`);
   }
 

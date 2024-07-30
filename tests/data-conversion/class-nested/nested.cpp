@@ -28,6 +28,6 @@ class Owner : public compilets::Object {
 };
 
 void TestNested() {
-  Owner* o = cppgc::MakeGarbageCollected<Owner>(compilets::GetAllocationHandle());
+  Owner* o = compilets::MakeObject<Owner>();
   o->prop1 = o->prop2.Get();
 }

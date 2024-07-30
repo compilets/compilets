@@ -1,14 +1,14 @@
 import {
   Type,
+  Expression,
   RawExpression,
-  ClassDeclaration,
+  ToFunctorExpression,
   ClassElement,
   PropertyDeclaration,
   MethodDeclaration,
   ParameterDeclaration,
   Block,
   ExpressionStatement,
-  DeclarationStatement,
 } from './cpp-syntax';
 
 /**
@@ -31,4 +31,22 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor', 'raw-class'));
   // Create the method.
   return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
+}
+
+/**
+ * Compare the sourceTypes and targetTypes, and do conversation when required.
+ */
+export function convertArgs(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
+  for (let i = 0; i < args.length; ++i) {
+    if (sourceTypes[i].category == targetTypes[i].category) {
+      continue;
+    }
+    if (sourceTypes[i].category == 'function' &&
+        targetTypes[i].category == 'functor') {
+      args[i] = new ToFunctorExpression(args[i]);
+      continue;
+    }
+    throw new Error(`Unable to convert arg from ${sourceTypes[i].category} to ${targetTypes[i].category}`);
+  }
+  return args;
 }

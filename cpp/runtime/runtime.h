@@ -11,6 +11,12 @@ using State = StateExe;
 
 cppgc::AllocationHandle& GetAllocationHandle();
 
+template <typename T, typename... Args>
+T* MakeObject(Args&&... args) {
+  return cppgc::MakeGarbageCollected<T>(GetAllocationHandle(),
+                                        std::forward<Args>(args)...);
+}
+
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_RUNTIME_H_
