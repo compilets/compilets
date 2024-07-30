@@ -19,6 +19,8 @@ class Function final : public Object {
       visitor->Trace(object);
   }
 
+  const std::function<Sig>& value() const { return lambda_; }
+
  private:
   std::vector<cppgc::Member<Object>> closure_;
   std::function<Sig> lambda_;

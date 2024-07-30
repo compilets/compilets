@@ -64,7 +64,7 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'class' | 'functor';
+export type Feature = 'optional' | 'runtime' | 'class' | 'functor';
 
 /**
  * Extra options for printing type.
@@ -94,9 +94,13 @@ export class Type {
   print(ctx: PrintContext, modifiers?: TypeModifier[]) {
     if (this.category == 'function')  // we should never print this
       return `<internal-function-type><${this.name}>`;
-    if (this.category == 'functor')
-      return `compilets::Function<${this.name}>*`;
     const isGCedClassProperty = modifiers?.includes('gced-class-property');
+    if (this.category == 'functor') {
+      if (isGCedClassProperty)
+        return `cppgc::Member<compilets::Function<${this.name}>>`;
+      else
+        return `compilets::Function<${this.name}>*`;
+    }
     if (this.isClass()) {
       if (isGCedClassProperty && this.isGCedType())
         return `cppgc::Member<${this.name}>`;
@@ -303,7 +307,7 @@ export class CallExpression extends Expression {
   override print(ctx: PrintContext) {
     let callee = this.callee.print(ctx);
     if (this.calleeType.category == 'functor')
-      callee = `(*${callee})`;
+      callee = `${callee}->value()`;
     return `${callee}(${this.args.print(ctx)})`;
   }
 }

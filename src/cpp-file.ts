@@ -76,7 +76,7 @@ export default class CppFile {
     let features = this.features;
     // If this is the main file of an exe, it requires runtime headers.
     if (this.isMain && ctx.generationMode == 'exe')
-      features = features.union(new Set([ 'class' ]));
+      features = features.union(new Set([ 'runtime' ]));
     // Add headers according to used features.
     const headers = new syntax.Headers();
     for (const feature of features) {
@@ -84,8 +84,11 @@ export default class CppFile {
         case 'optional':
           headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
           break;
-        case 'class':
+        case 'runtime':
           headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/runtime.h'));
+          break;
+        case 'class':
+          headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/object.h'));
           break;
         case 'functor':
           headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/function.h'));

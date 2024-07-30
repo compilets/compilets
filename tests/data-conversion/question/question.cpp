@@ -1,6 +1,6 @@
 #include <optional>
 
-#include "runtime/runtime.h"
+#include "runtime/object.h"
 
 class LinkNode;
 void TestQuestionTokenInClass();

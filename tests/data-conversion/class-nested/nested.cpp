@@ -1,4 +1,4 @@
-#include "runtime/runtime.h"
+#include "runtime/object.h"
 
 class Prop;
 class Owner;
