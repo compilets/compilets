@@ -9,7 +9,7 @@
 namespace compilets {
 
 // Holds the lambda function and its closure.
-template <typename Sig>
+template<typename Sig>
 class Function final : public Object {
  public:
   Function(std::function<Sig> lambda) : lambda_(std::move(lambda)) {}
@@ -23,6 +23,13 @@ class Function final : public Object {
   std::vector<cppgc::Member<Object>> closure_;
   std::function<Sig> lambda_;
 };
+
+// Helper to create the Function from lambda.
+template<typename Sig>
+inline Function* MakeFunction(std::function<Sig> lambda) {
+  return cppgc::MakeGarbageCollected<compilets::Function<Sig>>(
+      compilets::GetAllocationHandle(), std::move(lambda));
+}
 
 }  // namespace compilets
 

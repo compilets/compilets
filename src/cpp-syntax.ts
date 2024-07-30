@@ -76,6 +76,7 @@ export type TypeModifier = 'gced-class-property';
 export type TypeCategory = 'void' |
                            'primitive' |
                            'string' |
+                           'function' |
                            'functor' |
                            'raw-class' | 'stack-class' | 'gced-class';
 
@@ -91,11 +92,13 @@ export class Type {
   }
 
   print(ctx: PrintContext, modifiers?: TypeModifier[]) {
+    if (this.category == 'function')  // we should never print this
+      return `<internal-function-type><${this.name}>`;
+    if (this.category == 'functor')
+      return `compilets::Function<${this.name}>*`;
     const isGCedClassProperty = modifiers?.includes('gced-class-property');
-    if (this.category == 'functor') {
-      return `std::function<${this.name}>`;
-    } else if (this.isClass()) {
-      if (isGCedClassProperty && this.isGCedClass())
+    if (this.isClass()) {
+      if (isGCedClassProperty && this.isGCedType())
         return `cppgc::Member<${this.name}>`;
       else
         return `${this.name}*`;
@@ -118,8 +121,8 @@ export class Type {
            this.category == 'gced-class';
   }
 
-  isGCedClass() {
-    return this.category == 'gced-class';
+  isGCedType() {
+    return this.category == 'functor' || this.category == 'gced-class';
   }
 }
 
@@ -252,23 +255,29 @@ export class FunctionExpression extends Expression {
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const body = this.body?.print(ctx) ?? '{}';
-    return `[=](${parameters}) -> ${returnType} ${body}`;
+    const lambda = `[=](${parameters}) -> ${returnType} ${body}`;
+    return `compilets::MakeFunction(${lambda})`;
   }
 }
 
 export class CallExpression extends Expression {
-  expression: Expression;
+  callee: Expression;
+  calleeType: Type;
   args: Expression[];
 
-  constructor(expression: Expression, args: Expression[]) {
+  constructor(callee: Expression, calleeType: Type, args: Expression[]) {
     super();
-    this.expression = expression;
+    this.callee = callee;
+    this.calleeType = calleeType;
     this.args = args;
   }
 
   override print(ctx: PrintContext) {
+    let callee = this.callee.print(ctx);
+    if (this.calleeType.category == 'functor')
+      callee = `(*${callee})`;
     const args = this.args.map(a => a.print(ctx)).join(', ');
-    return `${this.expression.print(ctx)}(${args})`;
+    return `${callee}(${args})`;
   }
 }
 
@@ -284,7 +293,7 @@ export class NewExpression extends Expression {
 
   override print(ctx: PrintContext) {
     const args = this.args.map(a => a.print(ctx))
-    if (this.type.isGCedClass()) {
+    if (this.type.isGCedType()) {
       args.unshift('compilets::GetAllocationHandle()');
       return `cppgc::MakeGarbageCollected<${this.type.name}>(${args.join(', ')})`;
     } else {
@@ -311,13 +320,13 @@ export class PropertyAccessExpression extends Expression {
     let member = this.member;
     // Handle optional and smarter pointer types.
     if (this.hand != 'left') {
-      if (this.propertyType.isGCedClass())
+      if (this.propertyType.isGCedType())
         member += '.Get()';
       else if (this.propertyType.optional)
         member += '.value()';
     }
     // Pointer or value access.
-    const dot = this.objectType.isGCedClass() ? '->' : '.';
+    const dot = this.objectType.isGCedType() ? '->' : '.';
     return this.expression.print(ctx) + dot + member;
   }
 }
@@ -457,7 +466,7 @@ export class PropertyDeclaration extends ClassElement {
 
   override print(ctx: PrintContext) {
     const modifiers: TypeModifier[] = [];
-    if (this.parent?.type.isGCedClass())
+    if (this.parent?.type.isGCedType())
       modifiers.push('gced-class-property');
     let result = `${ctx.prefix}${this.type.print(ctx, modifiers)} ${this.name}`;
     if (this.initializer)
@@ -520,7 +529,7 @@ export class ClassDeclaration extends DeclarationStatement {
       else
         this.publicMembers.push(member);
     }
-    if (this.type.isGCedClass()) {
+    if (this.type.isGCedType()) {
       // Add Trace method if it includes cppgc::Member.
       const trace = createTraceMethod(members);
       if (trace)
@@ -535,7 +544,7 @@ export class ClassDeclaration extends DeclarationStatement {
     if (ctx.mode == 'forward')
       return `class ${this.name};`;
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
-    const inheritance = this.type.isGCedClass() ? ' : public compilets::Object' : '';
+    const inheritance = this.type.isGCedType() ? ' : public compilets::Object' : '';
     let result = `${ctx.prefix}class ${this.name}${inheritance} {\n`;
     ctx.level++;
     if (this.publicMembers.length > 0) {

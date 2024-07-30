@@ -156,6 +156,7 @@ export default class Parser {
         if (questionDotToken)
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         return new syntax.CallExpression(this.parseExpression(expression),
+                                         this.parseVariableType(expression),
                                          (node as ts.CallExpression)['arguments']?.map(this.parseExpression.bind(this)) ?? []);
       }
       case ts.SyntaxKind.NewExpression: {
@@ -385,7 +386,7 @@ export default class Parser {
   parseType(node: ts.Node, type: ts.Type) {
     // Check if it is a function.
     if (type.getCallSignatures().length > 0)
-      return this.parseSignatureType(node, type.getCallSignatures()[0]);
+      return this.parseSignatureType(node, type, type.getCallSignatures()[0]);
     // Check the type of the node.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
       return new syntax.Type(type.symbol.name, 'gced-class');
@@ -410,7 +411,7 @@ export default class Parser {
     throw new UnimplementedError(node, `Unsupported type "${name}"`);
   }
 
-  parseSignatureType(node: ts.Node, signature: ts.Signature): syntax.Type {
+  parseSignatureType(node: ts.Node, type: ts.Type, signature: ts.Signature): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
     const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
@@ -418,6 +419,21 @@ export default class Parser {
       const decl = this.parseParameterDeclaration(param.valueDeclaration as ts.ParameterDeclaration);
       return decl.print(ctx);
     });
-    return new syntax.Type(`${returnType}(${parameters.join(', ')})`, 'functor');
+    // Tell whether this is a function or functor.
+    let category: syntax.TypeCategory;
+    const {valueDeclaration} = type.symbol;
+    if (valueDeclaration) {
+      if (ts.isFunctionExpression(valueDeclaration) ||
+          ts.isArrowFunction(valueDeclaration) ||
+          ts.isVariableDeclaration(valueDeclaration)) {
+        category = 'functor';
+      } else {
+        category = 'function';
+      }
+    } else {
+      // Likely a function parameter.
+      category = 'functor';
+    }
+    return new syntax.Type(`${returnType}(${parameters.join(', ')})`, category);
   }
 }

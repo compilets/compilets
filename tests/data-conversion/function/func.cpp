@@ -1,22 +1,27 @@
 #include "runtime/function.h"
 
-double simple(double a = 1, bool b = true);
-std::function<double()> complex(std::string input, std::function<double(std::string input)> callback);
+double Simple(double i);
+compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double i)>* callback);
 void TestLocalFunction();
 
-double simple(double a = 1, bool b = true) {
-  return b ? a : 2;
+double Simple(double i) {
+  return i;
 }
 
-std::function<double()> complex(std::string input, std::function<double(std::string input)> callback) {
-  return [=]() -> double {
-    return callback(input);
-  };
+compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double i)>* callback) {
+  return compilets::MakeFunction([=]() -> double {
+    return (*callback)(input);
+  });
 }
 
 void TestLocalFunction() {
-  std::function<std::string(std::string a, std::string b)> func = [=](std::string a, std::string b) -> std::string {
-    return a + b;
-  };
-  std::function<void()> arrow = [=]() -> void {};
+  compilets::Function<double(double a)>* add = compilets::MakeFunction([=](double a) -> double {
+    return a + 1;
+  });
+  compilets::Function<void()>* arrow = compilets::MakeFunction([=]() -> void {});
+  Simple(1234);
+  (*add)(8963);
+  (*arrow)();
+  compilets::Function<double()>* passLambda = TakeCallback(1234, add);
+  compilets::Function<double()>* passFunction = TakeCallback(1234, Simple);
 }

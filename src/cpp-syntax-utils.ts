@@ -19,7 +19,7 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   const body = new Block();
   for (const member of members) {
     if (member instanceof PropertyDeclaration) {
-      if (!member.type.isGCedClass())
+      if (!member.type.isGCedType())
         continue;
       const expr = `visitor->Trace(${member.name})`;
       body.statements.push(new ExpressionStatement(new RawExpression(expr)));
