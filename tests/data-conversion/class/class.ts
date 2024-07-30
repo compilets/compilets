@@ -6,7 +6,7 @@ class EmptyConstructor {
   }
 }
 
-class Simple {
+class NonSimple {
   private prop = 'For a breath I tarry.';
 
   constructor(a: boolean, b = 123) {
@@ -19,6 +19,6 @@ class Simple {
 }
 
 function TestClass() {
-  const s = new Simple(false);
+  const s = new NonSimple(false);
   const r = s.method();
 }

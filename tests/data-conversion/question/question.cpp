@@ -19,6 +19,8 @@ class LinkNode : public compilets::Object {
   void Trace(cppgc::Visitor* visitor) const override {
     visitor->Trace(next);
   }
+
+  virtual ~LinkNode() = default;
 };
 
 void TestQuestionTokenInClass() {

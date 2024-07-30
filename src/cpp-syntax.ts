@@ -417,8 +417,26 @@ export class ConstructorDeclaration extends ClassElement {
 
   override print(ctx: PrintContext) {
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
-    const body = this.body?.print(ctx) ?? '{}';
+    const body = this.body?.print(ctx) ?? '= default;';
     return `${ctx.prefix}${this.name}(${parameters}) ${body}`;
+  }
+}
+
+export class DestructorDeclaration extends ClassElement {
+  body?: Block;
+
+  constructor(name: string, modifiers?: string[], body?: Block) {
+    super(name, modifiers);
+    this.body = body;
+  }
+
+  override print(ctx: PrintContext) {
+    let result = ctx.prefix;
+    if (this.modifiers.includes('virtual'))
+      result += 'virtual ';
+    result += `~${this.name}() `;
+    result += this.body?.print(ctx) ?? '= default;';
+    return result;
   }
 }
 
@@ -456,7 +474,10 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.prefix}${this.returnType.print(ctx)} ${this.name}(`;
+    let result = ctx.prefix;
+    if (this.modifiers.includes('virtual'))
+      result += 'virtual ';
+    result += `${this.returnType.print(ctx)} ${this.name}(`;
     result += ParameterDeclaration.printParameters(ctx, this.parameters);
     result += ') ';
     if (this.modifiers.includes('const'))
@@ -495,9 +516,13 @@ export class ClassDeclaration extends DeclarationStatement {
         this.publicMembers.push(member);
     }
     if (this.type.isGCedClass()) {
-      const trace = createTraceMethod(this);
+      // Add Trace method if it includes cppgc::Member.
+      const trace = createTraceMethod(members);
       if (trace)
         this.publicMembers.push(trace);
+      // Add a virtual destructor if the class is not trivially destrutible.
+      if (members.find(m => m instanceof PropertyDeclaration))
+        this.publicMembers.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
     }
   }
 

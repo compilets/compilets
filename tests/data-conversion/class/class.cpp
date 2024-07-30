@@ -2,7 +2,7 @@
 
 class Empty;
 class EmptyConstructor;
-class Simple;
+class NonSimple;
 void TestClass();
 
 class Empty : public compilets::Object {
@@ -13,11 +13,13 @@ class EmptyConstructor : public compilets::Object {
   EmptyConstructor() {}
 };
 
-class Simple : public compilets::Object {
+class NonSimple : public compilets::Object {
  public:
-  Simple(bool a, double b = 123) {
+  NonSimple(bool a, double b = 123) {
     double c = a ? b : 456;
   }
+
+  virtual ~NonSimple() = default;
 
  protected:
   bool method() {
@@ -29,6 +31,6 @@ class Simple : public compilets::Object {
 };
 
 void TestClass() {
-  Simple* s = cppgc::MakeGarbageCollected<Simple>(compilets::GetAllocationHandle(), false);
+  NonSimple* s = cppgc::MakeGarbageCollected<NonSimple>(compilets::GetAllocationHandle(), false);
   bool r = s->method();
 }

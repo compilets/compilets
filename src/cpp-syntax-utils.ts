@@ -2,6 +2,7 @@ import {
   Type,
   RawExpression,
   ClassDeclaration,
+  ClassElement,
   PropertyDeclaration,
   MethodDeclaration,
   ParameterDeclaration,
@@ -13,10 +14,10 @@ import {
 /**
  * Create the Trace method required by cppgc::GarbageCollected.
  */
-export function createTraceMethod(cl: ClassDeclaration): MethodDeclaration | null {
+export function createTraceMethod(members: ClassElement[]): MethodDeclaration | null {
   // Collect all the GCed members from the class.
   const body = new Block();
-  for (const member of cl.getMembers()) {
+  for (const member of members) {
     if (member instanceof PropertyDeclaration) {
       if (!member.type.isGCedClass())
         continue;

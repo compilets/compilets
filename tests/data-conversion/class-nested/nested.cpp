@@ -19,6 +19,8 @@ class Owner : public compilets::Object {
     visitor->Trace(prop2);
   }
 
+  virtual ~Owner() = default;
+
  private:
   cppgc::Member<Prop> prop1;
 
