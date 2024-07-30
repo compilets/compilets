@@ -1,4 +1,4 @@
-import {createTraceMethod} from './cpp-syntax-class';
+import {createTraceMethod} from './cpp-syntax-utils';
 
 /**
  * Possible modes for generating the project.
@@ -64,7 +64,7 @@ export class PrintContext {
 /**
  * Extra options for printing type.
  */
-type TypePrintContext = 'gced-class-property';
+export type TypeModifier = 'gced-class-property';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -77,22 +77,27 @@ export type TypeCategory = 'void' |
 export class Type {
   name: string;
   category: TypeCategory;
+  optional: boolean;
 
-  constructor(name: string, category: TypeCategory) {
+  constructor(name: string, category: TypeCategory, optional = false) {
     this.name = name;
     this.category = category;
+    this.optional = optional;
   }
 
-  print(ctx: PrintContext, typeContext?: TypePrintContext) {
-    if (this.category == 'string')
-      return 'std::string';
+  print(ctx: PrintContext, modifiers?: TypeModifier[]) {
     if (this.isClass()) {
-      if (this.isGCedClass() && typeContext == 'gced-class-property')
+      if (this.isGCedClass() && modifiers?.includes('gced-class-property'))
         return `cppgc::Member<${this.name}>`;
       else
         return `${this.name}*`;
     }
-    return this.name;
+    let valueType = this.name;
+    if (this.category == 'string')
+      valueType = 'std::string';
+    if (this.optional)
+      return `std::optional<${valueType}>`;
+    return valueType;
   }
 
   equal(other: Type) {
@@ -295,14 +300,16 @@ export class PropertyAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
+    let member = this.member;
+    // Handle optional and smarter pointer types.
+    if (this.hand != 'left') {
+      if (this.propertyType.isGCedClass())
+        member += '.Get()';
+      else if (this.propertyType.optional)
+        member += '.value()';
+    }
     // Pointer or value access.
     const dot = this.objectType.isGCedClass() ? '->' : '.';
-    // GCed class member is a smart pointer.
-    let member = this.member;
-    if (this.propertyType.isGCedClass()) {
-      if (this.hand != 'left')
-        member += '.Get()';
-    }
     return this.expression.print(ctx) + dot + member;
   }
 }
@@ -414,19 +421,19 @@ export class ConstructorDeclaration extends ClassElement {
 
 export class PropertyDeclaration extends ClassElement {
   type: Type;
-  optional: boolean;
   initializer?: Expression;
 
-  constructor(name: string, modifiers: string[], type: Type, optional: boolean, initializer?: Expression) {
+  constructor(name: string, modifiers: string[], type: Type, initializer?: Expression) {
     super(name, modifiers);
     this.type = type;
-    this.optional = optional;
     this.initializer = initializer;
   }
 
   override print(ctx: PrintContext) {
-    const typeContext = this.parent?.type.isGCedClass() ? 'gced-class-property' : undefined;
-    let result = `${ctx.prefix}${this.type.print(ctx, typeContext)} ${this.name}`;
+    const modifiers: TypeModifier[] = [];
+    if (this.parent?.type.isGCedClass())
+      modifiers.push('gced-class-property');
+    let result = `${ctx.prefix}${this.type.print(ctx, modifiers)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
@@ -512,6 +519,10 @@ export class ClassDeclaration extends DeclarationStatement {
     result += ctx.padding + '};\n';
     return result;
   }
+
+  getMembers(): ClassElement[] {
+    return [ ...this.publicMembers, ...this.protectedMembers, ...this.privateMembers ];
+  }
 }
 
 export class FunctionDeclaration extends DeclarationStatement {
@@ -532,7 +543,7 @@ export class FunctionDeclaration extends DeclarationStatement {
     if (ctx.mode == 'forward')
       return `${returnType} ${this.name}(${parameters});`;
     const body = this.body?.print(ctx) ?? '{}';
-    return `${returnType} ${this.name}(${parameters}) ${body}`;
+    return `${returnType} ${this.name}(${parameters}) ${body}\n`;
   }
 }
 
@@ -566,10 +577,10 @@ export class MainFunction extends DeclarationStatement {
 
 // Multiple statements without {}, this is used for convenient internal
 // implementations where one JS statement maps to multiple C++ ones.
-export class Paragraph extends Statement {
-  statements: Statement[];
+export class Paragraph<T extends Statement> extends Statement {
+  statements: T[];
 
-  constructor(statements?: Statement[]) {
+  constructor(statements?: T[]) {
     super();
     this.statements = statements ?? [];
   }
@@ -579,7 +590,7 @@ export class Paragraph extends Statement {
   }
 }
 
-export class Block extends Paragraph {
+export class Block extends Paragraph<Statement> {
   override print(ctx: PrintContext) {
     if (this.statements?.length > 0) {
       ctx.level++;
@@ -736,11 +747,11 @@ export class Headers extends Statement {
   override print(ctx: PrintContext) {
     let results: string[] = [];
     if (this.c.length > 0)
-      results.push(this.c.map(h => h.print(ctx)).join(''));
+      results.push(this.c.map(h => h.print(ctx)).sort().join(''));
     if (this.stl.length > 0)
-      results.push(this.stl.map(h => h.print(ctx)).join(''));
+      results.push(this.stl.map(h => h.print(ctx)).sort().join(''));
     if (this.files.length > 0)
-      results.push(this.files.map(h => h.print(ctx)).join(''));
+      results.push(this.files.map(h => h.print(ctx)).sort().join(''));
     return results.map(h => h + '\n').join('');
   }
 }

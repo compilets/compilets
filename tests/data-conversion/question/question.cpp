@@ -1,11 +1,14 @@
+#include <optional>
+
 #include "runtime/runtime.h"
 
 class LinkNode;
-void TestQuestionToken();
+void TestQuestionTokenInClass();
+void TakeNumber(double n);
 
 class LinkNode : public cppgc::GarbageCollected<LinkNode> {
  public:
-  double item;
+  std::optional<double> item;
 
   cppgc::Member<LinkNode> next;
 
@@ -18,9 +21,14 @@ class LinkNode : public cppgc::GarbageCollected<LinkNode> {
   }
 };
 
-void TestQuestionToken() {
+void TestQuestionTokenInClass() {
   LinkNode* head = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 0);
   if (!head->next.Get()) {
     head->next = cppgc::MakeGarbageCollected<LinkNode>(compilets::GetAllocationHandle(), 1);
   }
+  double n = head->item.value();
+  head->next.Get()->item = 3;
+  TakeNumber(head->item.value());
 }
+
+void TakeNumber(double n) {}

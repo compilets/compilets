@@ -1,3 +1,4 @@
+import {getSTLUsages} from './cpp-syntax-utils';
 import * as syntax from './cpp-syntax';
 
 interface PrintOptions {
@@ -9,7 +10,7 @@ interface PrintOptions {
  */
 export default class CppFile {
   isMain: boolean;
-  declarations = new syntax.Paragraph();
+  declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   body = new syntax.MainFunction();
 
   constructor(isMain = false) {
@@ -80,6 +81,9 @@ export default class CppFile {
    */
   private getHeaders(ctx: syntax.PrintContext): syntax.Headers {
     const headers = new syntax.Headers();
+    const stlUsages = getSTLUsages(this.declarations.statements);
+    if (stlUsages.useOptional)
+      headers.stl.push(new syntax.IncludeStatement('angle-bracket', 'optional'));
     if (this.needsRuntimeHeaders(ctx))
       headers.files.push(new syntax.IncludeStatement('quoted', 'runtime/runtime.h'));
     return headers;

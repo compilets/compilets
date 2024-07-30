@@ -335,22 +335,21 @@ export default class Parser {
       }
       case ts.SyntaxKind.PropertyDeclaration: {
         // prop: type = xxx;
-        const {modifiers, name, initializer, questionToken} = node as ts.PropertyDeclaration;
+        const {modifiers, name, initializer} = node as ts.PropertyDeclaration;
         if (name.kind != ts.SyntaxKind.Identifier)
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
                                               this.parseVariableType(name),
-                                              questionToken !== undefined,
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
       case ts.SyntaxKind.MethodDeclaration: {
         // method() { xxx }
         const {modifiers, name, body, parameters, questionToken, typeParameters} = node as ts.MethodDeclaration;
         if (name.kind != ts.SyntaxKind.Identifier)
-          throw new UnimplementedError(name, 'Only identifier can be used as method name');
+          throw new UnsupportedError(name, 'Only identifier can be used as method name');
         if (questionToken)
-          throw new UnimplementedError(name, 'Question token in method is not supported');
+          throw new UnsupportedError(name, 'Can not use question token in method');
         if (typeParameters)
           throw new UnimplementedError(name, 'Generic method is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
@@ -382,19 +381,25 @@ export default class Parser {
     // Check if it is a function.
     if (type.getCallSignatures().length > 0)
       return this.parseSignatureType(node, type.getCallSignatures()[0]);
-    // Check class.
+    // Check the type of the node.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
       return new syntax.Type(type.symbol.name, 'gced-class');
+    // Check the symbol of the node.
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    // Does it have question token in the type?
+    let isOptional = false;
+    if (symbol?.valueDeclaration && ts.isPropertyDeclaration(symbol?.valueDeclaration))
+      isOptional = (symbol?.valueDeclaration as ts.PropertyDeclaration).questionToken !== undefined;
     // Check builtin types.
     const name = this.typeChecker.typeToString(type);
     if (name == 'void')
       return new syntax.Type('void', 'void');
     if (name == 'boolean')
-      return new syntax.Type('bool', 'primitive');
+      return new syntax.Type('bool', 'primitive', isOptional);
     if (name == 'number')
-      return new syntax.Type('double', 'primitive');
+      return new syntax.Type('double', 'primitive', isOptional);
     if (name == 'string')
-      return new syntax.Type('string', 'string');
+      return new syntax.Type('string', 'string', isOptional);
     throw new UnimplementedError(node, `Unsupported type "${name}"`);
   }
 
