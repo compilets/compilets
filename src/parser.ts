@@ -411,6 +411,6 @@ export default class Parser {
       const decl = this.parseParameterDeclaration(param.valueDeclaration as ts.ParameterDeclaration);
       return decl.print(ctx);
     });
-    return new syntax.Type(`std::function<${returnType}(${parameters.join(', ')})>`, 'functor');
+    return new syntax.Type(`${returnType}(${parameters.join(', ')})`, 'functor');
   }
 }

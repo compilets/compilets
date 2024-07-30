@@ -13,7 +13,7 @@ import {
 /**
  * Create the Trace method required by cppgc::GarbageCollected.
  */
-export function createTraceMethod(cl: ClassDeclaration) {
+export function createTraceMethod(cl: ClassDeclaration): MethodDeclaration | null {
   // Collect all the GCed members from the class.
   const body = new Block();
   for (const member of cl.getMembers()) {
@@ -24,10 +24,12 @@ export function createTraceMethod(cl: ClassDeclaration) {
       body.statements.push(new ExpressionStatement(new RawExpression(expr)));
     }
   }
+  if (body.statements.length == 0)
+    return null;
   // Create the visitor parameter.
   const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor', 'raw-class'));
   // Create the method.
-  return new MethodDeclaration('Trace', [ 'public', 'const' ], new Type('void', 'void'), [ visitor ], body);
+  return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
 }
 
 /**

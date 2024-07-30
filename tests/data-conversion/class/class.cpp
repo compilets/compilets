@@ -5,25 +5,19 @@ class EmptyConstructor;
 class Simple;
 void TestClass();
 
-class Empty : public cppgc::GarbageCollected<Empty> {
- public:
-  void Trace(cppgc::Visitor* visitor) const {}
+class Empty : public compilets::Object {
 };
 
-class EmptyConstructor : public cppgc::GarbageCollected<EmptyConstructor> {
+class EmptyConstructor : public compilets::Object {
  public:
   EmptyConstructor() {}
-
-  void Trace(cppgc::Visitor* visitor) const {}
 };
 
-class Simple : public cppgc::GarbageCollected<Simple> {
+class Simple : public compilets::Object {
  public:
   Simple(bool a, double b = 123) {
     double c = a ? b : 456;
   }
-
-  void Trace(cppgc::Visitor* visitor) const {}
 
  protected:
   bool method() {

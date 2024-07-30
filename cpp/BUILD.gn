@@ -6,6 +6,7 @@ source_set("runtime") {
   public_configs = [ ":runtime_config" ]
   public_deps = [ "cppgc" ]
   sources = [
+    "runtime/object.h",
     "runtime/runtime.cc",
     "runtime/runtime.h",
     "runtime/exe/state_exe.cc",

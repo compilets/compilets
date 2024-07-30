@@ -86,8 +86,11 @@ export class Type {
   }
 
   print(ctx: PrintContext, modifiers?: TypeModifier[]) {
-    if (this.isClass()) {
-      if (this.isGCedClass() && modifiers?.includes('gced-class-property'))
+    const isGCedClassProperty = modifiers?.includes('gced-class-property');
+    if (this.category == 'functor') {
+      return `std::function<${this.name}>`;
+    } else if (this.isClass()) {
+      if (isGCedClassProperty && this.isGCedClass())
         return `cppgc::Member<${this.name}>`;
       else
         return `${this.name}*`;
@@ -458,6 +461,8 @@ export class MethodDeclaration extends ClassElement {
     result += ') ';
     if (this.modifiers.includes('const'))
       result += 'const ';
+    if (this.modifiers.includes('override'))
+      result += 'override ';
     result += this.body?.print(ctx) ?? '{}';
     return result;
   }
@@ -490,7 +495,9 @@ export class ClassDeclaration extends DeclarationStatement {
         this.publicMembers.push(member);
     }
     if (this.type.isGCedClass()) {
-      this.publicMembers.push(createTraceMethod(this));
+      const trace = createTraceMethod(this);
+      if (trace)
+        this.publicMembers.push(trace);
     }
   }
 
@@ -498,7 +505,7 @@ export class ClassDeclaration extends DeclarationStatement {
     if (ctx.mode == 'forward')
       return `class ${this.name};`;
     const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
-    const inheritance = this.type.isGCedClass() ? ` : public cppgc::GarbageCollected<${this.name}>` : '';
+    const inheritance = this.type.isGCedClass() ? ' : public compilets::Object' : '';
     let result = `${ctx.prefix}class ${this.name}${inheritance} {\n`;
     ctx.level++;
     if (this.publicMembers.length > 0) {

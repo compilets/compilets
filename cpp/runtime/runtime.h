@@ -2,10 +2,8 @@
 #define CPP_RUNTIME_RUNTIME_H_
 
 #include "cppgc/allocation.h"
-#include "cppgc/garbage-collected.h"
-#include "cppgc/member.h"
-#include "cppgc/visitor.h"
 #include "runtime/exe/state_exe.h"
+#include "runtime/object.h"
 
 namespace compilets {
 

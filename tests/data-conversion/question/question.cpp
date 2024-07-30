@@ -6,7 +6,7 @@ class LinkNode;
 void TestQuestionTokenInClass();
 void TakeNumber(double n);
 
-class LinkNode : public cppgc::GarbageCollected<LinkNode> {
+class LinkNode : public compilets::Object {
  public:
   std::optional<double> item;
 
@@ -16,7 +16,7 @@ class LinkNode : public cppgc::GarbageCollected<LinkNode> {
     this->item = item;
   }
 
-  void Trace(cppgc::Visitor* visitor) const {
+  void Trace(cppgc::Visitor* visitor) const override {
     visitor->Trace(next);
   }
 };

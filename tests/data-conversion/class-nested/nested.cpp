@@ -4,19 +4,17 @@ class Prop;
 class Owner;
 void TestNested();
 
-class Prop : public cppgc::GarbageCollected<Prop> {
- public:
-  void Trace(cppgc::Visitor* visitor) const {}
+class Prop : public compilets::Object {
 };
 
-class Owner : public cppgc::GarbageCollected<Owner> {
+class Owner : public compilets::Object {
  public:
   Owner(Prop* prop) {
     this->prop1 = prop;
     this->prop2 = prop;
   }
 
-  void Trace(cppgc::Visitor* visitor) const {
+  void Trace(cppgc::Visitor* visitor) const override {
     visitor->Trace(prop1);
     visitor->Trace(prop2);
   }
