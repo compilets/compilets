@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawn, execSync, SpawnOptions} from 'node:child_process';
 import {unzip} from '@compilets/unzip-url';
+import * as ts from 'typescript';
 
 import CppFile from './cpp-file';
 import * as syntax from './cpp-syntax';
@@ -24,11 +25,49 @@ interface GnBuildOptions {
  * Represent a C++ project that can be compiled to executable.
  */
 export default class CppProject {
+  rootDir: string;
   name: string;
+  mainFileName: string;
+  fileNames: string[] = [];
+  compilerOptions: ts.CompilerOptions;
+
   files = new Map<string, CppFile>();
 
-  constructor(name: string) {
-    this.name = name;
+  constructor(rootDir: string) {
+    this.rootDir = rootDir;
+    // Read project name from package.json, and use dir name as fallback.
+    let projectName: string | undefined;
+    let mainFileName: string | undefined;
+    try {
+      const {name, main} = fs.readJsonSync(`${rootDir}/package.json`);
+      projectName = name;
+      if (main)
+        mainFileName = `${rootDir}/${main.replace(/\.[^.]+$/, '.ts')}`;
+    } catch {}
+    this.name = projectName ?? path.basename(rootDir);
+    // File config file and read it.
+    const configFileName = `${rootDir}/tsconfig.json`;
+    if (fs.existsSync(configFileName)) {
+      // Get the TypeScript files from config.
+      const config = ts.readJsonConfigFile(configFileName, (p) => fs.readFileSync(p).toString());
+      const parsed = ts.parseJsonSourceFileConfigFileContent(config, ts.sys, rootDir);
+      this.fileNames = parsed.fileNames;
+      this.compilerOptions = parsed.options;
+    } else {
+      // Get the TypeScript files from the rootDir.
+      this.fileNames = fs.readdirSync(rootDir).filter(f => f.endsWith('.ts'))
+                                              .map(p => `${rootDir}/${p}`);
+      this.compilerOptions = {
+        rootDir,
+        noImplicitAny: true,
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.CommonJS,
+      };
+    }
+    // Determine the main file name.
+    if (this.fileNames.length == 0)
+      throw new Error(`Directory "${rootDir}" contains no TypeScript file`);
+    this.mainFileName = mainFileName ?? this.fileNames[0];
   }
 
   addFile(name: string, file: CppFile) {

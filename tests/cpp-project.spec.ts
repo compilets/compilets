@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {describe, it} from 'node:test';
 import {tempDirSync} from '@compilets/using-temp-dir';
 
-import {compileDirectory} from '../src/index.ts';
+import {generateCppProject} from '../src/index.ts';
 
 // Do not include cwd in ccache hash, as tests are built in temp dirs.
 process.env.CCACHE_NOHASHDIR = 'true';
@@ -13,13 +13,10 @@ process.env.CCACHE_COMPILERCHECK = 'none';
 
 describe('CppProject', () => {
   it('simple-generation', async () => {
-    const project = compileDirectory(`${__dirname}/data-cpp-project/noop`);
     using target = tempDirSync(`${__dirname}/build-`);
-    await project.writeTo(target.path, {generationMode: 'exe'});
+    const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path);
     assert.deepStrictEqual(fs.readdirSync(target.path),
-                           [ '.gn', 'BUILD.gn', 'cpp', 'noop.cpp' ]);
-    await project.gnGen(target.path, {config: 'Debug'});
-    assert.ok(fs.statSync(`${target.path}/out`).isDirectory());
+                           [ '.gn', 'BUILD.gn', 'cpp', 'noop.cpp', 'out' ]);
     await project.ninjaBuild(target.path, {config: 'Debug'});
     let exe = `${target.path}/out/Debug/noop`;
     if (process.platform == 'win32')
@@ -37,11 +34,9 @@ describe('CppProject', () => {
   });
 });
 
-async function runDir(dir) {
-  const project = compileDirectory(dir);
+async function runDir(root) {
   using target = tempDirSync(`${__dirname}/build-`);
-  await project.writeTo(target.path, {generationMode: 'exe'});
-  await project.gnGen(target.path, {config: 'Debug'});
+  const project = await generateCppProject(root, target.path);
   await project.ninjaBuild(target.path, {config: 'Debug'});
   let exe = `${target.path}/out/Debug/${project.name}`;
   if (process.platform == 'win32')

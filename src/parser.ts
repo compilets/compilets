@@ -17,30 +17,28 @@ import {
  * Convert TypeScript AST to C++ source code.
  */
 export default class Parser {
-  rootDir: string;
-  mainFileName: string;
+  project: CppProject;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
 
   features?: Set<syntax.Feature>;
 
-  constructor(rootDir: string, mainFileName: string, program: ts.Program) {
-    this.rootDir = rootDir;
-    this.mainFileName = mainFileName;
-    this.program = program;
-    this.typeChecker = program.getTypeChecker();
+  constructor(project: CppProject) {
+    if (project.files.size > 0)
+      throw new Error('The project has already been parsed');
+    this.project = project;
+    this.program = ts.createProgram(project.fileNames, project.compilerOptions);
+    this.typeChecker = this.program.getTypeChecker();
   }
 
-  parse(): CppProject {
-    const project = new CppProject(path.basename(this.rootDir));
+  parse() {
     for (const fileName of this.program.getRootFileNames()) {
-      const name = path.relative(this.rootDir, fileName)
+      const name = path.relative(this.project.rootDir, fileName)
                        .replace(/.ts$/, '.cpp');
-      const isMain = fileName == this.mainFileName;
+      const isMain = fileName == this.project.mainFileName;
       const sourceFile = this.program.getSourceFile(fileName)!;
-      project.addFile(name, this.parseSourceFile(isMain, sourceFile));
+      this.project.addFile(name, this.parseSourceFile(isMain, sourceFile));
     }
-    return project;
   }
 
   parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {

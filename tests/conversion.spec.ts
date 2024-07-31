@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {compileDirectory} from '../src/index.ts';
+import CppProject from '../src/cpp-project.ts';
+import Parser from '../src/parser.ts';
 
 describe('Conversion', () => {
   // Every subdir under data-conversion/ is a subtest.
@@ -12,12 +13,16 @@ describe('Conversion', () => {
   }
 });
 
-function testDir(dir) {
+function testDir(root) {
+  // Parse the TypeScript files.
+  const project = new CppProject(root);
+  const parser = new Parser(project);
+  parser.parse();
   // Compare the compiled results with the .h/.cpp files in dir.
-  const entries = Array.from(compileDirectory(dir).files.entries());
+  const entries = Array.from(project.files.entries());
   const result = entries.map(([n, f]) => [n, f.print({mode: 'lib'})]);
-  const expected = fs.readdirSync(dir)
+  const expected = fs.readdirSync(root)
                      .filter(f => f.endsWith('.h') || f.endsWith('.cpp'))
-                     .map(f => [ f, fs.readFileSync(`${dir}/${f}`).toString() ]);
+                     .map(f => [ f, fs.readFileSync(`${root}/${f}`).toString() ]);
   assert.deepStrictEqual(result, expected);
 }

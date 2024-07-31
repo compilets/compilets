@@ -4,6 +4,9 @@
   "description": "Compile TypeScript to C++ Executables",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "compilets": "dist/cli.js"
+  },
   "scripts": {
     "prepack": "tsc",
     "pretest": "tsc --noEmit",
@@ -26,6 +29,7 @@
   },
   "dependencies": {
     "@compilets/unzip-url": "1.0.3",
+    "clipanion": "4.0.0-rc.3",
     "fs-extra": "11.2.0",
     "typescript": "5.5.4"
   }
