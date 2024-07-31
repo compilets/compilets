@@ -32,7 +32,7 @@ class SaveCallback : public compilets::Object {
 };
 
 void TestLocalFunction() {
-  compilets::Function<double(double)>* add = compilets::MakeFunction<double(double)>([=](double) -> double {
+  compilets::Function<double(double)>* add = compilets::MakeFunction<double(double)>([=](double a) -> double {
     return a + 1;
   });
   compilets::Function<void()>* arrow = compilets::MakeFunction<void()>([=]() -> void {});

@@ -259,10 +259,11 @@ export class FunctionExpression extends Expression {
 
   override print(ctx: PrintContext) {
     const returnType = this.returnType.print(ctx);
-    const parameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
+    const fullParameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
     const body = this.body?.print(ctx) ?? '{}';
-    const lambda = `[=](${parameters}) -> ${returnType} ${body}`;
-    return `compilets::MakeFunction<${returnType}(${parameters})>(${[ lambda, ...this.closure ].join(', ')})`;
+    const lambda = `[=](${fullParameters}) -> ${returnType} ${body}`;
+    return `compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`;
   }
 }
 
