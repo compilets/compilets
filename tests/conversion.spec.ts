@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import CppProject from '../src/cpp-project.ts';
-import Parser from '../src/parser.ts';
+import {CppProject, Parser} from '../src/index.ts';
 
 describe('Conversion', () => {
   // Every subdir under data-conversion/ is a subtest.
