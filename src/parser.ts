@@ -10,6 +10,7 @@ import {
   UnsupportedError,
   operatorToString,
   modifierToString,
+  getFunctionClosure,
 } from './parser-utils';
 
 /**
@@ -121,7 +122,8 @@ export default class Parser {
       case ts.SyntaxKind.ArrowFunction:
       case ts.SyntaxKind.FunctionExpression: {
         // function() { xxx }
-        const {body, parameters, modifiers, asteriskToken, exclamationToken, questionToken, typeParameters} = node as ts.FunctionExpression;
+        const funcNode = node as ts.ArrowFunction | ts.FunctionExpression;
+        const {body, parameters, modifiers, asteriskToken, exclamationToken, questionToken, typeParameters} = funcNode;
         if (asteriskToken)
           throw new UnimplementedError(node, 'Generator is not supported');
         if (questionToken)
@@ -132,6 +134,7 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic function is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
+        this.features!.add('functor');
         let cppBody: undefined | syntax.Block;
         if (body) {
           if (ts.isBlock(body)) {
@@ -143,9 +146,11 @@ export default class Parser {
             ]);
           }
         }
-        this.features!.add('functor');
+        const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).isGCedType())
+                                                                      .map(n => n.getText());
         return new syntax.FunctionExpression(this.parseFunctionReturnType(node),
                                              parameters.map(this.parseParameterDeclaration.bind(this)),
+                                             closure,
                                              cppBody);
       }
       case ts.SyntaxKind.CallExpression: {
@@ -441,10 +446,9 @@ export default class Parser {
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
     const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
-    const parameters = signature.parameters.map((param) => {
-      const decl = this.parseParameterDeclaration(param.valueDeclaration as ts.ParameterDeclaration);
-      return decl.print(ctx);
-    });
+    const parameters = signature.parameters.map(p => this.parseParameterDeclaration(p.valueDeclaration as ts.ParameterDeclaration))
+                                           .map(p => p.type.print(ctx))
+                                           .join(', ')
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
     const {valueDeclaration} = type.symbol;
@@ -460,6 +464,6 @@ export default class Parser {
       // Likely a function parameter.
       category = 'functor';
     }
-    return new syntax.Type(`${returnType}(${parameters.join(', ')})`, category);
+    return new syntax.Type(`${returnType}(${parameters})`, category);
   }
 }

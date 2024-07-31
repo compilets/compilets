@@ -92,8 +92,8 @@ export class Type {
   }
 
   print(ctx: PrintContext, modifiers?: TypeModifier[]) {
-    if (this.category == 'function')  // we should never print this
-      return `<internal-function-type><${this.name}>`;
+    if (this.category == 'function')
+      throw new Error('Raw function type should never be printed out');
     const isGCedClassProperty = modifiers?.includes('gced-class-property');
     if (this.category == 'functor') {
       if (isGCedClassProperty)
@@ -246,21 +246,23 @@ export class ConditionalExpression extends Expression {
 export class FunctionExpression extends Expression {
   returnType: Type;
   parameters: ParameterDeclaration[];
+  closure: string[];
   body?: Block;
 
-  constructor(returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+  constructor(returnType: Type, parameters: ParameterDeclaration[], closure: string[] = [], body?: Block) {
     super();
     this.returnType = returnType;
     this.parameters = parameters;
+    this.closure = closure;
     this.body = body;
   }
 
   override print(ctx: PrintContext) {
     const returnType = this.returnType.print(ctx);
-    const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const parameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
     const body = this.body?.print(ctx) ?? '{}';
     const lambda = `[=](${parameters}) -> ${returnType} ${body}`;
-    return `compilets::MakeFunction(${lambda})`;
+    return `compilets::MakeFunction<${returnType}(${parameters})>(${[ lambda, ...this.closure ].join(', ')})`;
   }
 }
 
@@ -281,14 +283,16 @@ export class CallArguments extends Expression {
 // Helper that converts function to functor.
 export class ToFunctorExpression extends Expression {
   expression: Expression;
+  targetType: Type;
 
-  constructor(expression: Expression) {
+  constructor(expression: Expression, targetType: Type) {
     super();
     this.expression = expression;
+    this.targetType = targetType;
   }
 
   override print(ctx: PrintContext) {
-    return `compilets::MakeFunction(${this.expression.print(ctx)})`;
+    return `compilets::MakeFunction<${this.targetType.name}>(${this.expression.print(ctx)})`;
   }
 }
 

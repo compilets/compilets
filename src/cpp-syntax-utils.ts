@@ -43,7 +43,7 @@ export function convertArgs(args: Expression[], sourceTypes: Type[], targetTypes
     }
     if (sourceTypes[i].category == 'function' &&
         targetTypes[i].category == 'functor') {
-      args[i] = new ToFunctorExpression(args[i]);
+      args[i] = new ToFunctorExpression(args[i], targetTypes[i]);
       continue;
     }
     throw new Error(`Unable to convert arg from ${sourceTypes[i].category} to ${targetTypes[i].category}`);

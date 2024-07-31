@@ -2,7 +2,7 @@
 #include "runtime/object.h"
 
 double Simple(double i);
-compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double i)>* callback);
+compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback);
 class SaveCallback;
 void TestLocalFunction();
 
@@ -10,17 +10,17 @@ double Simple(double i) {
   return i;
 }
 
-compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double i)>* callback) {
-  return compilets::MakeFunction([=]() -> double {
+compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback) {
+  return compilets::MakeFunction<double()>([=]() -> double {
     return callback->value()(input);
-  });
+  }, callback);
 }
 
 class SaveCallback : public compilets::Object {
  public:
-  cppgc::Member<compilets::Function<double(double i)>> callback;
+  cppgc::Member<compilets::Function<double(double)>> callback;
 
-  SaveCallback(compilets::Function<double(double i)>* callback) {
+  SaveCallback(compilets::Function<double(double)>* callback) {
     this->callback = callback;
   }
 
@@ -32,16 +32,16 @@ class SaveCallback : public compilets::Object {
 };
 
 void TestLocalFunction() {
-  compilets::Function<double(double a)>* add = compilets::MakeFunction([=](double a) -> double {
+  compilets::Function<double(double)>* add = compilets::MakeFunction<double(double)>([=](double) -> double {
     return a + 1;
   });
-  compilets::Function<void()>* arrow = compilets::MakeFunction([=]() -> void {});
+  compilets::Function<void()>* arrow = compilets::MakeFunction<void()>([=]() -> void {});
   Simple(1234);
   add->value()(8963);
   arrow->value()();
   compilets::Function<double()>* passLambda = TakeCallback(1234, add);
-  compilets::Function<double()>* passFunction = TakeCallback(1234, compilets::MakeFunction(Simple));
+  compilets::Function<double()>* passFunction = TakeCallback(1234, compilets::MakeFunction<double(double)>(Simple));
   SaveCallback* saveLambda = compilets::MakeObject<SaveCallback>(add);
-  SaveCallback* saveFunction = compilets::MakeObject<SaveCallback>(compilets::MakeFunction(Simple));
+  SaveCallback* saveFunction = compilets::MakeObject<SaveCallback>(compilets::MakeFunction<double(double)>(Simple));
   saveLambda->callback.Get()->value()(0x8964);
 }

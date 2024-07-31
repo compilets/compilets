@@ -12,7 +12,9 @@ namespace compilets {
 template<typename Sig>
 class Function final : public Object {
  public:
-  Function(std::function<Sig> lambda) : lambda_(std::move(lambda)) {}
+  Function(std::function<Sig> lambda,
+           std::vector<cppgc::Member<Object>> closure)
+    : closure_(std::move(closure)), lambda_(std::move(lambda)) {}
 
   virtual void Trace(cppgc::Visitor* visitor) const {
     for (const auto& object : closure_)
@@ -27,10 +29,14 @@ class Function final : public Object {
 };
 
 // Helper to create the Function from lambda.
-template<typename Sig>
-inline Function* MakeFunction(std::function<Sig> lambda) {
-  return cppgc::MakeGarbageCollected<compilets::Function<Sig>>(
-      compilets::GetAllocationHandle(), std::move(lambda));
+template<typename Sig, typename... Closure>
+inline Function<Sig>* MakeFunction(std::function<Sig> lambda,
+                                   Closure*... closure) {
+  auto* func = cppgc::MakeGarbageCollected<Function<Sig>>(
+      GetAllocationHandle(),
+      std::move(lambda),
+      std::vector<cppgc::Member<Object>>({closure...}));
+  return func;
 }
 
 }  // namespace compilets
