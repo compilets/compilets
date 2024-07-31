@@ -3,14 +3,17 @@ import os from 'node:os';
 import {spawn, execSync, SpawnOptions} from 'node:child_process';
 import {unzip} from '@compilets/unzip-url';
 
-interface GnGenOptions {
+interface CommonGnOptions {
   config: 'Release' | 'Debug';
+  stream?: boolean;
+}
+
+interface GnGenOptions extends CommonGnOptions {
   ccWrapper?: string;
 }
 
-interface NinjaBuildOptions {
-  target: string;
-  config: 'Release' | 'Debug';
+interface NinjaBuildOptions extends CommonGnOptions {
+  target?: string;
 }
 
 /**
@@ -31,7 +34,9 @@ export async function gnGen(targetDir: string, options: GnGenOptions) {
   else if (hasCcache())
     args.push('cc_wrapper="ccache"');
   const outDir = 'out/' + options.config ?? 'Release';
-  await spawnAsync(gn, [ 'gen', outDir, `--args=${args.join(' ')}` ], {cwd: targetDir});
+  await spawnAsync(gn,
+                   [ 'gen', outDir, `--args=${args.join(' ')}` ],
+                   {cwd: targetDir, stdio: options.stream ? 'inherit' : 'pipe'});
 }
 
 /**
@@ -43,7 +48,9 @@ export async function ninjaBuild(targetDir: string, options: NinjaBuildOptions) 
   if (process.platform == 'win32')
     ninja += '.exe';
   const outDir = 'out/' + options.config ?? 'Release';
-  await spawnAsync(ninja, [ '-C', outDir, options.target ], {cwd: targetDir});
+  await spawnAsync(ninja,
+                   [ '-C', outDir, options.target ?? 'default' ],
+                   {cwd: targetDir, stdio: options.stream ? 'inherit' : 'pipe'});
 }
 
 /**

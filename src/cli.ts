@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import {Builtins, Cli, Command, Option} from 'clipanion';
-import {generateCppProject} from './index';
+import {generateCppProject, ninjaBuild} from './index';
 import packageJson from '../package.json';
 
 export class GenCommand extends Command {
@@ -30,7 +30,7 @@ export class GenCommand extends Command {
   async execute() {
     const root = this.root ?? process.cwd();
     const target = this.target ?? `${process.cwd()}/cpp-project`;
-    await generateCppProject(root, target);
+    await generateCppProject(root, target, {stream: true});
   }
 }
 
@@ -53,6 +53,8 @@ export class BuildCommand extends Command {
   target = Option.String('--target', {description: 'The path of C++ project, default is $CWD/cpp-project'});
 
   async execute() {
+    const target = this.target ?? `${process.cwd()}/cpp-project`;
+    await ninjaBuild(target, {config: 'Debug', stream: true});
   }
 }
 

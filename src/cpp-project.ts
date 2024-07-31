@@ -89,7 +89,11 @@ export default class CppProject {
   private async writeGnFiles(target: string) {
     const sources = Array.from(this.files.keys()).map(k => `    "${k}",`).join('\n');
     const buildgn =
-`executable("${this.name}") {
+`group("default") {
+  deps = [ ":${this.name}" ]
+}
+
+executable("${this.name}") {
   deps = [ "cpp:runtime" ]
   include_dirs = [ "." ]
   sources = [
