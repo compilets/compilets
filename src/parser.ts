@@ -367,8 +367,12 @@ export default class Parser {
           throw new UnimplementedError(name, 'Generic method is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
+        const cppModifiers = modifiers?.map(modifierToString) ?? [];
+        const hint = this.parseHint(node);
+        if (hint && hint.startsWith('// compilets: '))
+          cppModifiers.push(...hint.substring(14).split(','));
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
-                                            modifiers?.map(modifierToString) ?? [],
+                                            cppModifiers,
                                             this.parseFunctionReturnType(node),
                                             parameters.map(this.parseParameterDeclaration.bind(this)),
                                             body ? this.parseStatement(body) as syntax.Block : undefined);
@@ -390,6 +394,16 @@ export default class Parser {
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
                                     sourceTypes,
                                     targetTypes);
+  }
+
+  parseHint(node: ts.Node): string | undefined {
+    const fullText = node.getFullText();
+    const ranges = ts.getLeadingCommentRanges(fullText, 0);
+    if (ranges && ranges.length > 0) {
+      const range = ranges[ranges.length - 1];
+      return fullText.substring(range.pos, range.end);
+    }
+    return undefined;
   }
 
   parseNodeType(node: ts.Node) {

@@ -551,6 +551,7 @@ export class ClassDeclaration extends DeclarationStatement {
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
+  destructor?: ClassElement;
 
   constructor(type: Type, members: ClassElement[]) {
     super(type.name);
@@ -571,6 +572,8 @@ export class ClassDeclaration extends DeclarationStatement {
       // Add a virtual destructor if the class is not trivially destrutible.
       if (members.find(m => m instanceof PropertyDeclaration))
         this.publicMembers.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
+      // Add pre finalizer if a method is marked as destructor.
+      this.destructor = members.find(m => m instanceof MethodDeclaration && m.modifiers.includes('destructor'));
     }
   }
 
@@ -581,6 +584,9 @@ export class ClassDeclaration extends DeclarationStatement {
     const inheritance = this.type.isGCedType() ? ' : public compilets::Object' : '';
     let result = `${ctx.prefix}class ${this.name}${inheritance} {\n`;
     ctx.level++;
+    if (this.destructor) {
+      result += `${ctx.padding}CPPGC_USING_PRE_FINALIZER(${this.name}, ${this.destructor.name});\n`;
+    }
     if (this.publicMembers.length > 0) {
       result += `${halfPadding}public:\n`;
       result += this.publicMembers.map(m => m.print(ctx) + '\n\n').join('');

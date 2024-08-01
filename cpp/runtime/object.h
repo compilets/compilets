@@ -3,6 +3,7 @@
 
 #include "cppgc/garbage-collected.h"
 #include "cppgc/member.h"
+#include "cppgc/prefinalizer.h"
 #include "cppgc/visitor.h"
 #include "runtime/runtime.h"
 
