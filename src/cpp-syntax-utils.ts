@@ -1,8 +1,9 @@
 import {
+  PrintContext,
   Type,
   Expression,
   RawExpression,
-  ToFunctorExpression,
+  CustomExpression,
   ClassElement,
   PropertyDeclaration,
   MethodDeclaration,
@@ -36,21 +37,35 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
 }
 
 /**
+ * Convert the expression of source type to target type if necessary.
+ */
+export function castExpression(expr: Expression, source: Type, target: Type): Expression {
+  if (source.category == target.category)
+    return expr;
+  if (target.category == 'union') {
+    // Number literal in C++ is not necessarily double.
+    if (source.name == 'double' && source.category == 'primitive') {
+      return new CustomExpression(target, (ctx) => {
+        return `static_cast<double>(${expr.print(ctx)})`;
+      });
+    }
+    // Union accepts assignment without explicit conversion.
+    return expr;
+  }
+  if (source.category == 'function' && target.category == 'functor') {
+    // Convert function pointer to functor object.
+    return new CustomExpression(target, (ctx) => {
+      return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
+    });
+  }
+  throw new Error(`Unable to convert arg from ${source.category} to ${target.category}`);
+}
+
+/**
  * Compare the sourceTypes and targetTypes, and do conversation when required.
  */
-export function convertArgs(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
-  for (let i = 0; i < args.length; ++i) {
-    const source = sourceTypes[i];
-    const target = targetTypes[i];
-    if (source.category == target.category)
-      continue;
-    if (target.category == 'union')
-      continue;
-    if (source.category == 'function' && target.category == 'functor') {
-      args[i] = new ToFunctorExpression(target, args[i]);
-      continue;
-    }
-    throw new Error(`Unable to convert arg from ${sourceTypes[i].category} to ${targetTypes[i].category}`);
-  }
+export function castArguments(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
+  for (let i = 0; i < args.length; ++i)
+    args[i] = castExpression(args[i], sourceTypes[i], targetTypes[i]);
   return args;
 }

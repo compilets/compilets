@@ -1,4 +1,8 @@
-import {createTraceMethod, convertArgs} from './cpp-syntax-utils';
+import {
+  createTraceMethod,
+  castExpression,
+  castArguments,
+} from './cpp-syntax-utils';
 
 /**
  * Possible modes for generating the project.
@@ -319,25 +323,11 @@ export class CallArguments {
   args: Expression[];
 
   constructor(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
-    this.args = convertArgs(args, sourceTypes, targetTypes);
+    this.args = castArguments(args, sourceTypes, targetTypes);
   }
 
   print(ctx: PrintContext) {
     return this.args.map(a => a.print(ctx)).join(', ');
-  }
-}
-
-// Helper that converts function to functor.
-export class ToFunctorExpression extends Expression {
-  expression: Expression;
-
-  constructor(type: Type, expression: Expression) {
-    super(type);
-    this.expression = expression;
-  }
-
-  override print(ctx: PrintContext) {
-    return this.wrap(`compilets::MakeFunction<${this.type.name}>(${this.expression.print(ctx)})`);
   }
 }
 
@@ -396,6 +386,22 @@ export class PropertyAccessExpression extends Expression {
   }
 }
 
+/**
+ * Custom expression that accepts custom print function.
+ */
+export class CustomExpression extends Expression {
+  customPrint: (ctx: PrintContext) => string;
+
+  constructor(type: Type, customPrint: (ctx: PrintContext) => string) {
+    super(type);
+    this.customPrint = customPrint;
+  }
+
+  override print(ctx: PrintContext) {
+    return this.wrap(this.customPrint(ctx));
+  }
+}
+
 export abstract class Declaration {
   abstract print(ctx: PrintContext): string;
 }
@@ -405,11 +411,12 @@ export class VariableDeclaration extends Declaration {
   type: Type;
   initializer?: Expression;
 
-  constructor(identifier: string, type: Type, initializer?: Expression) {
+  constructor(identifier: string, type: Type, initializer?: Expression, initializerType?: Type) {
     super();
     this.identifier = identifier;
     this.type = type;
-    this.initializer = initializer;
+    if (initializer && initializerType)
+      this.initializer = castExpression(initializer, initializerType, type);
   }
 
   override print(ctx: PrintContext) {

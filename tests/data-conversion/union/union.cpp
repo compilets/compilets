@@ -7,9 +7,9 @@ void TestUnion();
 void TakeOptionalUnion(std::variant<double, bool, std::monostate> a) {}
 
 void TestUnion() {
-  std::variant<double, bool> a = 999;
+  std::variant<double, bool> a = static_cast<double>(999);
   a = true;
   TakeOptionalUnion(a);
-  TakeOptionalUnion(888);
+  TakeOptionalUnion(static_cast<double>(888));
   TakeOptionalUnion(true);
 }

@@ -289,8 +289,10 @@ export default class Parser {
         const type = this.parseNodeType(node.name);
         if (node.initializer) {
           // let a = 123;
-          const init = this.parseExpression(node.initializer);
-          return new syntax.VariableDeclaration(name, type, init);
+          return new syntax.VariableDeclaration(name,
+                                                type,
+                                                this.parseExpression(node.initializer),
+                                                this.parseNodeType(node.initializer));
         } else {
           // let a;
           return new syntax.VariableDeclaration(name, type);
