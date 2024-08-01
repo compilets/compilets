@@ -82,39 +82,45 @@ export default class Parser {
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
       case ts.SyntaxKind.ThisKeyword:
-        return new syntax.RawExpression(node.getText());
-      case ts.SyntaxKind.StringLiteral:
-        return new syntax.StringLiteral((node as ts.StringLiteral).text);
       case ts.SyntaxKind.Identifier:
-        return new syntax.Identifier(node.getText(), this.parseNodeType(node));
+        return new syntax.RawExpression(this.parseNodeType(node),
+                                        node.getText());
+      case ts.SyntaxKind.StringLiteral:
+        return new syntax.StringLiteral(this.parseNodeType(node),
+                                        (node as ts.StringLiteral).text);
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
-        return new syntax.ParenthesizedExpression(this.parseExpression(expression));
+        return new syntax.ParenthesizedExpression(this.parseNodeType(node),
+                                                  this.parseExpression(expression));
       }
       case ts.SyntaxKind.PostfixUnaryExpression: {
         // a++
         const {operand, operator} = node as ts.PostfixUnaryExpression;
-        return new syntax.PostfixUnaryExpression(this.parseExpression(operand),
+        return new syntax.PostfixUnaryExpression(this.parseNodeType(node),
+                                                 this.parseExpression(operand),
                                                  operatorToString(operator));
       }
       case ts.SyntaxKind.PrefixUnaryExpression: {
         // ++a
         const {operand, operator} = node as ts.PrefixUnaryExpression;
-        return new syntax.PrefixUnaryExpression(this.parseExpression(operand),
+        return new syntax.PrefixUnaryExpression(this.parseNodeType(node),
+                                                this.parseExpression(operand),
                                                 operatorToString(operator));
       }
       case ts.SyntaxKind.ConditionalExpression: {
         // a ? b : c
         const {condition, whenTrue, whenFalse} = node as ts.ConditionalExpression;
-        return new syntax.ConditionalExpression(this.parseExpression(condition),
+        return new syntax.ConditionalExpression(this.parseNodeType(node),
+                                                this.parseExpression(condition),
                                                 this.parseExpression(whenTrue),
                                                 this.parseExpression(whenFalse));
       }
       case ts.SyntaxKind.BinaryExpression: {
         // a + b
         const {left, right, operatorToken} = node as ts.BinaryExpression;
-        return new syntax.BinaryExpression(this.parseExpression(left),
+        return new syntax.BinaryExpression(this.parseNodeType(node),
+                                           this.parseExpression(left),
                                            this.parseExpression(right),
                                            operatorToken.getText());
       }
@@ -147,7 +153,8 @@ export default class Parser {
         }
         const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).isGCedType())
                                                                       .map(n => n.getText());
-        return new syntax.FunctionExpression(this.parseFunctionReturnType(node),
+        return new syntax.FunctionExpression(this.parseNodeType(node),
+                                             this.parseFunctionReturnType(node),
                                              parameters.map(this.parseParameterDeclaration.bind(this)),
                                              closure,
                                              cppBody);
@@ -161,7 +168,8 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic call is not supported');
         if (questionDotToken)
           throw new UnimplementedError(node, 'The ?. operator is not supported');
-        return new syntax.CallExpression(this.parseExpression(expression),
+        return new syntax.CallExpression(this.parseNodeType(node),
+                                         this.parseExpression(expression),
                                          this.parseNodeType(expression),
                                          this.parseArguments(callExpression, args));
       }
@@ -174,7 +182,7 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic new is not supported');
         if (!ts.isIdentifier(expression))
           throw new UnsupportedError(node, 'The new operator only accepts class name');
-        return new syntax.NewExpression(this.parseNodeType(expression),
+        return new syntax.NewExpression(this.parseNodeType(node),
                                         this.parseArguments(newExpression, args));
       }
       case ts.SyntaxKind.PropertyAccessExpression: {
@@ -187,9 +195,9 @@ export default class Parser {
         const objectType = this.parseNodeType(expression);
         if (!objectType.isClass())
           throw new UnimplementedError(name, 'Only support accessing properties of class');
-        return new syntax.PropertyAccessExpression(this.parseExpression(expression),
+        return new syntax.PropertyAccessExpression(this.parseNodeType(node),
+                                                   this.parseExpression(expression),
                                                    objectType,
-                                                   this.parseNodeType(name),
                                                    (name as ts.Identifier).text);
       }
     }
@@ -395,16 +403,6 @@ export default class Parser {
                                     targetTypes);
   }
 
-  parseHint(node: ts.Node): string | undefined {
-    const fullText = node.getFullText();
-    const ranges = ts.getLeadingCommentRanges(fullText, 0);
-    if (ranges && ranges.length > 0) {
-      const range = ranges[ranges.length - 1];
-      return fullText.substring(range.pos, range.end);
-    }
-    return undefined;
-  }
-
   parseNodeType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
     return this.parseType(node, type);
@@ -417,47 +415,56 @@ export default class Parser {
   }
 
   parseType(node: ts.Node, type: ts.Type) {
-    // Check Node.js type.
+    // Check optional.
     const symbol = this.typeChecker.getSymbolAtLocation(node);
+    const modifiers = this.getTypeModifiers(symbol);
+    if (modifiers.includes('optional'))
+      this.features!.add('optional');
+    // Check literals.
+    if (type.isNumberLiteral())
+      return new syntax.Type('double', 'primitive', modifiers);
+    if (type.isStringLiteral())
+      return new syntax.Type('string', 'string', modifiers);
+    // Check Node.js type.
     const nodeJsType = this.parseNodeJsType(symbol);
     if (nodeJsType)
       return nodeJsType;
     // Check function.
     if (type.getCallSignatures().length > 0)
-      return this.parseSignatureType(node, type, type.getCallSignatures()[0]);
+      return this.parseSignatureType(node, type, modifiers, type.getCallSignatures()[0]);
     // Check class.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
-      return new syntax.Type(type.symbol.name, 'class');
-    // Check optional.
-    const isOptional = this.hasQuestionToken(symbol);
-    if (isOptional)
-      this.features!.add('optional');
-    // Check literals.
-    if (type.isNumberLiteral())
-      return new syntax.Type('double', 'primitive', isOptional);
-    if (type.isStringLiteral())
-      return new syntax.Type('string', 'string', isOptional);
+      return new syntax.Type(type.symbol.name, 'class', modifiers);
     // Check builtin types.
     const name = this.typeChecker.typeToString(type);
     switch (name) {
       case 'void':
-        return new syntax.Type('void', 'void');
+        return new syntax.Type('void', 'void', modifiers);
       case 'never':
-        return new syntax.Type('never', 'void');
+        return new syntax.Type('never', 'void', modifiers);
       case 'true':
       case 'false':
-        return new syntax.Type('bool', 'primitive');
+        return new syntax.Type('bool', 'primitive', modifiers);
       case 'boolean':
-        return new syntax.Type('bool', 'primitive', isOptional);
+        return new syntax.Type('bool', 'primitive', modifiers);
       case 'number':
-        return new syntax.Type('double', 'primitive', isOptional);
+        return new syntax.Type('double', 'primitive', modifiers);
       case 'string':
-        return new syntax.Type('string', 'string', isOptional);
+        return new syntax.Type('string', 'string', modifiers);
+    }
+    // Check union.
+    if (type.isUnion()) {
+      const union = type as ts.UnionType;
+      if (union.types.every(t => t.isNumberLiteral()))
+        return new syntax.Type('double', 'primitive', modifiers);
+      if (union.types.every(t => t.isStringLiteral()))
+        return new syntax.Type('string', 'string', modifiers);
+      throw new UnimplementedError(node, `Unsupported union type: "${this.typeChecker.typeToString(union)}"`);
     }
     throw new UnimplementedError(node, `Unsupported type "${name}"`);
   }
 
-  parseSignatureType(node: ts.Node, type: ts.Type, signature: ts.Signature): syntax.Type {
+  parseSignatureType(node: ts.Node, type: ts.Type, modifiers: syntax.TypeModifier[], signature: ts.Signature): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
     const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
@@ -479,7 +486,7 @@ export default class Parser {
       // Likely a function parameter.
       category = 'functor';
     }
-    return new syntax.Type(`${returnType}(${parameters})`, category);
+    return new syntax.Type(`${returnType}(${parameters})`, category, modifiers);
   }
 
   /**
@@ -493,16 +500,34 @@ export default class Parser {
   }
 
   /**
-   * Return whether a symbol is marked optional.
+   * Return extra information about the symbol in its declaration.
    */
-  private hasQuestionToken(symbol?: ts.Symbol): boolean {
-    if (!symbol || !symbol.valueDeclaration)
-      return false;
-    const {valueDeclaration} = symbol;
-    if (ts.isPropertyDeclaration(valueDeclaration))
-      return !!(valueDeclaration as ts.PropertyDeclaration).questionToken;
-    if (ts.isParameter(valueDeclaration))
-      return !!(valueDeclaration as ts.ParameterDeclaration).questionToken;
-    return false;
+  private getTypeModifiers(symbol?: ts.Symbol): syntax.TypeModifier[] {
+    const decl = symbol?.valueDeclaration;
+    const modifiers: syntax.TypeModifier[] = [];
+    if (!decl)
+      return modifiers;
+    if (ts.isPropertyDeclaration(decl)) {
+      modifiers.push('property');
+      if ((decl as ts.PropertyDeclaration).questionToken)
+        modifiers.push('optional');
+    } else if (ts.isParameter(decl)) {
+      if ((decl as ts.ParameterDeclaration).questionToken)
+        modifiers.push('optional');
+    }
+    return modifiers;
+  }
+
+  /**
+   * Parse comment hints like "// compilets: destructor".
+   */
+  private parseHint(node: ts.Node): string | undefined {
+    const fullText = node.getFullText();
+    const ranges = ts.getLeadingCommentRanges(fullText, 0);
+    if (ranges && ranges.length > 0) {
+      const range = ranges[ranges.length - 1];
+      return fullText.substring(range.pos, range.end);
+    }
+    return undefined;
   }
 }

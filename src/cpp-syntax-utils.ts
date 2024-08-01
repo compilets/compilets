@@ -22,7 +22,9 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
       if (!member.type.isGCedType())
         continue;
       const expr = `visitor->Trace(${member.name})`;
-      body.statements.push(new ExpressionStatement(new RawExpression(expr)));
+      body.statements.push(
+        new ExpressionStatement(
+          new RawExpression(new Type('void', 'void'), expr)));
     }
   }
   if (body.statements.length == 0)
@@ -43,7 +45,7 @@ export function convertArgs(args: Expression[], sourceTypes: Type[], targetTypes
     }
     if (sourceTypes[i].category == 'function' &&
         targetTypes[i].category == 'functor') {
-      args[i] = new ToFunctorExpression(args[i], targetTypes[i]);
+      args[i] = new ToFunctorExpression(targetTypes[i], args[i]);
       continue;
     }
     throw new Error(`Unable to convert arg from ${sourceTypes[i].category} to ${targetTypes[i].category}`);

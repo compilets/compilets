@@ -66,28 +66,24 @@ export class PrintContext {
  */
 export type Feature = 'optional' | 'runtime' | 'class' | 'functor';
 
-/**
- * Extra options for printing type.
- */
-export type TypeModifier = 'class-property';
-
 // ===================== Defines the syntax of C++ below =====================
 
 export type TypeCategory = 'void' | 'primitive' | 'string' |
                            'functor' | 'class' | 'function' | 'external';
+export type TypeModifier = 'optional' | 'property';
 
 export class Type {
   name: string;
   category: TypeCategory;
-  optional: boolean;
+  modifiers: TypeModifier[];
 
-  constructor(name: string, category: TypeCategory, optional = false) {
+  constructor(name: string, category: TypeCategory, modifiers: TypeModifier[] = []) {
     this.name = name;
     this.category = category;
-    this.optional = optional;
+    this.modifiers = modifiers;
   }
 
-  print(ctx: PrintContext, modifiers?: TypeModifier[]) {
+  print(ctx: PrintContext) {
     if (this.category == 'function')
       throw new Error('Raw function type should never be printed out');
     let cppType = this.name;
@@ -96,14 +92,14 @@ export class Type {
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
         cppType = `${cppType}`;
-      if (modifiers?.includes('class-property'))
+      if (this.isProperty())
         return `cppgc::Member<${cppType}>`;
       else
         return `${cppType}*`;
     }
     if (this.category == 'string')
       cppType = 'std::string';
-    if (this.optional)
+    if (this.isOptional())
       return `std::optional<${cppType}>`;
     return cppType;
   }
@@ -119,70 +115,80 @@ export class Type {
   isGCedType() {
     return this.category == 'functor' || this.category == 'class';
   }
+
+  isOptional() {
+    return this.modifiers.includes('optional');
+  }
+
+  isProperty() {
+    return this.modifiers.includes('property');
+  }
 }
 
 export type ExpressionContext = 'left-hand' | 'right-hand' | 'condition';
 
 export abstract class Expression {
+  type: Type;
   context: ExpressionContext = 'right-hand';
 
-  abstract print(ctx: PrintContext): string;
-}
+  constructor(type: Type) {
+    this.type = type;
+  }
 
-export abstract class Declaration {
   abstract print(ctx: PrintContext): string;
-}
 
-export abstract class Statement {
-  abstract print(ctx: PrintContext): string;
+  protected shouldAddParenthesesForPropertyAccess(): boolean {
+    return false;
+  }
+
+  protected addParentheses(expr: string): string {
+    if (this.shouldAddParenthesesForPropertyAccess())
+      return `(${expr})`;
+    else
+      return expr;
+  }
+
+  protected wrap(expr: string): string {
+    if (this.context == 'right-hand') {
+      if (this.type.isProperty() && this.type.isGCedType())
+        return `${this.addParentheses(expr)}.Get()`;
+      if (this.type.isOptional())
+        return `${this.addParentheses(expr)}.value()`;
+    }
+    return expr;
+  }
 }
 
 // A special expression where JS text is same with C++ text.
 export class RawExpression extends Expression {
   text: string;
 
-  constructor(text: string) {
-    super();
+  constructor(type: Type, text: string) {
+    super(type);
     this.text = text;
   }
 
   override print(ctx: PrintContext) {
-    return this.text;
+    return this.wrap(this.text);
   }
 }
 
 export class StringLiteral extends RawExpression {
-  constructor(text: string) {
-    super(`"${text}"`);
-  }
-}
-
-export class Identifier extends RawExpression {
-  type: Type;
-
-  constructor(text: string, type: Type) {
-    super(text);
-    this.type = type;
-  }
-
-  override print(ctx: PrintContext) {
-    let text = super.print(ctx);
-    if (this.type.optional && this.context == 'right-hand')
-      return `${text}.value()`;
-    return text;
+  constructor(type: Type, text: string) {
+    super(type, `"${text}"`);
   }
 }
 
 export class ParenthesizedExpression extends Expression {
   expression: Expression;
 
-  constructor(expr: Expression) {
-    super();
-    this.expression = expr;
+  constructor(type: Type, expression: Expression) {
+    super(type);
+    this.expression = expression;
   }
 
   override print(ctx: PrintContext) {
-    return `(${this.expression.print(ctx)})`;
+    return this.wrap(`(${this.expression.print(ctx)})`);
   }
 }
 
@@ -190,14 +196,18 @@ export class PostfixUnaryExpression extends Expression {
   operand: Expression;
   operator: string;
 
-  constructor(operand: Expression, operator: string) {
-    super();
+  constructor(type: Type, operand: Expression, operator: string) {
+    super(type);
     this.operand = operand;
     this.operator = operator;
   }
 
   override print(ctx: PrintContext) {
-    return `${this.operand.print(ctx)}${this.operator}`;
+    return this.wrap(`${this.operand.print(ctx)}${this.operator}`);
+  }
+
+  override shouldAddParenthesesForPropertyAccess() {
+    return true;
   }
 }
 
@@ -205,33 +215,18 @@ export class PrefixUnaryExpression extends Expression {
   operand: Expression;
   operator: string;
 
-  constructor(operand: Expression, operator: string) {
-    super();
+  constructor(type: Type, operand: Expression, operator: string) {
+    super(type);
     this.operand = operand;
     this.operator = operator;
   }
 
   override print(ctx: PrintContext) {
-    return `${this.operator}${this.operand.print(ctx)}`;
-  }
-}
-
-export class BinaryExpression extends Expression {
-  left: Expression;
-  right: Expression;
-  operator: string;
-
-  constructor(left: Expression, right: Expression, operator: string) {
-    super();
-    this.left = left;
-    this.left.context = 'left-hand';
-    this.right = right;
-    this.right.context = 'right-hand';
-    this.operator = operator;
+    return this.wrap(`${this.operator}${this.operand.print(ctx)}`);
   }
 
-  override print(ctx: PrintContext) {
-    return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
+  override shouldAddParenthesesForPropertyAccess() {
+    return true;
   }
 }
 
@@ -240,8 +235,8 @@ export class ConditionalExpression extends Expression {
   whenTrue: Expression;
   whenFalse: Expression;
 
-  constructor(condition: Expression, whenTrue: Expression, whenFalse: Expression) {
-    super();
+  constructor(type: Type, condition: Expression, whenTrue: Expression, whenFalse: Expression) {
+    super(type);
     this.condition = condition;
     this.condition.context = 'condition';
     this.whenTrue = whenTrue;
@@ -249,7 +244,34 @@ export class ConditionalExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
+    return this.wrap(`${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`);
+  }
+
+  override shouldAddParenthesesForPropertyAccess() {
+    return true;
+  }
+}
+
+export class BinaryExpression extends Expression {
+  left: Expression;
+  right: Expression;
+  operator: string;
+
+  constructor(type: Type, left: Expression, right: Expression, operator: string) {
+    super(type);
+    this.left = left;
+    if (operator == '=')
+      this.left.context = 'left-hand';
+    this.right = right;
+    this.operator = operator;
+  }
+
+  override print(ctx: PrintContext) {
+    return this.wrap(`${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`);
+  }
+
+  override shouldAddParenthesesForPropertyAccess() {
+    return true;
   }
 }
 
@@ -259,8 +281,12 @@ export class FunctionExpression extends Expression {
   closure: string[];
   body?: Block;
 
-  constructor(returnType: Type, parameters: ParameterDeclaration[], closure: string[] = [], body?: Block) {
-    super();
+  constructor(type: Type,
+              returnType: Type,
+              parameters: ParameterDeclaration[],
+              closure: string[],
+              body?: Block) {
+    super(type);
     this.returnType = returnType;
     this.parameters = parameters;
     this.closure = closure;
@@ -273,20 +299,23 @@ export class FunctionExpression extends Expression {
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
     const body = this.body?.print(ctx) ?? '{}';
     const lambda = `[=](${fullParameters}) -> ${returnType} ${body}`;
-    return `compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`;
+    return this.wrap(`compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`);
+  }
+
+  override shouldAddParenthesesForPropertyAccess() {
+    return true;
   }
 }
 
 // Represent the arguments of a call-like expression.
-export class CallArguments extends Expression {
+export class CallArguments {
   args: Expression[];
 
   constructor(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
-    super();
     this.args = convertArgs(args, sourceTypes, targetTypes);
   }
 
-  override print(ctx: PrintContext) {
+  print(ctx: PrintContext) {
     return this.args.map(a => a.print(ctx)).join(', ');
   }
 }
@@ -294,16 +323,14 @@ export class CallArguments extends Expression {
 // Helper that converts function to functor.
 export class ToFunctorExpression extends Expression {
   expression: Expression;
-  targetType: Type;
 
-  constructor(expression: Expression, targetType: Type) {
-    super();
+  constructor(type: Type, expression: Expression) {
+    super(type);
     this.expression = expression;
-    this.targetType = targetType;
   }
 
   override print(ctx: PrintContext) {
-    return `compilets::MakeFunction<${this.targetType.name}>(${this.expression.print(ctx)})`;
+    return this.wrap(`compilets::MakeFunction<${this.type.name}>(${this.expression.print(ctx)})`);
   }
 }
 
@@ -312,8 +339,8 @@ export class CallExpression extends Expression {
   calleeType: Type;
   args: CallArguments;
 
-  constructor(callee: Expression, calleeType: Type, args: CallArguments) {
-    super();
+  constructor(type: Type, callee: Expression, calleeType: Type, args: CallArguments) {
+    super(type);
     this.callee = callee;
     this.calleeType = calleeType;
     this.args = args;
@@ -323,56 +350,47 @@ export class CallExpression extends Expression {
     let callee = this.callee.print(ctx);
     if (this.calleeType.category == 'functor')
       callee = `${callee}->value()`;
-    return `${callee}(${this.args.print(ctx)})`;
+    return this.wrap(`${callee}(${this.args.print(ctx)})`);
   }
 }
 
 export class NewExpression extends Expression {
-  type: Type;
   args: CallArguments;
 
   constructor(type: Type, args: CallArguments) {
-    super();
-    this.type = type;
+    super(type);
     this.args = args;
   }
 
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
     if (this.type.isGCedType())
-      return `compilets::MakeObject<${this.type.name}>(${args})`;
+      return this.wrap(`compilets::MakeObject<${this.type.name}>(${args})`);
     else
-      return `new ${this.type.name}(${args})`;
+      return this.wrap(`new ${this.type.name}(${args})`);
   }
 }
 
 export class PropertyAccessExpression extends Expression {
   expression: Expression;
   objectType: Type;
-  propertyType: Type;
   member: string;
 
-  constructor(expression: Expression, objectType: Type, propertyType: Type, member: string) {
-    super();
+  constructor(type: Type, expression: Expression, objectType: Type, member: string) {
+    super(type);
     this.expression = expression;
     this.objectType = objectType;
-    this.propertyType = propertyType;
     this.member = member;
   }
 
   override print(ctx: PrintContext) {
-    let member = this.member;
-    // Handle optional and smarter pointer types.
-    if (this.context != 'left-hand') {
-      if (this.propertyType.isGCedType())
-        member += '.Get()';
-      else if (this.propertyType.optional)
-        member += '.value()';
-    }
-    // Pointer or value access.
     const dot = this.objectType.isGCedType() ? '->' : '.';
-    return this.expression.print(ctx) + dot + member;
+    return this.wrap(this.expression.print(ctx) + dot + this.member);
   }
+}
+
+export abstract class Declaration {
+  abstract print(ctx: PrintContext): string;
 }
 
 export class VariableDeclaration extends Declaration {
@@ -509,10 +527,7 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    const modifiers: TypeModifier[] = [];
-    if (this.parent?.type.isClass())
-      modifiers.push('class-property');
-    let result = `${ctx.prefix}${this.type.print(ctx, modifiers)} ${this.name}`;
+    let result = `${ctx.prefix}${this.type.print(ctx)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
@@ -545,6 +560,10 @@ export class MethodDeclaration extends ClassElement {
     result += this.body?.print(ctx) ?? '{}';
     return result;
   }
+}
+
+export abstract class Statement {
+  abstract print(ctx: PrintContext): string;
 }
 
 export abstract class DeclarationStatement extends Statement {
@@ -658,9 +677,11 @@ export class MainFunction extends DeclarationStatement {
     if (ctx.generationMode == 'exe') {
       signature = 'int main(int, const char*[])';
       body = new Block([
-        new ExpressionStatement(new RawExpression("compilets::State state")),
+        new ExpressionStatement(new RawExpression(new Type('compilets::State', 'external'),
+                                                  'compilets::State state')),
         ...this.body.statements,
-        new ReturnStatement(new RawExpression('0')),
+        new ReturnStatement(new RawExpression(new Type('number', 'primitive'),
+                                              '0')),
       ]);
     } else {
       signature = 'void Main()';
