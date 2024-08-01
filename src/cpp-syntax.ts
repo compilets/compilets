@@ -64,11 +64,11 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'runtime' | 'class' | 'functor';
+export type Feature = 'optional' | 'variant' | 'runtime' | 'object' | 'function';
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' | 'primitive' | 'string' |
+export type TypeCategory = 'void' | 'primitive' | 'string' | 'union' |
                            'functor' | 'class' | 'function' | 'external';
 export type TypeModifier = 'optional' | 'property';
 
@@ -76,6 +76,7 @@ export class Type {
   name: string;
   category: TypeCategory;
   modifiers: TypeModifier[];
+  types: Type[] = [];
 
   constructor(name: string, category: TypeCategory, modifiers: TypeModifier[] = []) {
     this.name = name;
@@ -83,7 +84,7 @@ export class Type {
     this.modifiers = modifiers;
   }
 
-  print(ctx: PrintContext) {
+  print(ctx: PrintContext): string {
     if (this.category == 'function')
       throw new Error('Raw function type should never be printed out');
     let cppType = this.name;
@@ -96,6 +97,12 @@ export class Type {
         return `cppgc::Member<${cppType}>`;
       else
         return `${cppType}*`;
+    }
+    if (this.category == 'union') {
+      const types = this.types!.map(t => t.print(ctx));
+      if (this.isOptional())
+        types.push('std::monostate');
+      return `std::variant<${types.join(', ')}>`;
     }
     if (this.category == 'string')
       cppType = 'std::string';

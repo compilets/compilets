@@ -139,7 +139,7 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic function is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
-        this.features!.add('functor');
+        this.features!.add('function');
         let cppBody: undefined | syntax.Block;
         if (body) {
           if (ts.isBlock(body)) {
@@ -340,7 +340,7 @@ export default class Parser {
     const members = node.members.map(this.parseClassElement.bind(this, node));
     const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members);
     members.forEach(m => m.parent = cl);
-    this.features!.add('class');
+    this.features!.add('object');
     return cl;
   }
 
@@ -403,35 +403,49 @@ export default class Parser {
                                     targetTypes);
   }
 
+  /**
+   * Parse the type of expression located at node to C++ type.
+   */
   parseNodeType(node: ts.Node) {
     const type = this.typeChecker.getTypeAtLocation(node);
-    return this.parseType(node, type);
+    return this.parseTypeWithNode(type, node);
   }
 
-  parseFunctionReturnType(node: ts.Node) {
-    const type = this.typeChecker.getTypeAtLocation(node);
-    const signature = type.getCallSignatures()[0];
-    return this.parseType(node, signature.getReturnType());
-  }
-
-  parseType(node: ts.Node, type: ts.Type) {
-    // Check optional.
+  /**
+   * Parse TypeScript type to C++ type, with information of the variable node.
+   */
+  parseTypeWithNode(type: ts.Type, node: ts.Node) {
+    // Check Node.js type.
     const symbol = this.typeChecker.getSymbolAtLocation(node);
+    const nodeJsType = this.parseNodeJsType(symbol);
+    if (nodeJsType)
+      return nodeJsType;
+    // Check optional.
     const modifiers = this.getTypeModifiers(symbol);
     if (modifiers.includes('optional'))
       this.features!.add('optional');
+    try {
+      return this.parseType(type, modifiers);
+    } catch (error: unknown) {
+      if (error instanceof Error)
+        throw new UnimplementedError(node, error.message);
+      else
+        throw error;
+    }
+  }
+
+  /**
+   * Parse TypeScript type to C++ type.
+   */
+  parseType(type: ts.Type, modifiers: syntax.TypeModifier[] = []) {
     // Check literals.
     if (type.isNumberLiteral())
       return new syntax.Type('double', 'primitive', modifiers);
     if (type.isStringLiteral())
       return new syntax.Type('string', 'string', modifiers);
-    // Check Node.js type.
-    const nodeJsType = this.parseNodeJsType(symbol);
-    if (nodeJsType)
-      return nodeJsType;
     // Check function.
     if (type.getCallSignatures().length > 0)
-      return this.parseSignatureType(node, type, modifiers, type.getCallSignatures()[0]);
+      return this.parseFunctionType(type, modifiers);
     // Check class.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
       return new syntax.Type(type.symbol.name, 'class', modifiers);
@@ -455,19 +469,43 @@ export default class Parser {
     // Check union.
     if (type.isUnion()) {
       const union = type as ts.UnionType;
+      // Literal unions are treated as a single type.
       if (union.types.every(t => t.isNumberLiteral()))
         return new syntax.Type('double', 'primitive', modifiers);
       if (union.types.every(t => t.isStringLiteral()))
         return new syntax.Type('string', 'string', modifiers);
-      throw new UnimplementedError(node, `Unsupported union type: "${this.typeChecker.typeToString(union)}"`);
+      // Iterate all subtypes and add unique ones to cppType.
+      const cppType = new syntax.Type(name, 'union', modifiers);
+      for (const t of union.types) {
+        const subtype = this.parseType(t);
+        if (subtype.isGCedType())
+          throw new Error(`Union type can only include primitive types`);
+        if (!cppType.types.find(s => s.equal(subtype)))
+          cppType.types.push(subtype);
+      }
+      this.features!.add('variant');
+      return cppType;
     }
-    throw new UnimplementedError(node, `Unsupported type "${name}"`);
+    throw new Error(`Unsupported type "${name}"`);
   }
 
-  parseSignatureType(node: ts.Node, type: ts.Type, modifiers: syntax.TypeModifier[], signature: ts.Signature): syntax.Type {
+  /**
+   * Parse the type of function node's return value.
+   */
+  parseFunctionReturnType(node: ts.Node) {
+    const type = this.typeChecker.getTypeAtLocation(node);
+    const signature = type.getCallSignatures()[0];
+    return this.parseTypeWithNode(signature.getReturnType(), node);
+  }
+
+  /**
+   * Parse the function type.
+   */
+  parseFunctionType(type: ts.Type, modifiers: syntax.TypeModifier[]): syntax.Type {
+    const signature = type.getCallSignatures()[0];
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
-    const returnType = this.parseType(node, signature.getReturnType()).print(ctx);
+    const returnType = this.parseType(signature.getReturnType()).print(ctx);
     const parameters = signature.parameters.map(p => this.parseParameterDeclaration(p.valueDeclaration as ts.ParameterDeclaration))
                                            .map(p => p.type.print(ctx))
                                            .join(', ')

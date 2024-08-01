@@ -40,12 +40,14 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
  */
 export function convertArgs(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
   for (let i = 0; i < args.length; ++i) {
-    if (sourceTypes[i].category == targetTypes[i].category) {
+    const source = sourceTypes[i];
+    const target = targetTypes[i];
+    if (source.category == target.category)
       continue;
-    }
-    if (sourceTypes[i].category == 'function' &&
-        targetTypes[i].category == 'functor') {
-      args[i] = new ToFunctorExpression(targetTypes[i], args[i]);
+    if (target.category == 'union')
+      continue;
+    if (source.category == 'function' && target.category == 'functor') {
+      args[i] = new ToFunctorExpression(target, args[i]);
       continue;
     }
     throw new Error(`Unable to convert arg from ${sourceTypes[i].category} to ${targetTypes[i].category}`);
