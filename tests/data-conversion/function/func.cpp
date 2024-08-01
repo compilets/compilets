@@ -1,13 +1,24 @@
+#include <optional>
+
 #include "runtime/function.h"
 #include "runtime/object.h"
 
 double Simple(double i);
+double OptionalArg(std::optional<double> arg);
 compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback);
 class SaveCallback;
 void TestLocalFunction();
 
 double Simple(double i) {
   return i;
+}
+
+double OptionalArg(std::optional<double> arg) {
+  if (arg) {
+    return arg.value();
+  } else {
+    return 8964;
+  }
 }
 
 compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback) {

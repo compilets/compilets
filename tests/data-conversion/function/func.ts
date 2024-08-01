@@ -2,6 +2,14 @@ function Simple(i: number) {
   return i;
 }
 
+function OptionalArg(arg?: number): number {
+  if (arg) {
+    return arg;
+  } else {
+    return 8964;
+  }
+}
+
 function TakeCallback(input: number, callback: (i: number) => number) {
   return () => callback(input);
 }

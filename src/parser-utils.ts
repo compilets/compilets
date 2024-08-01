@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import * as syntax from './cpp-syntax';
 
 /**
  * An error indicating a TypeScript feature has not been implemented.

@@ -78,7 +78,6 @@ export default class Parser {
 
   parseExpression(node: ts.Expression): syntax.Expression {
     switch (node.kind) {
-      case ts.SyntaxKind.Identifier:
       case ts.SyntaxKind.NumericLiteral:
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
@@ -86,6 +85,8 @@ export default class Parser {
         return new syntax.RawExpression(node.getText());
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral((node as ts.StringLiteral).text);
+      case ts.SyntaxKind.Identifier:
+        return new syntax.Identifier(node.getText(), this.parseNodeType(node));
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
@@ -291,8 +292,6 @@ export default class Parser {
   }
 
   parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
-    if (node.questionToken)
-      throw new UnimplementedError(node, 'Question token in parameter is not supported');
     const {name, initializer} = node;
     if (name.kind != ts.SyntaxKind.Identifier)
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
@@ -418,6 +417,11 @@ export default class Parser {
   }
 
   parseType(node: ts.Node, type: ts.Type) {
+    // Check Node.js type.
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    const nodeJsType = this.parseNodeJsType(symbol);
+    if (nodeJsType)
+      return nodeJsType;
     // Check function.
     if (type.getCallSignatures().length > 0)
       return this.parseSignatureType(node, type, type.getCallSignatures()[0]);
@@ -425,10 +429,7 @@ export default class Parser {
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
       return new syntax.Type(type.symbol.name, 'class');
     // Check optional.
-    const symbol = this.typeChecker.getSymbolAtLocation(node);
-    let isOptional = false;
-    if (symbol?.valueDeclaration && ts.isPropertyDeclaration(symbol.valueDeclaration))
-      isOptional = (symbol.valueDeclaration as ts.PropertyDeclaration).questionToken !== undefined;
+    const isOptional = this.hasQuestionToken(symbol);
     if (isOptional)
       this.features!.add('optional');
     // Check literals.
@@ -441,6 +442,8 @@ export default class Parser {
     switch (name) {
       case 'void':
         return new syntax.Type('void', 'void');
+      case 'never':
+        return new syntax.Type('never', 'void');
       case 'true':
       case 'false':
         return new syntax.Type('bool', 'primitive');
@@ -477,5 +480,29 @@ export default class Parser {
       category = 'functor';
     }
     return new syntax.Type(`${returnType}(${parameters})`, category);
+  }
+
+  /**
+   * Return a proper type representation for Node.js objects.
+   */
+  private parseNodeJsType(symbol?: ts.Symbol): syntax.Type | undefined {
+    // The global process object.
+    if (symbol?.valueDeclaration?.getText() == 'process: NodeJS.Process')
+      return new syntax.Type('NodeJS.Process', 'class');
+    return undefined;
+  }
+
+  /**
+   * Return whether a symbol is marked optional.
+   */
+  private hasQuestionToken(symbol?: ts.Symbol): boolean {
+    if (!symbol || !symbol.valueDeclaration)
+      return false;
+    const {valueDeclaration} = symbol;
+    if (ts.isPropertyDeclaration(valueDeclaration))
+      return !!(valueDeclaration as ts.PropertyDeclaration).questionToken;
+    if (ts.isParameter(valueDeclaration))
+      return !!(valueDeclaration as ts.ParameterDeclaration).questionToken;
+    return false;
   }
 }

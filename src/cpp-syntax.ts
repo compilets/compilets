@@ -121,8 +121,10 @@ export class Type {
   }
 }
 
+export type ExpressionContext = 'left-hand' | 'right-hand' | 'condition';
+
 export abstract class Expression {
-  hand?: 'left' | 'right';
+  context: ExpressionContext = 'right-hand';
 
   abstract print(ctx: PrintContext): string;
 }
@@ -152,6 +154,22 @@ export class RawExpression extends Expression {
 export class StringLiteral extends RawExpression {
   constructor(text: string) {
     super(`"${text}"`);
+  }
+}
+
+export class Identifier extends RawExpression {
+  type: Type;
+
+  constructor(text: string, type: Type) {
+    super(text);
+    this.type = type;
+  }
+
+  override print(ctx: PrintContext) {
+    let text = super.print(ctx);
+    if (this.type.optional && this.context == 'right-hand')
+      return `${text}.value()`;
+    return text;
   }
 }
 
@@ -206,9 +224,9 @@ export class BinaryExpression extends Expression {
   constructor(left: Expression, right: Expression, operator: string) {
     super();
     this.left = left;
-    this.left.hand = 'left';
+    this.left.context = 'left-hand';
     this.right = right;
-    this.right.hand = 'right';
+    this.right.context = 'right-hand';
     this.operator = operator;
   }
 
@@ -225,6 +243,7 @@ export class ConditionalExpression extends Expression {
   constructor(condition: Expression, whenTrue: Expression, whenFalse: Expression) {
     super();
     this.condition = condition;
+    this.condition.context = 'condition';
     this.whenTrue = whenTrue;
     this.whenFalse = whenFalse;
   }
@@ -344,7 +363,7 @@ export class PropertyAccessExpression extends Expression {
   override print(ctx: PrintContext) {
     let member = this.member;
     // Handle optional and smarter pointer types.
-    if (this.hand != 'left') {
+    if (this.context != 'left-hand') {
       if (this.propertyType.isGCedType())
         member += '.Get()';
       else if (this.propertyType.optional)
@@ -719,6 +738,7 @@ export class IfStatement extends Statement {
   constructor(expression: Expression, thenStatement: Statement, elseStatement?: Statement) {
     super();
     this.expression = expression;
+    this.expression.context = 'condition';
     this.thenStatement = thenStatement;
     this.elseStatement = elseStatement;
   }
@@ -739,6 +759,7 @@ export class DoStatement extends Statement {
     super();
     this.statement = stat;
     this.expression = expr;
+    this.expression.context = 'condition';
   }
 
   override print(ctx: PrintContext) {
@@ -754,6 +775,7 @@ export class WhileStatement extends Statement {
     super();
     this.statement = stat;
     this.expression = expr;
+    this.expression.context = 'condition';
   }
 
   override print(ctx: PrintContext) {
@@ -775,6 +797,8 @@ export class ForStatement extends Statement {
     this.statement = statement;
     this.initializer = initializer;
     this.condition = condition;
+    if (this.condition)
+      this.condition.context = 'condition';
     this.incrementor = incrementor;
   }
 
