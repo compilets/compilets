@@ -69,16 +69,12 @@ export type Feature = 'optional' | 'runtime' | 'class' | 'functor';
 /**
  * Extra options for printing type.
  */
-export type TypeModifier = 'gced-class-property';
+export type TypeModifier = 'class-property';
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' |
-                           'primitive' |
-                           'string' |
-                           'function' |
-                           'functor' |
-                           'raw-class' | 'stack-class' | 'gced-class';
+export type TypeCategory = 'void' | 'primitive' | 'string' |
+                           'functor' | 'class' | 'function' | 'external';
 
 export class Type {
   name: string;
@@ -94,25 +90,22 @@ export class Type {
   print(ctx: PrintContext, modifiers?: TypeModifier[]) {
     if (this.category == 'function')
       throw new Error('Raw function type should never be printed out');
-    const isGCedClassProperty = modifiers?.includes('gced-class-property');
-    if (this.category == 'functor') {
-      if (isGCedClassProperty)
-        return `cppgc::Member<compilets::Function<${this.name}>>`;
+    let cppType = this.name;
+    if (this.isGCedType()) {
+      if (this.category == 'functor')
+        cppType = `compilets::Function<${cppType}>`;
+      else if (this.category == 'class')
+        cppType = `${cppType}`;
+      if (modifiers?.includes('class-property'))
+        return `cppgc::Member<${cppType}>`;
       else
-        return `compilets::Function<${this.name}>*`;
+        return `${cppType}*`;
     }
-    if (this.isClass()) {
-      if (isGCedClassProperty && this.isGCedType())
-        return `cppgc::Member<${this.name}>`;
-      else
-        return `${this.name}*`;
-    }
-    let valueType = this.name;
     if (this.category == 'string')
-      valueType = 'std::string';
+      cppType = 'std::string';
     if (this.optional)
-      return `std::optional<${valueType}>`;
-    return valueType;
+      return `std::optional<${cppType}>`;
+    return cppType;
   }
 
   equal(other: Type) {
@@ -120,13 +113,11 @@ export class Type {
   }
 
   isClass() {
-    return this.category == 'raw-class' ||
-           this.category == 'stack-class' ||
-           this.category == 'gced-class';
+    return this.category == 'class';
   }
 
   isGCedType() {
-    return this.category == 'functor' || this.category == 'gced-class';
+    return this.category == 'functor' || this.category == 'class';
   }
 }
 
@@ -500,8 +491,8 @@ export class PropertyDeclaration extends ClassElement {
 
   override print(ctx: PrintContext) {
     const modifiers: TypeModifier[] = [];
-    if (this.parent?.type.isGCedType())
-      modifiers.push('gced-class-property');
+    if (this.parent?.type.isClass())
+      modifiers.push('class-property');
     let result = `${ctx.prefix}${this.type.print(ctx, modifiers)} ${this.name}`;
     if (this.initializer)
       result += ` = ${this.initializer.print(ctx)}`;

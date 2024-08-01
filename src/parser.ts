@@ -423,7 +423,7 @@ export default class Parser {
       return this.parseSignatureType(node, type, type.getCallSignatures()[0]);
     // Check class.
     if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
-      return new syntax.Type(type.symbol.name, 'gced-class');
+      return new syntax.Type(type.symbol.name, 'class');
     // Check optional.
     const symbol = this.typeChecker.getSymbolAtLocation(node);
     let isOptional = false;

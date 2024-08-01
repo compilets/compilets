@@ -28,7 +28,7 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   if (body.statements.length == 0)
     return null;
   // Create the visitor parameter.
-  const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor', 'raw-class'));
+  const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor*', 'external'));
   // Create the method.
   return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
 }
