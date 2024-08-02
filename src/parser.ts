@@ -399,7 +399,8 @@ export default class Parser {
     if (!resolvedSignature)
       throw new UnimplementedError(node, 'Can not get resolved signature');
     const sourceTypes = args.map(this.parseNodeType.bind(this));
-    const targetTypes = resolvedSignature.parameters.map(m => this.parseNodeType(m.valueDeclaration!));
+    const targetTypes = resolvedSignature.parameters.map(m => this.parseParameterDeclaration(m.valueDeclaration as ts.ParameterDeclaration))
+                                                    .map(t => t.type);
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
                                     sourceTypes,
                                     targetTypes);
@@ -408,24 +409,45 @@ export default class Parser {
   /**
    * Parse the type of expression located at node to C++ type.
    */
-  parseNodeType(node: ts.Node) {
-    const type = this.typeChecker.getTypeAtLocation(node);
-    return this.parseTypeWithNode(type, node);
+  parseNodeType(node: ts.Node): syntax.Type {
+    const modifiers: syntax.TypeModifier[] = [];
+    let decl: ts.Node | undefined;
+    // Find the original declaration.
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    if (symbol?.declarations && symbol.declarations.length > 0)
+      decl = symbol.declarations[0];
+    if (decl) {
+      // Check Node.js type.
+      const nodeJsType = this.parseNodeJsType(decl as ts.Declaration);
+      if (nodeJsType)
+        return nodeJsType;
+      // Some type information are part of node instead of type itself.
+      if (ts.isPropertyDeclaration(decl)) {
+        modifiers.push('property');
+        if ((decl as ts.PropertyDeclaration).questionToken)
+          modifiers.push('optional');
+      } else if (ts.isParameter(decl)) {
+        if ((decl as ts.ParameterDeclaration).questionToken)
+          modifiers.push('optional');
+      }
+      if (modifiers.includes('optional'))
+        this.features!.add('optional');
+      // For variable declarations, we want the original type instead of the
+      // initializer type.
+      if (ts.isVariableDeclaration(decl))
+        decl = (decl as ts.VariableDeclaration).type;
+      else if (ts.isPropertyDeclaration(decl))
+        decl = (decl as ts.PropertyDeclaration).type;
+    }
+    // Get the type of original declaration, using node as fallback.
+    const type = this.typeChecker.getTypeAtLocation(decl ?? node);
+    return this.parseTypeWithNode(type, node, modifiers);
   }
 
   /**
-   * Parse TypeScript type to C++ type, with information of the variable node.
+   * Wrap parseType with detailed error information.
    */
-  parseTypeWithNode(type: ts.Type, node: ts.Node) {
-    // Check Node.js type.
-    const symbol = this.typeChecker.getSymbolAtLocation(node);
-    const nodeJsType = this.parseNodeJsType(symbol);
-    if (nodeJsType)
-      return nodeJsType;
-    // Check optional.
-    const modifiers = this.getTypeModifiers(symbol);
-    if (modifiers.includes('optional'))
-      this.features!.add('optional');
+  parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]) {
     try {
       return this.parseType(type, modifiers);
     } catch (error: unknown) {
@@ -439,7 +461,7 @@ export default class Parser {
   /**
    * Parse TypeScript type to C++ type.
    */
-  parseType(type: ts.Type, modifiers: syntax.TypeModifier[] = []) {
+  parseType(type: ts.Type, modifiers?: syntax.TypeModifier[]) {
     // Check literals.
     if (type.isNumberLiteral())
       return new syntax.Type('double', 'primitive', modifiers);
@@ -449,10 +471,32 @@ export default class Parser {
     if (type.getCallSignatures().length > 0)
       return this.parseFunctionType(type, modifiers);
     // Check class.
-    if (type.symbol?.valueDeclaration && ts.isClassDeclaration(type.symbol.valueDeclaration))
+    if (type.isClass())
       return new syntax.Type(type.symbol.name, 'class', modifiers);
-    // Check builtin types.
+    // Check union.
     const name = this.typeChecker.typeToString(type);
+    if (type.isUnion()) {
+      const union = type as ts.UnionType;
+      // Literal unions are treated as a single type.
+      if (union.types.every(t => t.isNumberLiteral()))
+        return new syntax.Type('double', 'primitive', modifiers);
+      if (union.types.every(t => t.isStringLiteral()))
+        return new syntax.Type('string', 'string', modifiers);
+      if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
+        return new syntax.Type('bool', 'primitive', modifiers);
+      // Iterate all subtypes and add unique ones to cppType.
+      const cppType = new syntax.Type(name, 'union', modifiers);
+      for (const t of union.types) {
+        const subtype = this.parseType(t);
+        if (subtype.isGCedType())
+          throw new Error(`Union type can only include primitive types`);
+        if (!cppType.types.find(s => s.equal(subtype)))
+          cppType.types.push(subtype);
+      }
+      this.features!.add('union');
+      return cppType;
+    }
+    // Check builtin types.
     switch (name) {
       case 'void':
         return new syntax.Type('void', 'void', modifiers);
@@ -467,26 +511,6 @@ export default class Parser {
         return new syntax.Type('double', 'primitive', modifiers);
       case 'string':
         return new syntax.Type('string', 'string', modifiers);
-    }
-    // Check union.
-    if (type.isUnion()) {
-      const union = type as ts.UnionType;
-      // Literal unions are treated as a single type.
-      if (union.types.every(t => t.isNumberLiteral()))
-        return new syntax.Type('double', 'primitive', modifiers);
-      if (union.types.every(t => t.isStringLiteral()))
-        return new syntax.Type('string', 'string', modifiers);
-      // Iterate all subtypes and add unique ones to cppType.
-      const cppType = new syntax.Type(name, 'union', modifiers);
-      for (const t of union.types) {
-        const subtype = this.parseType(t);
-        if (subtype.isGCedType())
-          throw new Error(`Union type can only include primitive types`);
-        if (!cppType.types.find(s => s.equal(subtype)))
-          cppType.types.push(subtype);
-      }
-      this.features!.add('variant');
-      return cppType;
     }
     throw new Error(`Unsupported type "${name}"`);
   }
@@ -503,7 +527,7 @@ export default class Parser {
   /**
    * Parse the function type.
    */
-  parseFunctionType(type: ts.Type, modifiers: syntax.TypeModifier[]): syntax.Type {
+  parseFunctionType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
     const signature = type.getCallSignatures()[0];
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
@@ -532,30 +556,11 @@ export default class Parser {
   /**
    * Return a proper type representation for Node.js objects.
    */
-  private parseNodeJsType(symbol?: ts.Symbol): syntax.Type | undefined {
+  private parseNodeJsType(decl: ts.Declaration): syntax.Type | undefined {
     // The global process object.
-    if (symbol?.valueDeclaration?.getText() == 'process: NodeJS.Process')
+    if (decl.getText() == 'process: NodeJS.Process')
       return new syntax.Type('NodeJS.Process', 'class');
     return undefined;
-  }
-
-  /**
-   * Return extra information about the symbol in its declaration.
-   */
-  private getTypeModifiers(symbol?: ts.Symbol): syntax.TypeModifier[] {
-    const decl = symbol?.valueDeclaration;
-    const modifiers: syntax.TypeModifier[] = [];
-    if (!decl)
-      return modifiers;
-    if (ts.isPropertyDeclaration(decl)) {
-      modifiers.push('property');
-      if ((decl as ts.PropertyDeclaration).questionToken)
-        modifiers.push('optional');
-    } else if (ts.isParameter(decl)) {
-      if ((decl as ts.ParameterDeclaration).questionToken)
-        modifiers.push('optional');
-    }
-    return modifiers;
   }
 
   /**

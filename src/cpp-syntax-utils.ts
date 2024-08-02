@@ -40,16 +40,21 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
  * Convert the expression of source type to target type if necessary.
  */
 export function castExpression(expr: Expression, source: Type, target: Type): Expression {
-  if (source.category == target.category)
+  if (source.equal(target))
     return expr;
   if (target.category == 'union') {
     // Number literal in C++ is not necessarily double.
     if (source.name == 'double' && source.category == 'primitive') {
-      return new CustomExpression(target, (ctx) => {
+      return new CustomExpression(source, (ctx) => {
         return `static_cast<double>(${expr.print(ctx)})`;
       });
     }
-    // Union accepts assignment without explicit conversion.
+    // Union to union requires explicit conversation.
+    if (source.category == 'union') {
+      return new CustomExpression(target, (ctx) => {
+        return `compilets::CastVariant(${expr.print(ctx)})`;
+      });
+    }
     return expr;
   }
   if (source.category == 'function' && target.category == 'functor') {

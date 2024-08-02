@@ -68,7 +68,7 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'variant' | 'runtime' | 'object' | 'function';
+export type Feature = 'optional' | 'runtime' | 'union' | 'object' | 'function';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -115,8 +115,15 @@ export class Type {
     return cppType;
   }
 
-  equal(other: Type) {
-    return this.name == other.name && this.category == other.category;
+  equal(other: Type): boolean {
+    if (this.name != other.name || this.category != other.category)
+      return false;
+    if (this.category != 'union')
+      return true;
+    // For unions, also compare all subtypes.
+    return this.isOptional() == other.isOptional() &&
+           this.types.some(t => other.types.some(s => t.equal(s))) &&
+           other.types.some(s => this.types.some(t => s.equal(t)));
   }
 
   isClass() {
@@ -163,7 +170,7 @@ export abstract class Expression {
     if (this.context == 'right-hand') {
       if (this.type.isProperty() && this.type.isGCedType())
         return `${this.addParentheses(expr)}.Get()`;
-      if (this.type.isOptional())
+      if (this.type.isOptional() && this.type.category != 'union')
         return `${this.addParentheses(expr)}.value()`;
     }
     return expr;

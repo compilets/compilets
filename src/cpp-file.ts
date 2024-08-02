@@ -82,10 +82,10 @@ export default class CppFile {
     for (const feature of features) {
       switch (feature) {
         case 'optional':
-        case 'variant':
           headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
           break;
         case 'runtime':
+        case 'union':
         case 'object':
         case 'function':
           headers.files.push(new syntax.IncludeStatement('quoted', `runtime/${feature}.h`));

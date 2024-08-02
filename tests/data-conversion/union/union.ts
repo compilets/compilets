@@ -2,9 +2,9 @@ function TakeOptionalUnion(a?: boolean | number) {
 }
 
 function TestUnion() {
-  let a: boolean | number = 999;
-  a = true;
-  TakeOptionalUnion(a);
+  let bn: boolean | number = 999;
+  bn = true;
+  TakeOptionalUnion(bn);
   TakeOptionalUnion(888);
   TakeOptionalUnion(true);
 }
