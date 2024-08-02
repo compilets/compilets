@@ -16,7 +16,7 @@ looking for a compiler that works with real code, please check
 Install:
 
 ```sh
-npm install -g @compilets/compilets
+npm install -g compilets
 ```
 
 Help:
