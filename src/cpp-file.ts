@@ -84,10 +84,12 @@ export default class CppFile {
         case 'optional':
           headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
           break;
-        case 'runtime':
         case 'union':
         case 'object':
         case 'function':
+        case 'runtime':
+        case 'process':
+        case 'console':
           headers.files.push(new syntax.IncludeStatement('quoted', `runtime/${feature}.h`));
           break;
       }

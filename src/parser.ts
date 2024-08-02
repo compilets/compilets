@@ -80,12 +80,13 @@ export default class Parser {
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
       case ts.SyntaxKind.ThisKeyword:
-      case ts.SyntaxKind.Identifier:
         return new syntax.RawExpression(this.parseNodeType(node),
                                         node.getText());
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral(this.parseNodeType(node),
                                         (node as ts.StringLiteral).text);
+      case ts.SyntaxKind.Identifier:
+        return new syntax.Identifier(this.parseNodeType(node), node.getText());
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
@@ -429,34 +430,22 @@ export default class Parser {
    */
   parseNodeType(node: ts.Node): syntax.Type {
     const modifiers: syntax.TypeModifier[] = [];
-    let decl: ts.Node | undefined;
     // Find the original declaration.
-    const symbol = this.typeChecker.getSymbolAtLocation(node);
-    if (symbol?.declarations && symbol.declarations.length > 0)
-      decl = symbol.declarations[0];
-    if (decl) {
-      // Check Node.js type.
-      const nodeJsType = this.parseNodeJsType(decl as ts.Declaration);
-      if (nodeJsType)
-        return nodeJsType;
-      // Some type information are part of node instead of type itself.
-      if (ts.isPropertyDeclaration(decl)) {
-        modifiers.push('property');
-        if ((decl as ts.PropertyDeclaration).questionToken)
-          modifiers.push('optional');
-      } else if (ts.isParameter(decl)) {
-        if ((decl as ts.ParameterDeclaration).questionToken)
-          modifiers.push('optional');
-      }
-      // For variable declarations, we want the original type instead of the
-      // initializer type.
-      if (ts.isVariableDeclaration(decl))
-        decl = (decl as ts.VariableDeclaration).type;
-      else if (ts.isPropertyDeclaration(decl))
-        decl = (decl as ts.PropertyDeclaration).type;
+    const decl = this.getOriginalDeclaration(node);
+    const type = this.typeChecker.getTypeAtLocation(decl);
+    // Check Node.js type.
+    const nodeJsType = this.parseNodeJsType(type);
+    if (nodeJsType)
+      return nodeJsType;
+    // Some type information are part of node instead of type itself.
+    if (ts.isPropertyDeclaration(decl)) {
+      modifiers.push('property');
+      if ((decl as ts.PropertyDeclaration).questionToken)
+        modifiers.push('optional');
+    } else if (ts.isParameter(decl)) {
+      if ((decl as ts.ParameterDeclaration).questionToken)
+        modifiers.push('optional');
     }
-    // Get the type of original declaration, using node as fallback.
-    const type = this.typeChecker.getTypeAtLocation(decl ?? node);
     return this.parseTypeWithNode(type, node, modifiers);
   }
 
@@ -571,13 +560,36 @@ export default class Parser {
   /**
    * Return a proper type representation for Node.js objects.
    */
-  private parseNodeJsType(decl: ts.Declaration): syntax.Type | undefined {
-    // The global process object.
-    if (decl.getText() == 'process: NodeJS.Process') {
-      this.features.add('runtime');
-      return new syntax.Type('NodeJS.Process', 'class');
+  private parseNodeJsType(type: ts.Type): syntax.Type | undefined {
+    let result: syntax.Type | undefined;
+    // Get the type's original declaration.
+    if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
+      return result;
+    const decl = type.symbol.declarations[0];
+    // Whether it is a Node.js declaration file.
+    const sourceFile = decl.getSourceFile();
+    if (!sourceFile.isDeclarationFile || !sourceFile.fileName.includes('node_modules/@types/node'))
+      return result;
+    // The process object.
+    if (this.typeChecker.typeToString(type) == 'Process') {
+      result = new syntax.Type('Process', 'class');
+      this.features.add('process');
     }
-    return undefined;
+    if (result) {
+      result.namespace = 'compilets';
+      this.features.add('runtime');
+    }
+    return result;
+  }
+
+  /**
+   * Get the original declaration of a node.
+   */
+  private getOriginalDeclaration(node: ts.Node): ts.Node {
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
+      return node;
+    return symbol.declarations[0];
   }
 
   /**

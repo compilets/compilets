@@ -68,7 +68,8 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'runtime' | 'union' | 'object' | 'function';
+export type Feature = 'optional' | 'union' | 'object' | 'function' |
+                      'runtime' | 'process' | 'console';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -81,6 +82,7 @@ export class Type {
   category: TypeCategory;
   modifiers: TypeModifier[];
   types: Type[] = [];
+  namespace?: string;
 
   constructor(name: string, category: TypeCategory, modifiers: TypeModifier[] = []) {
     this.name = name;
@@ -92,6 +94,8 @@ export class Type {
     if (this.category == 'function')
       throw new Error('Raw function type should never be printed out');
     let cppType = this.name;
+    if (this.namespace)
+      cppType = `${this.namespace}::${cppType}`;
     if (this.isGCedType()) {
       if (this.category == 'functor')
         cppType = `compilets::Function<${cppType}>`;
@@ -116,7 +120,9 @@ export class Type {
   }
 
   equal(other: Type): boolean {
-    if (this.name != other.name || this.category != other.category)
+    if (this.name != other.name ||
+        this.category != other.category ||
+        this.namespace != other.namespace)
       return false;
     if (this.category != 'union')
       return true;
@@ -198,6 +204,18 @@ export class RawExpression extends Expression {
 export class StringLiteral extends RawExpression {
   constructor(type: Type, text: string) {
     super(type, `"${text}"`);
+  }
+}
+
+export class Identifier extends RawExpression {
+  constructor(type: Type, text: string) {
+    super(type, text);
+  }
+
+  override print(ctx: PrintContext) {
+    if (this.type.namespace)
+      return this.wrap(`${this.type.namespace}::${this.text}`);
+    return super.print(ctx);
   }
 }
 
