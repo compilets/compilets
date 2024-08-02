@@ -1,6 +1,6 @@
 # compilets
 
-## Contributions
+## Developement
 
 The documentations of Oilpan GC (cppgc) can be found at:
 
@@ -17,3 +17,18 @@ Tools below will help developement of this project:
 
 * [TypeScript AST Viewer](https://ts-ast-viewer.com/)
 * [TypeScript API Reference](https://typestrong.org/typedoc-auto-docs/typedoc/modules/TypeScript.html)
+
+## License
+
+This project is published under GPLv3 license, including the C++ files that are
+built into the final binary.
+
+I'll change the license to a permissive one when I consider this project as a
+ready product.
+
+## Contributions
+
+It is discouraged to submit patches as this project is still an ongoing
+experiment. If you are still kind enough to fix bugs, please note that you must
+agree to allow me to re-license the contributions to permissive licenses in
+future.
