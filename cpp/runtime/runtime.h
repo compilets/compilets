@@ -8,6 +8,8 @@ namespace compilets {
 
 using State = StateExe;
 
+extern Process* process;
+
 cppgc::AllocationHandle& GetAllocationHandle();
 
 }  // namespace compilets

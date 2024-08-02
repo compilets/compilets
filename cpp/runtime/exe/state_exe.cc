@@ -1,6 +1,7 @@
 #include "runtime/exe/state_exe.h"
 
 #include "cppgc/internal/logging.h"
+#include "runtime/process.h"
 
 namespace compilets {
 
@@ -21,6 +22,7 @@ StateExe::StateExe()
   heap_ = cppgc::Heap::Create(platform_);
   CPPGC_CHECK(!g_state);
   g_state = this;
+  process_ = cppgc::MakeGarbageCollected<Process>(GetAllocationHandle());
 }
 
 StateExe::~StateExe() {

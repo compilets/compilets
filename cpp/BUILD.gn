@@ -10,6 +10,8 @@ source_set("runtime") {
     "runtime/exe/state_exe.h",
     "runtime/function.h",
     "runtime/object.h",
+    "runtime/process.cc",
+    "runtime/process.h",
     "runtime/runtime.cc",
     "runtime/runtime.h",
     "runtime/union.h",

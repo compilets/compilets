@@ -3,8 +3,11 @@
 
 #include "cppgc/default-platform.h"
 #include "cppgc/heap.h"
+#include "cppgc/persistent.h"
 
 namespace compilets {
+
+class Process;
 
 class StateExe {
  public:
@@ -18,6 +21,7 @@ class StateExe {
  private:
   std::shared_ptr<cppgc::DefaultPlatform> platform_;
   std::unique_ptr<cppgc::Heap> heap_;
+  cppgc::Persistent<Process> process_;
 };
 
 }  // namespace compilets

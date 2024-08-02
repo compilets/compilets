@@ -20,8 +20,7 @@ export default class Parser {
   project: CppProject;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
-
-  features?: Set<syntax.Feature>;
+  features = new Set<syntax.Feature>();
 
   constructor(project: CppProject) {
     if (project.files.size > 0)
@@ -42,7 +41,6 @@ export default class Parser {
   }
 
   parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    this.features = new Set<syntax.Feature>();
     const cppFile = new CppFile(isMain, this.features);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
@@ -139,7 +137,7 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic function is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
-        this.features!.add('function');
+        this.features.add('function');
         let cppBody: undefined | syntax.Block;
         if (body) {
           if (ts.isBlock(body)) {
@@ -342,7 +340,7 @@ export default class Parser {
     const members = node.members.map(this.parseClassElement.bind(this, node));
     const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members);
     members.forEach(m => m.parent = cl);
-    this.features!.add('object');
+    this.features.add('object');
     return cl;
   }
 
@@ -431,7 +429,7 @@ export default class Parser {
           modifiers.push('optional');
       }
       if (modifiers.includes('optional'))
-        this.features!.add('optional');
+        this.features.add('optional');
       // For variable declarations, we want the original type instead of the
       // initializer type.
       if (ts.isVariableDeclaration(decl))
@@ -493,7 +491,7 @@ export default class Parser {
         if (!cppType.types.find(s => s.equal(subtype)))
           cppType.types.push(subtype);
       }
-      this.features!.add('union');
+      this.features.add('union');
       return cppType;
     }
     // Check builtin types.
@@ -558,8 +556,10 @@ export default class Parser {
    */
   private parseNodeJsType(decl: ts.Declaration): syntax.Type | undefined {
     // The global process object.
-    if (decl.getText() == 'process: NodeJS.Process')
+    if (decl.getText() == 'process: NodeJS.Process') {
+      this.features.add('runtime');
       return new syntax.Type('NodeJS.Process', 'class');
+    }
     return undefined;
   }
 
