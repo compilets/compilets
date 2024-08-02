@@ -1,5 +1,3 @@
-#include <optional>
-
 #include "runtime/union.h"
 
 void TakeOptionalUnion(std::variant<double, bool, std::monostate> a);

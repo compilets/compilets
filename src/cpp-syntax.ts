@@ -138,6 +138,10 @@ export class Type {
     return this.modifiers.includes('optional');
   }
 
+  usesOptional() {
+    return this.category != 'union' && this.isOptional();
+  }
+
   isProperty() {
     return this.modifiers.includes('property');
   }

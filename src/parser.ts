@@ -149,11 +149,16 @@ export default class Parser {
             ]);
           }
         }
+        const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
+        if (cppParameters.some(p => p.type.usesOptional()))
+          this.features.add('optional');
+        if (cppParameters.some(p => p.type.category == 'union'))
+          this.features.add('union');
         const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).isGCedType())
                                                                       .map(n => n.getText());
         return new syntax.FunctionExpression(this.parseNodeType(node),
                                              this.parseFunctionReturnType(node),
-                                             parameters.map(this.parseParameterDeclaration.bind(this)),
+                                             cppParameters,
                                              closure,
                                              cppBody);
       }
@@ -285,6 +290,8 @@ export default class Parser {
         // let a = xxx;
         const name = (node.name as ts.Identifier).text;
         const type = this.parseNodeType(node.name);
+        if (type.category == 'union')
+          this.features.add('union');
         if (node.initializer) {
           // let a = 123;
           return new syntax.VariableDeclaration(name,
@@ -324,9 +331,14 @@ export default class Parser {
     if (!ts.isSourceFile(node.parent))
       throw new UnimplementedError(node, 'Local function is not supported');
     const {body, name, parameters} = node;
+    const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
+    if (cppParameters.some(p => p.type.usesOptional()))
+      this.features.add('optional');
+    if (cppParameters.some(p => p.type.category == 'union'))
+      this.features.add('union');
     return new syntax.FunctionDeclaration(name.text,
                                           this.parseFunctionReturnType(node),
-                                          parameters.map(this.parseParameterDeclaration.bind(this)),
+                                          cppParameters,
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
   }
 
@@ -358,9 +370,12 @@ export default class Parser {
         const {modifiers, name, initializer} = node as ts.PropertyDeclaration;
         if (name.kind != ts.SyntaxKind.Identifier)
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
+        const type = this.parseNodeType(name);
+        if (type.usesOptional())
+          this.features.add('optional');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
-                                              this.parseNodeType(name),
+                                              type,
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
       case ts.SyntaxKind.MethodDeclaration: {
@@ -378,10 +393,15 @@ export default class Parser {
         const hint = this.parseHint(node);
         if (hint && hint.startsWith('// compilets: '))
           cppModifiers.push(...hint.substring(14).split(','));
+        const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
+        if (cppParameters.some(p => p.type.usesOptional()))
+          this.features.add('optional');
+        if (cppParameters.some(p => p.type.category == 'union'))
+          this.features.add('union');
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
                                             cppModifiers,
                                             this.parseFunctionReturnType(node),
-                                            parameters.map(this.parseParameterDeclaration.bind(this)),
+                                            cppParameters,
                                             body ? this.parseStatement(body) as syntax.Block : undefined);
       }
       case ts.SyntaxKind.SemicolonClassElement:
@@ -428,8 +448,6 @@ export default class Parser {
         if ((decl as ts.ParameterDeclaration).questionToken)
           modifiers.push('optional');
       }
-      if (modifiers.includes('optional'))
-        this.features.add('optional');
       // For variable declarations, we want the original type instead of the
       // initializer type.
       if (ts.isVariableDeclaration(decl))
@@ -491,7 +509,6 @@ export default class Parser {
         if (!cppType.types.find(s => s.equal(subtype)))
           cppType.types.push(subtype);
       }
-      this.features.add('union');
       return cppType;
     }
     // Check builtin types.
