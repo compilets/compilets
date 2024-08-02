@@ -2,7 +2,7 @@
 
 TypeScript to C++ compiler.
 
-To have an idea of the how the converted code looks like, you can check the
+To have an idea of how the converted code looks like, you can check the
 [`tests/data-conversion/`](https://github.com/compilets/compilets/tree/main/tests/data-conversion)
 directory.
 
@@ -102,6 +102,37 @@ LinkNode* a = compilets::MakeObject<LinkNode>();
 LinkNode* b = compilets::MakeObject<LinkNode>();
 a->next = b;
 b->next = a;
+```
+
+### Function object
+
+In TypeScript a function is also an Object, while it is trivial to use lambda
+functions in C++ to represent functions objects, the lifetime of the function
+and the objects captured in its closure still needs management. In the meanwhile
+using `std::function` for everything would hurt the performance.
+
+This is solved by using a custom C++ object to represent function expressions
+and arrow functions (i.e. the ones assigned to variables), while still using
+the plain C++ functions to represent the top-level function declarations.
+
+For lifetime management, the function object is managed by Oilpan GC. And the
+function body is parsed so all the objects captured in the closure become
+hiddden members of the function object, managed by Oilpan GC too.
+
+```typescript
+function Simple() {}
+
+let simple = Simple;
+let callback = () => { simple() };
+```
+
+```cpp
+void Simple() {}
+
+compilets::Function<void()>* simple = compilets::MakeFunction<void()>(Simple);
+compilets::Function<void()>* callback = compilets::MakeFunction<void()>([=]() -> void {
+  simple->value()();
+}, simple);
 ```
 
 ### Union types and `std::variant`
