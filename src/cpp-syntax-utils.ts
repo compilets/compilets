@@ -4,6 +4,7 @@ import {
   Expression,
   RawExpression,
   CustomExpression,
+  ClassDeclaration,
   ClassElement,
   PropertyDeclaration,
   MethodDeclaration,
@@ -34,6 +35,56 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor*', 'external'));
   // Create the method.
   return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
+}
+
+/**
+ * Print the class declaration.
+ */
+export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext): string {
+  if (ctx.mode == 'forward')
+    return `class ${decl.name};`;
+  const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
+  // Print class name and inheritance.
+  const inheritance = decl.type.isGCedType() ? ' : public compilets::Object' : '';
+  let result = `${ctx.prefix}class ${decl.name}${inheritance} {\n`;
+  ctx.level++;
+  // Print the finalizer macro.
+  if (decl.destructor) {
+    result += `${ctx.padding}CPPGC_USING_PRE_FINALIZER(${decl.name}, ${decl.destructor.name});\n`;
+  }
+  // Print members.
+  if (decl.publicMembers.length > 0) {
+    result += `${halfPadding}public:\n`;
+    result += decl.publicMembers.map(m => m.print(ctx) + '\n\n').join('');
+  }
+  if (decl.protectedMembers.length > 0) {
+    result += `${halfPadding}protected:\n`;
+    result += decl.protectedMembers.map(m => m.print(ctx) + '\n\n').join('');
+  }
+  if (decl.privateMembers.length > 0) {
+    result += `${halfPadding}private:\n`;
+    result += decl.privateMembers.map(m => m.print(ctx) + '\n\n').join('');
+  }
+  ctx.level--;
+  if (result.endsWith('\n\n'))
+    result = result.slice(0, -1);
+  result += ctx.padding + '};';
+  // Print definitions for static members.
+  if (ctx.mode == 'impl') {
+    const staticMembers = decl.getMembers().filter(m => m instanceof PropertyDeclaration && m.modifiers.includes('static'));
+    if (staticMembers.length > 0)
+      result += '\n\n';
+    for (const m of staticMembers) {
+      const member = m as PropertyDeclaration;
+      result += `${member.type.print(ctx)} ${decl.name}::${member.name}`;
+      if (member.initializer)
+        result += ` = ${member.initializer.print(ctx)}`;
+      result += ';\n';
+    }
+  }
+  if (!result.endsWith('\n'))
+    result += '\n';
+  return result;
 }
 
 /**

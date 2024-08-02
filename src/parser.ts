@@ -443,6 +443,8 @@ export default class Parser {
       modifiers.push('property');
       if ((decl as ts.PropertyDeclaration).questionToken)
         modifiers.push('optional');
+      if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+        modifiers.push('static');
     } else if (ts.isParameter(decl)) {
       if ((decl as ts.ParameterDeclaration).questionToken)
         modifiers.push('optional');

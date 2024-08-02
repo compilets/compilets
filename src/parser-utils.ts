@@ -56,8 +56,10 @@ export function modifierToString(modifier: ts.ModifierLike): string {
       return 'protected';
     case ts.SyntaxKind.PublicKeyword:
       return 'public';
+    case ts.SyntaxKind.StaticKeyword:
+      return 'static';
   }
-  throw new Error(`Unsupported modifier: ${modifier}`);
+  throw new Error(`Unsupported modifier: ${modifier.getText()}`);
 }
 
 /**

@@ -1,5 +1,6 @@
 import {
   createTraceMethod,
+  printClassDeclaration,
   castExpression,
   castArguments,
 } from './cpp-syntax-utils';
@@ -75,7 +76,7 @@ export type Feature = 'optional' | 'union' | 'object' | 'function' |
 
 export type TypeCategory = 'void' | 'primitive' | 'string' | 'union' |
                            'functor' | 'class' | 'function' | 'external';
-export type TypeModifier = 'optional' | 'property';
+export type TypeModifier = 'optional' | 'property' | 'static';
 
 export class Type {
   name: string;
@@ -410,7 +411,15 @@ export class PropertyAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    const dot = this.objectType.isGCedType() ? '->' : '.';
+    let dot: string;
+    if (this.objectType.isGCedType()) {
+      if (this.type.modifiers.includes('static'))
+        dot = '::';
+      else
+        dot = '->';
+    } else {
+      dot = '.';
+    }
     return this.wrap(this.expression.print(ctx) + dot + this.member);
   }
 }
@@ -570,8 +579,12 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    let result = `${ctx.prefix}${this.type.print(ctx)} ${this.name}`;
-    if (this.initializer)
+    const isStatic = this.modifiers.includes('static');
+    let result = ctx.prefix;
+    if (isStatic)
+      result += 'static ';
+    result += `${this.type.print(ctx)} ${this.name}`;
+    if (this.initializer && !isStatic)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
   }
@@ -650,32 +663,7 @@ export class ClassDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
-    if (ctx.mode == 'forward')
-      return `class ${this.name};`;
-    const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
-    const inheritance = this.type.isGCedType() ? ' : public compilets::Object' : '';
-    let result = `${ctx.prefix}class ${this.name}${inheritance} {\n`;
-    ctx.level++;
-    if (this.destructor) {
-      result += `${ctx.padding}CPPGC_USING_PRE_FINALIZER(${this.name}, ${this.destructor.name});\n`;
-    }
-    if (this.publicMembers.length > 0) {
-      result += `${halfPadding}public:\n`;
-      result += this.publicMembers.map(m => m.print(ctx) + '\n\n').join('');
-    }
-    if (this.protectedMembers.length > 0) {
-      result += `${halfPadding}protected:\n`;
-      result += this.protectedMembers.map(m => m.print(ctx) + '\n\n').join('');
-    }
-    if (this.privateMembers.length > 0) {
-      result += `${halfPadding}private:\n`;
-      result += this.privateMembers.map(m => m.print(ctx) + '\n\n').join('');
-    }
-    ctx.level--;
-    if (result.endsWith('\n\n'))
-      result = result.slice(0, -1);
-    result += ctx.padding + '};\n';
-    return result;
+    return printClassDeclaration(this, ctx);
   }
 
   getMembers(): ClassElement[] {

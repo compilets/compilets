@@ -15,8 +15,11 @@ class EmptyConstructor : public compilets::Object {
 
 class NonSimple : public compilets::Object {
  public:
+  static double count;
+
   NonSimple(bool a, double b = 123) {
     double c = a ? b : 456;
+    NonSimple::count++;
   }
 
   virtual ~NonSimple() = default;
@@ -30,7 +33,10 @@ class NonSimple : public compilets::Object {
   std::string prop = "For a breath I tarry.";
 };
 
+double NonSimple::count = 0;
+
 void TestClass() {
   NonSimple* s = compilets::MakeObject<NonSimple>(false);
   bool r = s->method();
+  NonSimple::count == 1;
 }

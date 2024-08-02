@@ -1,8 +1,11 @@
 class LinkNode {
+  static count = 0;
+
   next?: LinkNode;
 
   // compilets: destructor
   destructor() {
+    LinkNode.count++;
   }
 }
 
@@ -13,3 +16,5 @@ a.next = b;
 b.next = c;
 c.next = a;
 gc();
+
+process.exit(LinkNode.count == 3 ? 0 : 1);
