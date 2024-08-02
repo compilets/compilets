@@ -7,6 +7,7 @@
 
 namespace compilets {
 
+class Console;
 class Process;
 
 class StateExe {
@@ -23,6 +24,7 @@ class StateExe {
  private:
   std::shared_ptr<cppgc::DefaultPlatform> platform_;
   std::unique_ptr<cppgc::Heap> heap_;
+  cppgc::Persistent<Console> console_;
   cppgc::Persistent<Process> process_;
 };
 

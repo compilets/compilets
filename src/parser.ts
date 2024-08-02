@@ -11,6 +11,8 @@ import {
   operatorToString,
   modifierToString,
   getFunctionClosure,
+  parseHint,
+  parseNodeJsType,
 } from './parser-utils';
 
 /**
@@ -392,9 +394,7 @@ export default class Parser {
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
         const cppModifiers = modifiers?.map(modifierToString) ?? [];
-        const hint = this.parseHint(node);
-        if (hint && hint.startsWith('// compilets: '))
-          cppModifiers.push(...hint.substring(14).split(','));
+        cppModifiers.push(...parseHint(node));
         const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
         if (cppParameters.some(p => p.type.usesOptional()))
           this.features.add('optional');
@@ -435,9 +435,15 @@ export default class Parser {
     const decl = this.getOriginalDeclaration(node);
     const type = this.typeChecker.getTypeAtLocation(decl);
     // Check Node.js type.
-    const nodeJsType = this.parseNodeJsType(node, type);
-    if (nodeJsType)
+    const nodeJsType = parseNodeJsType(node, type);
+    if (nodeJsType) {
+      this.features.add('runtime');
+      if (nodeJsType.name == 'Console')
+        this.features.add('console');
+      else if (nodeJsType.name == 'Process')
+        this.features.add('process');
       return nodeJsType;
+    }
     // Some type information are part of node instead of type itself.
     if (ts.isPropertyDeclaration(decl)) {
       modifiers.push('property');
@@ -561,35 +567,6 @@ export default class Parser {
   }
 
   /**
-   * Return a proper type representation for Node.js objects.
-   */
-  private parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | undefined {
-    let result: syntax.Type | undefined;
-    // Get the type's original declaration.
-    if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
-      return result;
-    const decl = type.symbol.declarations[0];
-    // Whether it is a Node.js declaration file.
-    const sourceFile = decl.getSourceFile();
-    if (!sourceFile.isDeclarationFile || !sourceFile.fileName.includes('node_modules/@types/node'))
-      return result;
-    // The process object.
-    if (this.typeChecker.typeToString(type) == 'Process') {
-      result = new syntax.Type('Process', 'class');
-      this.features.add('process');
-    }
-    // The gc function.
-    if (node.getText() == 'gc') {
-      result = new syntax.Type('void()', 'function');
-    }
-    if (result) {
-      result.namespace = 'compilets';
-      this.features.add('runtime');
-    }
-    return result;
-  }
-
-  /**
    * Get the original declaration of a node.
    */
   private getOriginalDeclaration(node: ts.Node): ts.Node {
@@ -597,18 +574,5 @@ export default class Parser {
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return node;
     return symbol.declarations[0];
-  }
-
-  /**
-   * Parse comment hints like "// compilets: destructor".
-   */
-  private parseHint(node: ts.Node): string | undefined {
-    const fullText = node.getFullText();
-    const ranges = ts.getLeadingCommentRanges(fullText, 0);
-    if (ranges && ranges.length > 0) {
-      const range = ranges[ranges.length - 1];
-      return fullText.substring(range.pos, range.end);
-    }
-    return undefined;
   }
 }

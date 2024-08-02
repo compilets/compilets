@@ -7,6 +7,7 @@
 namespace compilets {
 
 // Globals of Node.js.
+extern Console* console;
 extern Process* process;
 void gc();
 

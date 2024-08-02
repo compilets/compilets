@@ -95,3 +95,48 @@ export function getFunctionClosure(typeChecker: ts.TypeChecker,
   }
   return closure;
 }
+
+/**
+ * Parse comment hints like "// compilets: destructor".
+ */
+export function parseHint(node: ts.Node): string[] {
+  const fullText = node.getFullText();
+  const ranges = ts.getLeadingCommentRanges(fullText, 0);
+  if (ranges && ranges.length > 0) {
+    const range = ranges[ranges.length - 1];
+    const comment = fullText.substring(range.pos, range.end);
+    if (comment.startsWith('// compilets: '))
+      return comment.substring(14).split(',');
+  }
+  return [];
+}
+
+/**
+ * Return a proper type representation for Node.js objects.
+ */
+export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | undefined {
+  let result: syntax.Type | undefined;
+  // Get the type's original declaration.
+  if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
+    return result;
+  // Get the declaration from Node.js type file.
+  const decl = type.symbol.declarations.find((decl) => {
+    const sourceFile = decl.getSourceFile();
+    return sourceFile.isDeclarationFile &&
+           sourceFile.fileName.includes('node_modules/@types/node');
+  });
+  if (!decl)
+    return result;
+  // The process object.
+  const name = type.symbol.name;
+  if (name == 'Process')
+    result = new syntax.Type('Process', 'class');
+  else if (name == 'Console')
+    result = new syntax.Type('Console', 'class');
+  // The gc function.
+  if (node.getText() == 'gc')
+    result = new syntax.Type('void()', 'function');
+  if (result)
+    result.namespace = 'compilets';
+  return result;
+}
