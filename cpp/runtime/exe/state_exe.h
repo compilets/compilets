@@ -16,6 +16,8 @@ class StateExe {
   StateExe();
   ~StateExe();
 
+  void PreciseGC();
+
   cppgc::AllocationHandle& GetAllocationHandle();
 
  private:

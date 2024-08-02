@@ -6,9 +6,11 @@
 
 namespace compilets {
 
-using State = StateExe;
-
+// Globals of Node.js.
 extern Process* process;
+void gc();
+
+using State = StateExe;
 
 cppgc::AllocationHandle& GetAllocationHandle();
 

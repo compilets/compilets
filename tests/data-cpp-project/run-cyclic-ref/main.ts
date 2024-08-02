@@ -1,12 +1,15 @@
-class Alice {
-  osananajimi: Bob;
+class LinkNode {
+  next?: LinkNode;
+
+  // compilets: destructor
+  destructor() {
+  }
 }
 
-class Bob {
-  osananajimi: Alice;
-}
-
-const alice = new Alice();
-const bob = new Bob();
-alice.osananajimi = bob;
-bob.osananajimi = alice;
+const a = new LinkNode();
+const b = new LinkNode();
+const c = new LinkNode();
+a.next = b;
+b.next = c;
+c.next = a;
+gc();

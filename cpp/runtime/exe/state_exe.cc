@@ -5,6 +5,8 @@
 
 namespace compilets {
 
+Process* process = nullptr;
+
 namespace {
 
 StateExe* g_state = nullptr;
@@ -23,10 +25,17 @@ StateExe::StateExe()
   CPPGC_CHECK(!g_state);
   g_state = this;
   process_ = cppgc::MakeGarbageCollected<Process>(GetAllocationHandle());
+  process = process_.Get();
 }
 
 StateExe::~StateExe() {
+  process = nullptr;
   cppgc::ShutdownProcess();
+}
+
+void StateExe::PreciseGC() {
+  heap_->ForceGarbageCollectionSlow("compilets", "gc()",
+                                    cppgc::Heap::StackState::kNoHeapPointers);
 }
 
 cppgc::AllocationHandle& StateExe::GetAllocationHandle() {

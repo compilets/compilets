@@ -57,6 +57,7 @@ export default class Parser {
         case ts.SyntaxKind.Block:
         case ts.SyntaxKind.VariableStatement:
         case ts.SyntaxKind.ExpressionStatement:
+        case ts.SyntaxKind.IfStatement:
         case ts.SyntaxKind.DoStatement:
         case ts.SyntaxKind.WhileStatement:
         case ts.SyntaxKind.ForStatement:
@@ -434,7 +435,7 @@ export default class Parser {
     const decl = this.getOriginalDeclaration(node);
     const type = this.typeChecker.getTypeAtLocation(decl);
     // Check Node.js type.
-    const nodeJsType = this.parseNodeJsType(type);
+    const nodeJsType = this.parseNodeJsType(node, type);
     if (nodeJsType)
       return nodeJsType;
     // Some type information are part of node instead of type itself.
@@ -560,7 +561,7 @@ export default class Parser {
   /**
    * Return a proper type representation for Node.js objects.
    */
-  private parseNodeJsType(type: ts.Type): syntax.Type | undefined {
+  private parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | undefined {
     let result: syntax.Type | undefined;
     // Get the type's original declaration.
     if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
@@ -574,6 +575,10 @@ export default class Parser {
     if (this.typeChecker.typeToString(type) == 'Process') {
       result = new syntax.Type('Process', 'class');
       this.features.add('process');
+    }
+    // The gc function.
+    if (node.getText() == 'gc') {
+      result = new syntax.Type('void()', 'function');
     }
     if (result) {
       result.namespace = 'compilets';

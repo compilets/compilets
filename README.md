@@ -4,6 +4,7 @@
 
 The documentations of Oilpan GC (cppgc) can be found at:
 
+* [High-performance garbage collection for C++](https://v8.dev/blog/high-performance-cpp-gc)
 * [Oilpan: C++ Garbage Collection](https://github.com/compilets/cppgc)
 * [Oilpan API reference](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/heap/BlinkGCAPIReference.md)
 
