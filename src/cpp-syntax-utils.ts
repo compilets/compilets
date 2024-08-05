@@ -21,9 +21,13 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   const body = new Block();
   for (const member of members) {
     if (member instanceof PropertyDeclaration) {
-      if (!member.type.isGCedType())
+      if (!member.type.hasGCedType())
         continue;
-      const expr = `visitor->Trace(${member.name})`;
+      let expr: string;
+      if (member.type.category == 'union')
+        expr = `std::visit([visitor](auto&& arg) {}, ${member.name})`;
+      else
+        expr = `visitor->Trace(${member.name})`;
       body.statements.push(
         new ExpressionStatement(
           new RawExpression(new Type('void', 'void'), expr)));
@@ -102,30 +106,17 @@ export function ifExpression(expr: Expression): Expression {
 /**
  * Convert the expression of source type to target type if necessary.
  */
-export function castExpression(expr: Expression, target: Type): Expression {
-  const source = expr.type;
+export function castExpression(expr: Expression, target: Type, source?: Type): Expression {
+  source = source ?? expr.type;
   if (source.equal(target))
     return expr;
-  // Union to union requires explicit conversation.
-  if (source.category == 'union' && target.category == 'union') {
-    return new CustomExpression(target, (ctx) => {
-      return `compilets::CastVariant(${expr.print(ctx)})`;
-    });
-  }
-  if (target.category == 'union') {
-    // Number literal in C++ is not necessarily double.
-    if (source.name == 'double' && source.category == 'primitive') {
-      return new CustomExpression(source, (ctx) => {
-        return `static_cast<double>(${expr.print(ctx)})`;
-      });
-    }
-    return expr;
-  }
-  // Union to subtype requires explicit conversation.
-  if (source.category == 'union') {
-    return new CustomExpression(source, (ctx) => {
-      return `std::get<${target.print(ctx)}>(${expr.print(ctx)})`;
-    });
+  if (source.category == 'union' || target.category == 'union') {
+    // Parse union conversions, save the result and continue parsing.
+    expr = castUnion(expr, target, source);
+    source = expr.type;
+  } else if (source.isOptional() || target.isOptional()) {
+    // Parse optional types otherwise, as optional union is still an union.
+    return castOptional(expr, target, source);
   }
   // Get value from GCed members.
   if ((source.isProperty() && source.isGCedType()) &&
@@ -134,26 +125,63 @@ export function castExpression(expr: Expression, target: Type): Expression {
       return `${expr.addParentheses(expr.print(ctx))}.Get()`;
     });
   }
-  // Get value from optional types.
-  if (source.isOptional() && !target.isOptional()) {
-    return new CustomExpression(source, (ctx) => {
-      return `${expr.addParentheses(expr.print(ctx))}.value()`;
-    });
-  }
+  // Convert function pointer to functor object.
   if (source.category == 'function' && target.category == 'functor') {
-    // Convert function pointer to functor object.
     return new CustomExpression(target, (ctx) => {
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
-  throw new Error(`Unable to convert arg from ${source.category} to ${target.category}`);
+  return expr;
 }
 
 /**
- * Compare the sourceTypes and targetTypes, and do conversation when required.
+ * Compare the sourceTypes and targetTypes, and do conversion when required.
  */
 export function castArguments(args: Expression[], targetTypes: Type[]) {
   for (let i = 0; i < args.length; ++i)
     args[i] = castExpression(args[i], targetTypes[i]);
   return args;
+}
+
+// Conversions involving unions.
+function castUnion(expr: Expression, target: Type, source: Type): Expression {
+  // Use the C++ helper to convert between unions.
+  if (source.category == 'union' && target.category == 'union') {
+    return new CustomExpression(target, (ctx) => {
+      return `compilets::CastVariant(${expr.print(ctx)})`;
+    });
+  }
+  // From non-union to union.
+  if (target.category == 'union') {
+    // Number literal in C++ is not necessarily double.
+    if (source.name == 'double' && source.category == 'primitive') {
+      return new CustomExpression(source, (ctx) => {
+        return `static_cast<double>(${expr.print(ctx)})`;
+      });
+    }
+    const subtype = target.types.find(t => t.equal(source));
+    if (!subtype)
+      throw new Error('The target union does not contain the source type');
+    return castExpression(expr, subtype);
+  }
+  // From union to non-union.
+  if (source.category == 'union') {
+    const subtype = source.types.find(t => t.equal(target));
+    if (!subtype)
+      throw new Error('The union does not contain the target type');
+    return new CustomExpression(subtype, (ctx) => {
+      return `std::get<${subtype.print(ctx)}>(${expr.print(ctx)})`;
+    });
+  }
+  throw new Error('Not reached');
+}
+
+// Conversions between optionals.
+function castOptional(expr: Expression, target: Type, source: Type): Expression {
+  if (expr.type.isOptional() && !target.isOptional()) {
+    return new CustomExpression(expr.type, (ctx) => {
+      return `${expr.addParentheses(expr.print(ctx))}.value()`;
+    });
+  }
+  return castExpression(expr, target.noOptional(), source.noOptional());
 }

@@ -121,6 +121,13 @@ export class Type {
     return cppType;
   }
 
+  copy(): Type {
+    const copied = new Type(this.name, this.category, this.modifiers.slice());
+    copied.types = this.types?.map(t => t.copy());
+    copied.namespace = this.namespace;
+    return copied;
+  }
+
   equal(other: Type): boolean {
     if (this === other)
       return true;
@@ -144,12 +151,26 @@ export class Type {
     return this.category == 'functor' || this.category == 'class';
   }
 
+  hasGCedType() {
+    if (this.isGCedType())
+      return true;
+    if (this.category == 'union')
+      return this.types.some(t => t.isGCedType());
+    return false;
+  }
+
   isOptional() {
     return this.modifiers.includes('optional');
   }
 
   usesOptional() {
     return this.category != 'union' && this.isOptional();
+  }
+
+  noOptional() {
+    const result = this.copy();
+    result.modifiers = result.modifiers.filter(m => m != 'optional');
+    return result;
   }
 
   isProperty() {
@@ -294,7 +315,7 @@ export class BinaryExpression extends Expression {
   constructor(type: Type, left: Expression, right: Expression, operator: string) {
     super(type);
     this.left = left;
-    this.right = right;
+    this.right = operator == '=' ? castExpression(right, left.type) : right;
     this.operator = operator;
   }
 

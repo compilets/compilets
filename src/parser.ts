@@ -504,7 +504,7 @@ export default class Parser {
       // Iterate all subtypes and add unique ones to cppType.
       const cppType = new syntax.Type(name, 'union', modifiers);
       for (const t of union.types) {
-        const subtype = this.parseType(t);
+        const subtype = this.parseType(t, modifiers?.filter(m => m == 'property'));
         if (!cppType.types.find(s => s.equal(subtype)))
           cppType.types.push(subtype);
       }
