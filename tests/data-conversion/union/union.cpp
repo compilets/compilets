@@ -4,7 +4,9 @@ void TakeOptionalUnion(std::variant<double, bool, std::monostate> a);
 void TakeNumber(double n);
 void TestUnion();
 
-void TakeOptionalUnion(std::variant<double, bool, std::monostate> a) {}
+void TakeOptionalUnion(std::variant<double, bool, std::monostate> a) {
+  if (!std::holds_alternative<std::monostate>(a)) {}
+}
 
 void TakeNumber(double n) {}
 

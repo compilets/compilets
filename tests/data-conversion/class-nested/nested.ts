@@ -1,8 +1,8 @@
 class Prop {}
 
 class Owner {
-  private prop1: Prop;
-  private prop2: Prop;
+  public prop1: Prop;
+  public prop2: Prop;
 
   constructor(prop: Prop) {
     this.prop1 = prop;
@@ -11,6 +11,6 @@ class Owner {
 }
 
 function TestNested() {
-  const o = new Owner();
+  const o = new Owner(new Prop);
   o.prop1 = o.prop2;
 }

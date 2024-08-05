@@ -88,6 +88,18 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
 }
 
 /**
+ * Convert expression to if conditions.
+ */
+export function ifExpression(expr: Expression): Expression {
+  if (expr.type.category == 'union' && expr.type.isOptional()) {
+    return new CustomExpression(new Type('bool', 'primitive'), (ctx) => {
+      return `std::holds_alternative<std::monostate>(${expr.print(ctx)})`;
+    });
+  }
+  return expr;
+}
+
+/**
  * Convert the expression of source type to target type if necessary.
  */
 export function castExpression(expr: Expression, target: Type): Expression {
@@ -115,7 +127,14 @@ export function castExpression(expr: Expression, target: Type): Expression {
       return `std::get<${target.print(ctx)}>(${expr.print(ctx)})`;
     });
   }
-  // Accessing the .value() property of optional types.
+  // Get value from GCed members.
+  if ((source.isProperty() && source.isGCedType()) &&
+      !(target.isProperty() && target.isGCedType())) {
+    return new CustomExpression(source, (ctx) => {
+      return `${expr.addParentheses(expr.print(ctx))}.Get()`;
+    });
+  }
+  // Get value from optional types.
   if (source.isOptional() && !target.isOptional()) {
     return new CustomExpression(source, (ctx) => {
       return `${expr.addParentheses(expr.print(ctx))}.value()`;

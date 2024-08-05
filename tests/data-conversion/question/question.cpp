@@ -25,11 +25,11 @@ class LinkNode : public compilets::Object {
 
 void TestQuestionTokenInClass() {
   LinkNode* head = compilets::MakeObject<LinkNode>(0);
-  if (!head->next.Get()) {
+  if (!head->next) {
     head->next = compilets::MakeObject<LinkNode>(1);
   }
   std::optional<double> n = head->item;
-  head->next.Get()->item = 3;
+  head->next->item = 3;
   TakeNumber(head->item.value());
 }
 

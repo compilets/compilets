@@ -1,6 +1,7 @@
 import {
   createTraceMethod,
   printClassDeclaration,
+  ifExpression,
   castExpression,
   castArguments,
 } from './cpp-syntax-utils';
@@ -156,11 +157,8 @@ export class Type {
   }
 }
 
-export type ExpressionContext = 'left-hand' | 'right-hand' | 'condition';
-
 export abstract class Expression {
   type: Type;
-  context: ExpressionContext = 'right-hand';
 
   constructor(type: Type) {
     this.type = type;
@@ -180,10 +178,6 @@ export abstract class Expression {
   }
 
   protected wrap(expr: string): string {
-    if (this.context == 'right-hand') {
-      if (this.type.isProperty() && this.type.isGCedType())
-        return `${this.addParentheses(expr)}.Get()`;
-    }
     return expr;
   }
 }
@@ -258,7 +252,7 @@ export class PrefixUnaryExpression extends Expression {
 
   constructor(type: Type, operand: Expression, operator: string) {
     super(type);
-    this.operand = operand;
+    this.operand = operator == '!' ? ifExpression(operand) : operand;
     this.operator = operator;
   }
 
@@ -278,8 +272,7 @@ export class ConditionalExpression extends Expression {
 
   constructor(type: Type, condition: Expression, whenTrue: Expression, whenFalse: Expression) {
     super(type);
-    this.condition = condition;
-    this.condition.context = 'condition';
+    this.condition = ifExpression(condition);
     this.whenTrue = whenTrue;
     this.whenFalse = whenFalse;
   }
@@ -301,8 +294,6 @@ export class BinaryExpression extends Expression {
   constructor(type: Type, left: Expression, right: Expression, operator: string) {
     super(type);
     this.left = left;
-    if (operator == '=')
-      this.left.context = 'left-hand';
     this.right = right;
     this.operator = operator;
   }
@@ -402,7 +393,7 @@ export class PropertyAccessExpression extends Expression {
 
   constructor(type: Type, expression: Expression, member: string) {
     super(type);
-    this.expression = expression;
+    this.expression = castExpression(expression, expression.type);
     this.member = member;
   }
 
@@ -787,8 +778,7 @@ export class IfStatement extends Statement {
 
   constructor(expression: Expression, thenStatement: Statement, elseStatement?: Statement) {
     super();
-    this.expression = expression;
-    this.expression.context = 'condition';
+    this.expression = ifExpression(expression);
     this.thenStatement = thenStatement;
     this.elseStatement = elseStatement;
   }
@@ -805,11 +795,10 @@ export class DoStatement extends Statement {
   statement: Statement;
   expression: Expression;
 
-  constructor(stat: Statement, expr: Expression) {
+  constructor(statement: Statement, expression: Expression) {
     super();
-    this.statement = stat;
-    this.expression = expr;
-    this.expression.context = 'condition';
+    this.statement = statement;
+    this.expression = ifExpression(expression);
   }
 
   override print(ctx: PrintContext) {
@@ -821,11 +810,10 @@ export class WhileStatement extends Statement {
   statement: Statement;
   expression: Expression;
 
-  constructor(stat: Statement, expr: Expression) {
+  constructor(statement: Statement, expression: Expression) {
     super();
-    this.statement = stat;
-    this.expression = expr;
-    this.expression.context = 'condition';
+    this.statement = statement;
+    this.expression = ifExpression(expression);
   }
 
   override print(ctx: PrintContext) {
@@ -846,9 +834,8 @@ export class ForStatement extends Statement {
     super();
     this.statement = statement;
     this.initializer = initializer;
-    this.condition = condition;
-    if (this.condition)
-      this.condition.context = 'condition';
+    if (condition)
+      this.condition = ifExpression(condition);
     this.incrementor = incrementor;
   }
 

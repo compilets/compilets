@@ -1,4 +1,6 @@
 function TakeOptionalUnion(a?: boolean | number) {
+  if (!a) {
+  }
 }
 
 function TakeNumber(n: number) {

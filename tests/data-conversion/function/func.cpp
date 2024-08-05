@@ -54,5 +54,5 @@ void TestLocalFunction() {
   compilets::Function<double()>* passFunction = TakeCallback(1234, compilets::MakeFunction<double(double)>(Simple));
   SaveCallback* saveLambda = compilets::MakeObject<SaveCallback>(add);
   SaveCallback* saveFunction = compilets::MakeObject<SaveCallback>(compilets::MakeFunction<double(double)>(Simple));
-  saveLambda->callback.Get()->value()(0x8964);
+  saveLambda->callback->value()(0x8964);
 }

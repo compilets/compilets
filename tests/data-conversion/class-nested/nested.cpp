@@ -9,6 +9,10 @@ class Prop : public compilets::Object {
 
 class Owner : public compilets::Object {
  public:
+  cppgc::Member<Prop> prop1;
+
+  cppgc::Member<Prop> prop2;
+
   Owner(Prop* prop) {
     this->prop1 = prop;
     this->prop2 = prop;
@@ -20,14 +24,9 @@ class Owner : public compilets::Object {
   }
 
   virtual ~Owner() = default;
-
- private:
-  cppgc::Member<Prop> prop1;
-
-  cppgc::Member<Prop> prop2;
 };
 
 void TestNested() {
-  Owner* o = compilets::MakeObject<Owner>();
-  o->prop1 = o->prop2.Get();
+  Owner* o = compilets::MakeObject<Owner>(compilets::MakeObject<Prop>());
+  o->prop1 = o->prop2;
 }
