@@ -48,6 +48,7 @@ export default class CppProject {
       this.compilerOptions = {
         rootDir,
         noImplicitAny: true,
+        strictNullChecks: true,
         target: ts.ScriptTarget.ESNext,
         module: ts.ModuleKind.CommonJS,
       };

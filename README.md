@@ -149,6 +149,18 @@ The optional function parameters and class properties in TypeScript are
 represented as `std::optional` in C++. For example `func(arg?: boolean)` becomes
 `func(std::optional<bool> arg)`.
 
+### `null` and `undefined`
+
+Unlike JavaScript, there is no undefined state for variables in C++, it is
+possible simulate `undefined` but it would be at the cost of performance.
+
+Thus in Compilets both `null` and `undefined` are treated as null states of
+types: `std::nullopt` for `std::optional`, `std::monostate` for `std::variant`,
+`std::nullptr` for other pointer types. This will of course break some even
+strictly typed code, and to avoid generating incorrect code, errors will be
+thrown when the TypeScript code needs to strictly distinguish between `null`
+and `undefined`.
+
 ## Developement
 
 The documentations of Oilpan GC (cppgc) can be found at:

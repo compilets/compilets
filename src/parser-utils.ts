@@ -116,6 +116,9 @@ export function parseHint(node: ts.Node): string[] {
  */
 export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | undefined {
   let result: syntax.Type | undefined;
+  // The gc function is defined as optional.
+  if (type.isUnion())
+    type = (type as ts.UnionType).types.find(t => !(t.getFlags() & ts.TypeFlags.Undefined))!;
   // Get the type's original declaration.
   if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
     return result;

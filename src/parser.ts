@@ -85,11 +85,16 @@ export default class Parser {
       case ts.SyntaxKind.ThisKeyword:
         return new syntax.RawExpression(this.parseNodeType(node),
                                         node.getText());
+      case ts.SyntaxKind.NullKeyword:
+        return new syntax.RawExpression(this.parseNodeType(node),
+                                        'std::nullptr');
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral(this.parseNodeType(node),
                                         (node as ts.StringLiteral).text);
-      case ts.SyntaxKind.Identifier:
-        return new syntax.Identifier(this.parseNodeType(node), node.getText());
+      case ts.SyntaxKind.Identifier: {
+        const type = this.parseNodeType(node);
+        return new syntax.Identifier(type, type.category == 'null' ? 'std::nullptr' : node.getText());
+      }
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
@@ -439,15 +444,18 @@ export default class Parser {
     // Find the original declaration.
     const decl = this.getOriginalDeclaration(node);
     const type = this.typeChecker.getTypeAtLocation(decl);
+    const isExternalDeclaration = decl.getSourceFile().isDeclarationFile;
     // Check Node.js type.
-    const nodeJsType = parseNodeJsType(node, type);
-    if (nodeJsType) {
-      this.features.add('runtime');
-      if (nodeJsType.name == 'Console')
-        this.features.add('console');
-      else if (nodeJsType.name == 'Process')
-        this.features.add('process');
-      return nodeJsType;
+    if (isExternalDeclaration) {
+      const nodeJsType = parseNodeJsType(node, type);
+      if (nodeJsType) {
+        this.features.add('runtime');
+        if (nodeJsType.name == 'Console')
+          this.features.add('console');
+        else if (nodeJsType.name == 'Process')
+          this.features.add('process');
+        return nodeJsType;
+      }
     }
     // Some type information are part of node instead of type itself.
     if (ts.isPropertyDeclaration(decl)) {
@@ -460,15 +468,18 @@ export default class Parser {
       if ((decl as ts.ParameterDeclaration).questionToken)
         modifiers.push('optional');
     }
-    return this.parseTypeWithNode(type, node, modifiers);
+    return this.parseTypeWithNode(type, node, modifiers, isExternalDeclaration);
   }
 
   /**
    * Wrap parseType with detailed error information.
    */
-  parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]) {
+  parseTypeWithNode(type: ts.Type,
+                    node: ts.Node,
+                    modifiers?: syntax.TypeModifier[],
+                    isExternalDeclaration = false): syntax.Type {
     try {
-      return this.parseType(type, modifiers);
+      return this.parseType(type, modifiers, isExternalDeclaration);
     } catch (error: unknown) {
       if (error instanceof Error)
         throw new UnimplementedError(node, error.message);
@@ -480,7 +491,9 @@ export default class Parser {
   /**
    * Parse TypeScript type to C++ type.
    */
-  parseType(type: ts.Type, modifiers?: syntax.TypeModifier[]) {
+  parseType(type: ts.Type,
+            modifiers?: syntax.TypeModifier[],
+            isExternalDeclaration = false): syntax.Type {
     // Check literals.
     if (type.isNumberLiteral())
       return new syntax.Type('double', 'primitive', modifiers);
@@ -494,40 +507,20 @@ export default class Parser {
       return new syntax.Type(type.symbol.name, 'class', modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
-    if (type.isUnion()) {
-      const union = type as ts.UnionType;
-      // Literal unions are treated as a single type.
-      if (union.types.every(t => t.isNumberLiteral()))
-        return new syntax.Type('double', 'primitive', modifiers);
-      if (union.types.every(t => t.isStringLiteral()))
-        return new syntax.Type('string', 'string', modifiers);
-      if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
-        return new syntax.Type('bool', 'primitive', modifiers);
-      // Iterate all subtypes and add unique ones to cppType.
-      const cppType = new syntax.Type(name, 'union', modifiers);
-      for (const t of union.types) {
-        const subtype = this.parseType(t, modifiers?.filter(m => m == 'property'));
-        if (!cppType.types.find(s => s.equal(subtype)))
-          cppType.types.push(subtype);
-      }
-      return cppType;
-    }
+    if (type.isUnion())
+      return this.parseUnionType(name, type as ts.UnionType, modifiers, isExternalDeclaration);
     // Check builtin types.
-    switch (name) {
-      case 'void':
-        return new syntax.Type('void', 'void', modifiers);
-      case 'never':
-        return new syntax.Type('never', 'void', modifiers);
-      case 'true':
-      case 'false':
-        return new syntax.Type('bool', 'primitive', modifiers);
-      case 'boolean':
-        return new syntax.Type('bool', 'primitive', modifiers);
-      case 'number':
-        return new syntax.Type('double', 'primitive', modifiers);
-      case 'string':
-        return new syntax.Type('string', 'string', modifiers);
-    }
+    const flags = type.getFlags();
+    if (flags & (ts.TypeFlags.Never | ts.TypeFlags.Void))
+        return new syntax.Type(name, 'void', modifiers);
+    if (flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
+      return new syntax.Type(name, 'null', modifiers);
+    if (flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
+      return new syntax.Type('bool', 'primitive', modifiers);
+    if (flags & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral))
+      return new syntax.Type('double', 'primitive', modifiers);
+    if (flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))
+      return new syntax.Type('string', 'string', modifiers);
     throw new Error(`Unsupported type "${name}"`);
   }
 
@@ -570,6 +563,53 @@ export default class Parser {
   }
 
   /**
+   * Parse the union type.
+   */
+  parseUnionType(name: string,
+                 union: ts.UnionType,
+                 modifiers?: syntax.TypeModifier[],
+                 isExternalDeclaration = false): syntax.Type {
+    // Literal unions are treated as a single type.
+    if (union.types.every(t => t.isNumberLiteral()))
+      return new syntax.Type('double', 'primitive', modifiers);
+    if (union.types.every(t => t.isStringLiteral()))
+      return new syntax.Type('string', 'string', modifiers);
+    if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
+      return new syntax.Type('bool', 'primitive', modifiers);
+    // Iterate all subtypes and add unique ones to cppType.
+    let hasNull = false;
+    let hasUndefined = false;
+    let cppType = new syntax.Type(name, 'union', modifiers);
+    for (const t of union.types) {
+      const subtype = this.parseType(t, modifiers?.filter(m => m == 'property'));
+      if (subtype.category == 'null') {
+        if (subtype.name == 'null')
+          hasNull = true;
+        else if (subtype.name == 'undefined')
+          hasUndefined = true;
+      }
+      if (!cppType.types.find(s => s.equal(subtype)))
+        cppType.types.push(subtype);
+    }
+    // Null and undefined are treated as the same thing in C++.
+    if (hasNull && hasUndefined && !isExternalDeclaration)
+      throw new Error('Can not include both null and undefined in one union');
+    if (hasNull || hasUndefined) {
+      // Treat as optional type if type is something like "number | undefined".
+      if (cppType.types.length == 2)
+        cppType = cppType.types.find(t => t.category != 'null')!;
+      // Add optional modifier.
+      cppType.modifiers = modifiers ?? [];
+      if (!cppType.isOptional())
+        cppType.modifiers.push('optional');
+    }
+    // Make sure optional union type does not have null in the subtypes.
+    if (cppType.category == 'union' && cppType.isOptional())
+      cppType.types = cppType.types.filter(t => t.category != 'null');
+    return cppType;
+  }
+
+  /**
    * Get the original declaration of a node.
    */
   private getOriginalDeclaration(node: ts.Node): ts.Node {
@@ -579,7 +619,9 @@ export default class Parser {
     const decl = symbol.declarations[0];
     if (ts.isVariableDeclaration(decl)) {
       const {type, initializer} = decl as ts.VariableDeclaration;
-      if (!type && initializer)
+      if (type)
+        return type;
+      else if (initializer)
         return this.getOriginalDeclaration(initializer);
     }
     return decl;

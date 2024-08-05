@@ -75,7 +75,7 @@ export type Feature = 'optional' | 'union' | 'object' | 'function' |
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' | 'primitive' | 'string' | 'union' |
+export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'functor' | 'class' | 'function' | 'external';
 export type TypeModifier = 'optional' | 'property' | 'static';
 
@@ -114,6 +114,8 @@ export class Type {
         types.push('std::monostate');
       return `std::variant<${types.join(', ')}>`;
     }
+    if (this.category == 'null')
+      return 'std::nullptr_t';
     if (this.category == 'string')
       cppType = 'std::string';
     if (this.isOptional())
