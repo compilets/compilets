@@ -382,6 +382,8 @@ export default class Parser {
         const type = this.parseNodeType(name);
         if (type.usesOptional())
           this.features.add('optional');
+        if (type.category == 'union')
+          this.features.add('union');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
                                               type,
