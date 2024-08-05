@@ -90,7 +90,8 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
 /**
  * Convert the expression of source type to target type if necessary.
  */
-export function castExpression(expr: Expression, source: Type, target: Type): Expression {
+export function castExpression(expr: Expression, target: Type): Expression {
+  const source = expr.type;
   if (source.equal(target))
     return expr;
   // Union to union requires explicit conversation.
@@ -132,8 +133,8 @@ export function castExpression(expr: Expression, source: Type, target: Type): Ex
 /**
  * Compare the sourceTypes and targetTypes, and do conversation when required.
  */
-export function castArguments(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
+export function castArguments(args: Expression[], targetTypes: Type[]) {
   for (let i = 0; i < args.length; ++i)
-    args[i] = castExpression(args[i], sourceTypes[i], targetTypes[i]);
+    args[i] = castExpression(args[i], targetTypes[i]);
   return args;
 }

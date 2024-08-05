@@ -177,7 +177,6 @@ export default class Parser {
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         return new syntax.CallExpression(this.parseNodeType(node),
                                          this.parseExpression(expression),
-                                         this.parseNodeType(expression),
                                          this.parseArguments(callExpression, args));
       }
       case ts.SyntaxKind.NewExpression: {
@@ -199,12 +198,11 @@ export default class Parser {
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
-        const objectType = this.parseNodeType(expression);
-        if (!objectType.isClass())
+        const obj = this.parseExpression(expression);
+        if (!obj.type.isClass())
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
-                                                   this.parseExpression(expression),
-                                                   objectType,
+                                                   obj,
                                                    (name as ts.Identifier).text);
       }
     }
@@ -308,8 +306,7 @@ export default class Parser {
           // let a = 123;
           return new syntax.VariableDeclaration(name.text,
                                                 cppType,
-                                                this.parseExpression(node.initializer),
-                                                this.parseNodeType(node.initializer));
+                                                this.parseExpression(node.initializer));
         } else {
           // let a;
           return new syntax.VariableDeclaration(name.text, cppType);
@@ -422,15 +419,13 @@ export default class Parser {
 
   parseArguments(node: ts.CallLikeExpression, args?: ts.NodeArray<ts.Expression>) {
     if (!args)
-      return new syntax.CallArguments([], [], []);
+      return new syntax.CallArguments([], []);
     const resolvedSignature = this.typeChecker.getResolvedSignature(node);
     if (!resolvedSignature)
       throw new UnimplementedError(node, 'Can not get resolved signature');
-    const sourceTypes = args.map(this.parseNodeType.bind(this));
     const targetTypes = resolvedSignature.parameters.map(m => this.parseParameterDeclaration(m.valueDeclaration as ts.ParameterDeclaration))
                                                     .map(t => t.type);
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
-                                    sourceTypes,
                                     targetTypes);
   }
 

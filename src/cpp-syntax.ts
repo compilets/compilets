@@ -352,8 +352,8 @@ export class FunctionExpression extends Expression {
 export class CallArguments {
   args: Expression[];
 
-  constructor(args: Expression[], sourceTypes: Type[], targetTypes: Type[]) {
-    this.args = castArguments(args, sourceTypes, targetTypes);
+  constructor(args: Expression[], targetTypes: Type[]) {
+    this.args = castArguments(args, targetTypes);
   }
 
   print(ctx: PrintContext) {
@@ -363,19 +363,17 @@ export class CallArguments {
 
 export class CallExpression extends Expression {
   callee: Expression;
-  calleeType: Type;
   args: CallArguments;
 
-  constructor(type: Type, callee: Expression, calleeType: Type, args: CallArguments) {
+  constructor(type: Type, callee: Expression, args: CallArguments) {
     super(type);
     this.callee = callee;
-    this.calleeType = calleeType;
     this.args = args;
   }
 
   override print(ctx: PrintContext) {
     let callee = this.callee.print(ctx);
-    if (this.calleeType.category == 'functor')
+    if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
     return this.wrap(`${callee}(${this.args.print(ctx)})`);
   }
@@ -400,19 +398,17 @@ export class NewExpression extends Expression {
 
 export class PropertyAccessExpression extends Expression {
   expression: Expression;
-  objectType: Type;
   member: string;
 
-  constructor(type: Type, expression: Expression, objectType: Type, member: string) {
+  constructor(type: Type, expression: Expression, member: string) {
     super(type);
     this.expression = expression;
-    this.objectType = objectType;
     this.member = member;
   }
 
   override print(ctx: PrintContext) {
     let dot: string;
-    if (this.objectType.isGCedType()) {
+    if (this.expression.type.isGCedType()) {
       if (this.type.modifiers.includes('static'))
         dot = '::';
       else
@@ -449,12 +445,12 @@ export class VariableDeclaration extends Declaration {
   type: Type;
   initializer?: Expression;
 
-  constructor(identifier: string, type: Type, initializer?: Expression, initializerType?: Type) {
+  constructor(identifier: string, type: Type, initializer?: Expression) {
     super();
     this.identifier = identifier;
     this.type = type;
-    if (initializer && initializerType)
-      this.initializer = castExpression(initializer, initializerType, type);
+    if (initializer)
+      this.initializer = castExpression(initializer, type);
   }
 
   override print(ctx: PrintContext) {
@@ -495,7 +491,8 @@ export class ParameterDeclaration extends NamedDeclaration {
   constructor(name: string, type: Type, initializer?: Expression) {
     super(name);
     this.type = type;
-    this.initializer = initializer;
+    if (initializer)
+      this.initializer = castExpression(initializer, type);
   }
 
   override print(ctx: PrintContext) {
@@ -575,7 +572,8 @@ export class PropertyDeclaration extends ClassElement {
   constructor(name: string, modifiers: string[], type: Type, initializer?: Expression) {
     super(name, modifiers);
     this.type = type;
-    this.initializer = initializer;
+    if (initializer)
+      this.initializer = castExpression(initializer, type);
   }
 
   override print(ctx: PrintContext) {
@@ -862,12 +860,10 @@ export class ForStatement extends Statement {
 export class ReturnStatement extends Statement {
   expression?: Expression;
 
-  constructor(expression?: Expression, type?: Type) {
+  constructor(expression?: Expression, target?: Type) {
     super();
-    if (expression) {
-      const target = type ?? expression.type;
-      this.expression = castExpression(expression, expression.type, target);
-    }
+    if (expression)
+      this.expression = castExpression(expression, target ?? expression.type);
   }
 
   override print(ctx: PrintContext) {
