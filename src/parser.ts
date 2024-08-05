@@ -265,7 +265,15 @@ export default class Parser {
       case ts.SyntaxKind.ReturnStatement: {
         // return xxx
         const {expression} = node as ts.ReturnStatement;
-        return new syntax.ReturnStatement(expression ? this.parseExpression(expression) : undefined);
+        let returnType = new syntax.Type('void', 'void')
+        if (expression) {
+          const func = ts.findAncestor(node.parent, n => ts.isFunctionExpression(n) || ts.isArrowFunction(n) || ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n));
+          if (!func)
+            throw new UnsupportedError(node, 'Can not find the function return type of return statement');
+          returnType = this.parseFunctionReturnType(func);
+        }
+        return new syntax.ReturnStatement(expression ? this.parseExpression(expression) : undefined,
+                                          returnType);
       }
       case ts.SyntaxKind.ForInStatement:
         throw new UnimplementedError(node, 'The for...in loop is not supported');
@@ -292,19 +300,19 @@ export default class Parser {
     switch (node.name.kind) {
       case ts.SyntaxKind.Identifier:
         // let a = xxx;
-        const name = (node.name as ts.Identifier).text;
-        const type = this.parseNodeType(node.name);
-        if (type.category == 'union')
+        const {name, type} = node;
+        const cppType = this.parseNodeType(type ?? name);
+        if (cppType.category == 'union')
           this.features.add('union');
         if (node.initializer) {
           // let a = 123;
-          return new syntax.VariableDeclaration(name,
-                                                type,
+          return new syntax.VariableDeclaration(name.text,
+                                                cppType,
                                                 this.parseExpression(node.initializer),
                                                 this.parseNodeType(node.initializer));
         } else {
           // let a;
-          return new syntax.VariableDeclaration(name, type);
+          return new syntax.VariableDeclaration(name.text, cppType);
         }
     }
     throw new UnimplementedError(node, 'Unsupported variable declaration');
@@ -502,8 +510,6 @@ export default class Parser {
       const cppType = new syntax.Type(name, 'union', modifiers);
       for (const t of union.types) {
         const subtype = this.parseType(t);
-        if (subtype.isGCedType())
-          throw new Error(`Union type can only include primitive types`);
         if (!cppType.types.find(s => s.equal(subtype)))
           cppType.types.push(subtype);
       }
@@ -573,6 +579,12 @@ export default class Parser {
     const symbol = this.typeChecker.getSymbolAtLocation(node);
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return node;
-    return symbol.declarations[0];
+    const decl = symbol.declarations[0];
+    if (ts.isVariableDeclaration(decl)) {
+      const {type, initializer} = decl as ts.VariableDeclaration;
+      if (!type && initializer)
+        return this.getOriginalDeclaration(initializer);
+    }
+    return decl;
   }
 }

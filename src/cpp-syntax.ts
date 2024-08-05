@@ -121,15 +121,17 @@ export class Type {
   }
 
   equal(other: Type): boolean {
+    if (this === other)
+      return true;
     if (this.name != other.name ||
         this.category != other.category ||
-        this.namespace != other.namespace)
+        this.namespace != other.namespace ||
+        this.isOptional() != other.isOptional())
       return false;
     if (this.category != 'union')
       return true;
     // For unions, also compare all subtypes.
-    return this.isOptional() == other.isOptional() &&
-           this.types.some(t => other.types.some(s => t.equal(s))) &&
+    return this.types.some(t => other.types.some(s => t.equal(s))) &&
            other.types.some(s => this.types.some(t => s.equal(t)));
   }
 
@@ -166,23 +168,21 @@ export abstract class Expression {
 
   abstract print(ctx: PrintContext): string;
 
-  protected shouldAddParenthesesForPropertyAccess(): boolean {
-    return false;
-  }
-
-  protected addParentheses(expr: string): string {
+  addParentheses(expr: string): string {
     if (this.shouldAddParenthesesForPropertyAccess())
       return `(${expr})`;
     else
       return expr;
   }
 
+  protected shouldAddParenthesesForPropertyAccess(): boolean {
+    return false;
+  }
+
   protected wrap(expr: string): string {
     if (this.context == 'right-hand') {
       if (this.type.isProperty() && this.type.isGCedType())
         return `${this.addParentheses(expr)}.Get()`;
-      if (this.type.isOptional() && this.type.category != 'union')
-        return `${this.addParentheses(expr)}.value()`;
     }
     return expr;
   }
@@ -862,14 +862,17 @@ export class ForStatement extends Statement {
 export class ReturnStatement extends Statement {
   expression?: Expression;
 
-  constructor(expression?: Expression) {
+  constructor(expression?: Expression, type?: Type) {
     super();
-    this.expression = expression;
+    if (expression) {
+      const target = type ?? expression.type;
+      this.expression = castExpression(expression, expression.type, target);
+    }
   }
 
   override print(ctx: PrintContext) {
     if (this.expression)
-      return `${ctx.prefix}return ${this.expression!.print(ctx)};`;
+      return `${ctx.prefix}return ${this.expression.print(ctx)};`;
     else
       return `${ctx.prefix}return;`;
   }

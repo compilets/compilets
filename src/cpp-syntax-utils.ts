@@ -93,6 +93,12 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
 export function castExpression(expr: Expression, source: Type, target: Type): Expression {
   if (source.equal(target))
     return expr;
+  // Union to union requires explicit conversation.
+  if (source.category == 'union' && target.category == 'union') {
+    return new CustomExpression(target, (ctx) => {
+      return `compilets::CastVariant(${expr.print(ctx)})`;
+    });
+  }
   if (target.category == 'union') {
     // Number literal in C++ is not necessarily double.
     if (source.name == 'double' && source.category == 'primitive') {
@@ -100,13 +106,19 @@ export function castExpression(expr: Expression, source: Type, target: Type): Ex
         return `static_cast<double>(${expr.print(ctx)})`;
       });
     }
-    // Union to union requires explicit conversation.
-    if (source.category == 'union') {
-      return new CustomExpression(target, (ctx) => {
-        return `compilets::CastVariant(${expr.print(ctx)})`;
-      });
-    }
     return expr;
+  }
+  // Union to subtype requires explicit conversation.
+  if (source.category == 'union') {
+    return new CustomExpression(source, (ctx) => {
+      return `std::get<${target.print(ctx)}>(${expr.print(ctx)})`;
+    });
+  }
+  // Accessing the .value() property of optional types.
+  if (source.isOptional() && !target.isOptional()) {
+    return new CustomExpression(source, (ctx) => {
+      return `${expr.addParentheses(expr.print(ctx))}.value()`;
+    });
   }
   if (source.category == 'function' && target.category == 'functor') {
     // Convert function pointer to functor object.
