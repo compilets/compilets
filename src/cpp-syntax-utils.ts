@@ -161,9 +161,13 @@ function castUnion(expr: Expression, target: Type, source: Type): Expression {
         return `static_cast<double>(${expr.print(ctx)})`;
       });
     }
+    // Convert null to std::monostate.
+    if (source.category == 'null')
+      return new CustomExpression(source, (ctx) => 'std::monostate{}');
+    // Find the target subtype and do an explicit conversion.
     const subtype = target.types.find(t => t.equal(source));
     if (!subtype)
-      throw new Error('The target union does not contain the source type');
+      throw new Error(`The target union "${target.name}" does not contain the source type "${source.name}"`);
     return castExpression(expr, subtype);
   }
   // From union to non-union.
@@ -180,8 +184,15 @@ function castUnion(expr: Expression, target: Type, source: Type): Expression {
 
 // Conversions between optionals.
 function castOptional(expr: Expression, target: Type, source: Type): Expression {
-  if (expr.type.isOptional() && !target.isOptional()) {
-    return new CustomExpression(expr.type, (ctx) => {
+  // Convert null to std::nullopt.
+  if (source.category == 'null' && target.isOptional()) {
+    if (target.isProperty())
+      return expr;
+    return new CustomExpression(source, (ctx) => 'std::nullopt');
+  }
+  // Add .value() when accessing value.
+  if (source.isOptional() && !target.isOptional()) {
+    return new CustomExpression(source, (ctx) => {
       return `${expr.addParentheses(expr.print(ctx))}.value()`;
     });
   }

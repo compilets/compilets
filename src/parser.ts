@@ -87,13 +87,15 @@ export default class Parser {
                                         node.getText());
       case ts.SyntaxKind.NullKeyword:
         return new syntax.RawExpression(this.parseNodeType(node),
-                                        'std::nullptr');
+                                        'nullptr');
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral(this.parseNodeType(node),
                                         (node as ts.StringLiteral).text);
       case ts.SyntaxKind.Identifier: {
         const type = this.parseNodeType(node);
-        return new syntax.Identifier(type, type.category == 'null' ? 'std::nullptr' : node.getText());
+        return new syntax.Identifier(type,
+                                     type.category == 'null' ? 'nullptr'
+                                                             : node.getText());
       }
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
