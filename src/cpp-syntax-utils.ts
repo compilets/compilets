@@ -4,6 +4,7 @@ import {
   Expression,
   RawExpression,
   CustomExpression,
+  ConditionalExpression,
   ClassDeclaration,
   ClassElement,
   PropertyDeclaration,
@@ -88,6 +89,16 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
 }
 
 /**
+ * Print and add parentheses when needed.
+ */
+export function printExpressionValue(expr: Expression, ctx: PrintContext) {
+  const result = expr.print(ctx);
+  if (expr.shouldAddParenthesesForPropertyAccess)
+    return `(${result})`;
+  return result;
+}
+
+/**
  * Convert expression to if conditions.
  */
 export function ifExpression(expr: Expression): Expression {
@@ -103,6 +114,13 @@ export function ifExpression(expr: Expression): Expression {
  * Convert the expression of source type to target type if necessary.
  */
 export function castExpression(expr: Expression, target: Type, source?: Type): Expression {
+  // The operands of ?: do not necessarily have same type.
+  if (expr instanceof ConditionalExpression) {
+    expr.whenTrue = castExpression(expr.whenTrue, target);
+    expr.whenFalse = castExpression(expr.whenFalse, target);
+    return expr;
+  }
+  // Do nothing if same type.
   source = source ?? expr.type;
   if (source.equal(target))
     return expr;
@@ -179,24 +197,23 @@ function castUnion(expr: Expression, target: Type, source: Type): Expression {
 // Conversions between optionals.
 function castOptional(expr: Expression, target: Type, source: Type): Expression {
   // Convert null to std::nullopt.
-  if (source.category == 'null' && target.isOptional()) {
+  if (source.category == 'null' && target.isStdOptional()) {
     if (target.isProperty())
       return expr;
     return new CustomExpression(source, (ctx) => 'std::nullopt');
   }
   // Add .value() when accessing value.
-  if (source.isOptional() && !target.isOptional()) {
+  if (source.isStdOptional() && !target.isStdOptional()) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.value()`;
     });
   }
+  // Add .Get() when accessing property.
+  if (source.isGCedType() && source.isProperty() &&
+      !(target.isGCedType() && target.isProperty())) {
+    return new CustomExpression(source, (ctx) => {
+      return `${printExpressionValue(expr, ctx)}.Get()`;
+    });
+  }
   return castExpression(expr, target.noOptional(), source.noOptional());
-}
-
-// Print and Add parentheses when needed.
-function printExpressionValue(expr: Expression, ctx: PrintContext) {
-  const result = expr.print(ctx);
-  if (expr.shouldAddParenthesesForPropertyAccess)
-    return `(${result})`;
-  return result;
 }

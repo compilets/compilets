@@ -28,9 +28,11 @@ void TestQuestionTokenInClass() {
   if (!head->next) {
     head->next = compilets::MakeObject<LinkNode>(1);
   }
-  std::optional<double> n = head->item;
+  std::optional<double> i = head->item;
   head->next->item = 3;
   TakeNumber(head->item.value());
+  double n = true ? head->item.value() : 0;
+  LinkNode* l = true ? head : head->next.Get();
 }
 
 void TakeNumber(double n) {}

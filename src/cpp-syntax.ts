@@ -1,6 +1,7 @@
 import {
   createTraceMethod,
   printClassDeclaration,
+  printExpressionValue,
   ifExpression,
   castExpression,
   castArguments,
@@ -126,11 +127,11 @@ export class Type {
     return cppType;
   }
 
-  copy(): Type {
-    const copied = new Type(this.name, this.category, this.modifiers.slice());
-    copied.types = this.types?.map(t => t.copy());
-    copied.namespace = this.namespace;
-    return copied;
+  clone(): Type {
+    const newType = new Type(this.name, this.category, this.modifiers.slice());
+    newType.types = this.types?.map(t => t.clone());
+    newType.namespace = this.namespace;
+    return newType;
   }
 
   equal(other: Type): boolean {
@@ -161,7 +162,7 @@ export class Type {
   hasGCedType() {
     if (this.isGCedType())
       return true;
-    if (this.category == 'array' || this.category == 'union')
+    if (this.category == 'union' || this.category == 'array')
       return this.types.some(t => t.isGCedType());
     return false;
   }
@@ -170,12 +171,12 @@ export class Type {
     return this.modifiers.includes('optional');
   }
 
-  usesOptional() {
-    return this.category != 'union' && this.isOptional();
+  isStdOptional() {
+    return this.category != 'union' && !this.isGCedType() && this.isOptional();
   }
 
   noOptional() {
-    const result = this.copy();
+    const result = this.clone();
     result.modifiers = result.modifiers.filter(m => m != 'optional');
     return result;
   }
@@ -362,7 +363,7 @@ export class CallExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    let callee = this.callee.print(ctx);
+    let callee = printExpressionValue(this.callee, ctx);
     if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
     return `${callee}(${this.args.print(ctx)})`;

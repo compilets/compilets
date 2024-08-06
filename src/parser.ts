@@ -161,7 +161,7 @@ export default class Parser {
           }
         }
         const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-        if (cppParameters.some(p => p.type.usesOptional()))
+        if (cppParameters.some(p => p.type.isStdOptional()))
           this.features.add('optional');
         if (cppParameters.some(p => p.type.category == 'union'))
           this.features.add('union');
@@ -309,6 +309,8 @@ export default class Parser {
         const cppType = this.parseNodeType(type ?? name);
         if (cppType.category == 'union')
           this.features.add('union');
+        if (cppType.isStdOptional())
+          this.features.add('optional');
         if (node.initializer) {
           // let a = 123;
           return new syntax.VariableDeclaration(name.text,
@@ -348,7 +350,7 @@ export default class Parser {
       throw new UnimplementedError(node, 'Local function is not supported');
     const {body, name, parameters} = node;
     const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-    if (cppParameters.some(p => p.type.usesOptional()))
+    if (cppParameters.some(p => p.type.isStdOptional()))
       this.features.add('optional');
     if (cppParameters.some(p => p.type.category == 'union'))
       this.features.add('union');
@@ -387,7 +389,7 @@ export default class Parser {
         if (name.kind != ts.SyntaxKind.Identifier)
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
         const type = this.parseNodeType(name);
-        if (type.usesOptional())
+        if (type.isStdOptional())
           this.features.add('optional');
         if (type.category == 'union')
           this.features.add('union');
@@ -410,7 +412,7 @@ export default class Parser {
         const cppModifiers = modifiers?.map(modifierToString) ?? [];
         cppModifiers.push(...parseHint(node));
         const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-        if (cppParameters.some(p => p.type.usesOptional()))
+        if (cppParameters.some(p => p.type.isStdOptional()))
           this.features.add('optional');
         if (cppParameters.some(p => p.type.category == 'union'))
           this.features.add('union');
