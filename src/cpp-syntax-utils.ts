@@ -22,7 +22,7 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
   const body = new Block();
   for (const member of members) {
     if (member instanceof PropertyDeclaration) {
-      if (!member.type.hasGCedType())
+      if (!member.type.hasObject())
         continue;
       body.statements.push(
         new ExpressionStatement(
@@ -46,7 +46,7 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
     return `class ${decl.name};`;
   const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
   // Print class name and inheritance.
-  const inheritance = decl.type.isGCedType() ? ' : public compilets::Object' : '';
+  const inheritance = decl.type.isObject() ? ' : public compilets::Object' : '';
   let result = `${ctx.prefix}class ${decl.name}${inheritance} {\n`;
   ctx.level++;
   // Print the finalizer macro.
@@ -133,8 +133,8 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     return castOptional(expr, target, source);
   }
   // Get value from GCed members.
-  if ((source.isProperty() && source.isGCedType()) &&
-      !(target.isProperty() && target.isGCedType())) {
+  if ((source.isProperty() && source.isObject()) &&
+      !(target.isProperty() && target.isObject())) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });
@@ -209,8 +209,8 @@ function castOptional(expr: Expression, target: Type, source: Type): Expression 
     });
   }
   // Add .Get() when accessing property.
-  if (source.isGCedType() && source.isProperty() &&
-      !(target.isGCedType() && target.isProperty())) {
+  if (source.isObject() && source.isProperty() &&
+      !(target.isObject() && target.isProperty())) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });

@@ -60,11 +60,6 @@ export class PrintContext {
     this.indent = indent;
   }
 
-  join() {
-    this.concatenateNextLine = true;
-    return this;
-  }
-
   get padding() {
     return ' '.repeat(this.level * this.indent);
   }
@@ -75,6 +70,11 @@ export class PrintContext {
       return '';
     }
     return this.padding;
+  }
+
+  join() {
+    this.concatenateNextLine = true;
+    return this;
   }
 }
 
@@ -104,7 +104,7 @@ export class Type {
     let cppType = this.name;
     if (this.namespace)
       cppType = `${this.namespace}::${cppType}`;
-    if (this.isGCedType()) {
+    if (this.isObject()) {
       if (this.category == 'array')
         cppType = `compilets::Array<${this.types[0].print(ctx)}>`;
       else if (this.category == 'functor')
@@ -131,13 +131,11 @@ export class Type {
     return cppType;
   }
 
-  clone(): Type {
-    const newType = new Type(this.name, this.category, this.modifiers.slice());
-    newType.types = this.types?.map(t => t.clone());
-    newType.namespace = this.namespace;
-    return newType;
-  }
-
+  /**
+   * Check if this is the same type with `other`.
+   *
+   * Modifier `static` and `property` are ignored.
+   */
   equal(other: Type): boolean {
     if (this === other)
       return true;
@@ -153,21 +151,59 @@ export class Type {
            other.types.some(s => this.types.some(t => s.equal(t)));
   }
 
-  isClass() {
-    return this.category == 'class';
+  /**
+   * Create a new instance of Type that is completely the same with this one.
+   */
+  clone(): Type {
+    const newType = new Type(this.name, this.category, this.modifiers.slice());
+    newType.types = this.types?.map(t => t.clone());
+    newType.namespace = this.namespace;
+    return newType;
   }
 
-  isGCedType() {
+  /**
+   * Create a new instance of Type that removes the `optional` modifier.
+   */
+  noOptional() {
+    const result = this.clone();
+    result.modifiers = result.modifiers.filter(m => m != 'optional');
+    return result;
+  }
+
+  /**
+   * Check the C++ features used in this type and add them to `ctx.features`.
+   */
+  addFeatures(ctx: PrintContext) {
+    if (this.category == 'union')
+      ctx.features.add('union');
+    if (this.isStdOptional())
+      ctx.features.add('optional');
+    if (this.namespace == 'compilets') {
+      ctx.features.add('runtime');
+      if (this.name == 'Console')
+        ctx.features.add('console');
+      else if (this.name == 'Process')
+        ctx.features.add('process');
+    }
+  }
+
+  /**
+   * Whether this type inherits from Object.
+   */
+  isObject() {
     return this.category == 'array' ||
            this.category == 'functor' ||
            this.category == 'class';
   }
 
-  hasGCedType() {
-    if (this.isGCedType())
+  /**
+   * Whether this type or the types it contains inherit from Object.
+   */
+  hasObject() {
+    if (this.isObject())
       return true;
     if (this.category == 'union' || this.category == 'array')
-      return this.types.some(t => t.isGCedType());
+      return this.types.some(t => t.isObject());
     return false;
   }
 
@@ -176,13 +212,7 @@ export class Type {
   }
 
   isStdOptional() {
-    return this.category != 'union' && !this.isGCedType() && this.isOptional();
-  }
-
-  noOptional() {
-    const result = this.clone();
-    result.modifiers = result.modifiers.filter(m => m != 'optional');
-    return result;
+    return this.category != 'union' && !this.hasObject() && this.isOptional();
   }
 
   isProperty() {
@@ -334,11 +364,8 @@ export class FunctionExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    if (this.parameters.some(p => p.type.isStdOptional()))
-      ctx.features.add('optional');
-    if (this.parameters.some(p => p.type.category == 'union'))
-      ctx.features.add('union');
     ctx.features.add('function');
+    this.parameters.forEach(p => p.type.addFeatures(ctx));
     const returnType = this.returnType.print(ctx);
     const fullParameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
@@ -372,8 +399,7 @@ export class CallExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    if (this.callee.type.namespace == 'compilets')
-      ctx.features.add('runtime');
+    this.callee.type.addFeatures(ctx);
     let callee = printExpressionValue(this.callee, ctx);
     if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
@@ -391,7 +417,7 @@ export class NewExpression extends Expression {
 
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
-    if (this.type.isGCedType())
+    if (this.type.isObject())
       return `compilets::MakeObject<${this.type.name}>(${args})`;
     else
       return `new ${this.type.name}(${args})`;
@@ -409,15 +435,9 @@ export class PropertyAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    if (this.expression.type.namespace == 'compilets') {
-      ctx.features.add('runtime');
-      if (this.expression.type.name == 'Console')
-        ctx.features.add('console');
-      else if (this.expression.type.name == 'Process')
-        ctx.features.add('process');
-    }
+    this.expression.type.addFeatures(ctx);
     let dot: string;
-    if (this.expression.type.isGCedType()) {
+    if (this.expression.type.isObject()) {
       if (this.type.modifiers.includes('static'))
         dot = '::';
       else
@@ -463,10 +483,7 @@ export class VariableDeclaration extends Declaration {
   }
 
   override print(ctx: PrintContext) {
-    if (this.type.category == 'union')
-      ctx.features.add('union');
-    if (this.type.isStdOptional())
-      ctx.features.add('optional');
+    this.type.addFeatures(ctx);
     if (this.initializer)
       return `${this.identifier} = ${this.initializer.print(ctx)}`;
     else
@@ -590,10 +607,7 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    if (this.type.category == 'union')
-      ctx.features.add('union');
-    if (this.type.isStdOptional())
-      ctx.features.add('optional');
+    this.type.addFeatures(ctx);
     const isStatic = this.modifiers.includes('static');
     let result = ctx.prefix;
     if (isStatic)
@@ -618,10 +632,7 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    if (this.parameters.some(p => p.type.isStdOptional()))
-      ctx.features.add('optional');
-    if (this.parameters.some(p => p.type.category == 'union'))
-      ctx.features.add('union');
+    this.parameters.forEach(p => p.type.addFeatures(ctx));
     let result = ctx.prefix;
     if (this.modifiers.includes('virtual'))
       result += 'virtual ';
@@ -668,7 +679,7 @@ export class ClassDeclaration extends DeclarationStatement {
       else
         this.publicMembers.push(member);
     }
-    if (this.type.isGCedType()) {
+    if (this.type.hasObject()) {
       // Add Trace method if it includes cppgc::Member.
       const trace = createTraceMethod(members);
       if (trace)
@@ -704,10 +715,7 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
-    if (this.parameters.some(p => p.type.isStdOptional()))
-      ctx.features.add('optional');
-    if (this.parameters.some(p => p.type.category == 'union'))
-      ctx.features.add('union');
+    this.parameters.forEach(p => p.type.addFeatures(ctx));
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     if (ctx.mode == 'forward')

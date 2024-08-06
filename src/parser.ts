@@ -158,7 +158,7 @@ export default class Parser {
             ]);
           }
         }
-        const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).isGCedType())
+        const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).hasObject())
                                                                       .map(n => n.getText());
         return new syntax.FunctionExpression(this.parseNodeType(node),
                                              this.parseFunctionReturnType(node),
@@ -199,7 +199,7 @@ export default class Parser {
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         const obj = this.parseExpression(expression);
-        if (!obj.type.isClass())
+        if (obj.type.category != 'class')
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
