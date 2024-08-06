@@ -118,7 +118,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   if ((source.isProperty() && source.isGCedType()) &&
       !(target.isProperty() && target.isGCedType())) {
     return new CustomExpression(source, (ctx) => {
-      return `${expr.addParentheses(expr.print(ctx))}.Get()`;
+      return `${printExpressionValue(expr, ctx)}.Get()`;
     });
   }
   // Convert function pointer to functor object.
@@ -187,8 +187,16 @@ function castOptional(expr: Expression, target: Type, source: Type): Expression 
   // Add .value() when accessing value.
   if (source.isOptional() && !target.isOptional()) {
     return new CustomExpression(source, (ctx) => {
-      return `${expr.addParentheses(expr.print(ctx))}.value()`;
+      return `${printExpressionValue(expr, ctx)}.value()`;
     });
   }
   return castExpression(expr, target.noOptional(), source.noOptional());
+}
+
+// Print and Add parentheses when needed.
+function printExpressionValue(expr: Expression, ctx: PrintContext) {
+  const result = expr.print(ctx);
+  if (expr.shouldAddParenthesesForPropertyAccess)
+    return `(${result})`;
+  return result;
 }

@@ -85,8 +85,9 @@ export default class CppFile {
           headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
           break;
         case 'union':
-        case 'object':
+        case 'array':
         case 'function':
+        case 'object':
         case 'runtime':
         case 'process':
         case 'console':

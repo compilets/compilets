@@ -70,14 +70,14 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'union' | 'object' | 'function' | 'array' |
+export type Feature = 'optional' | 'union' | 'array' | 'function' | 'object' |
                       'runtime' | 'process' | 'console';
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' |
-                           'union' | 'array' |
-                           'functor' | 'class' | 'function' | 'external';
+export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
+                           'array' | 'functor' | 'function' | 'class' |
+                           'external';
 export type TypeModifier = 'optional' | 'property' | 'static';
 
 export class Type {
@@ -187,27 +187,13 @@ export class Type {
 
 export abstract class Expression {
   type: Type;
+  shouldAddParenthesesForPropertyAccess = false;
 
   constructor(type: Type) {
     this.type = type;
   }
 
   abstract print(ctx: PrintContext): string;
-
-  addParentheses(expr: string): string {
-    if (this.shouldAddParenthesesForPropertyAccess())
-      return `(${expr})`;
-    else
-      return expr;
-  }
-
-  protected shouldAddParenthesesForPropertyAccess(): boolean {
-    return false;
-  }
-
-  protected wrap(expr: string): string {
-    return expr;
-  }
 }
 
 // A special expression where JS text is same with C++ text.
@@ -220,7 +206,7 @@ export class RawExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(this.text);
+    return this.text;
   }
 }
 
@@ -237,7 +223,7 @@ export class Identifier extends RawExpression {
 
   override print(ctx: PrintContext) {
     if (this.type.namespace)
-      return this.wrap(`${this.type.namespace}::${this.text}`);
+      return `${this.type.namespace}::${this.text}`;
     return super.print(ctx);
   }
 }
@@ -251,7 +237,7 @@ export class ParenthesizedExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(`(${this.expression.print(ctx)})`);
+    return `(${this.expression.print(ctx)})`;
   }
 }
 
@@ -263,14 +249,11 @@ export class PostfixUnaryExpression extends Expression {
     super(type);
     this.operand = operand;
     this.operator = operator;
+    this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(`${this.operand.print(ctx)}${this.operator}`);
-  }
-
-  override shouldAddParenthesesForPropertyAccess() {
-    return true;
+    return `${this.operand.print(ctx)}${this.operator}`;
   }
 }
 
@@ -282,14 +265,11 @@ export class PrefixUnaryExpression extends Expression {
     super(type);
     this.operand = operator == '!' ? ifExpression(operand) : operand;
     this.operator = operator;
+    this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(`${this.operator}${this.operand.print(ctx)}`);
-  }
-
-  override shouldAddParenthesesForPropertyAccess() {
-    return true;
+    return `${this.operator}${this.operand.print(ctx)}`;
   }
 }
 
@@ -303,14 +283,11 @@ export class ConditionalExpression extends Expression {
     this.condition = ifExpression(condition);
     this.whenTrue = whenTrue;
     this.whenFalse = whenFalse;
+    this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(`${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`);
-  }
-
-  override shouldAddParenthesesForPropertyAccess() {
-    return true;
+    return `${this.condition.print(ctx)} ? ${this.whenTrue.print(ctx)} : ${this.whenFalse.print(ctx)}`;
   }
 }
 
@@ -324,14 +301,11 @@ export class BinaryExpression extends Expression {
     this.left = left;
     this.right = operator == '=' ? castExpression(right, left.type) : right;
     this.operator = operator;
+    this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(`${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`);
-  }
-
-  override shouldAddParenthesesForPropertyAccess() {
-    return true;
+    return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
   }
 }
 
@@ -351,6 +325,7 @@ export class FunctionExpression extends Expression {
     this.parameters = parameters;
     this.closure = closure;
     this.body = body;
+    this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
@@ -359,11 +334,7 @@ export class FunctionExpression extends Expression {
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
     const body = this.body?.print(ctx) ?? '{}';
     const lambda = `[=](${fullParameters}) -> ${returnType} ${body}`;
-    return this.wrap(`compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`);
-  }
-
-  override shouldAddParenthesesForPropertyAccess() {
-    return true;
+    return `compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`;
   }
 }
 
@@ -394,7 +365,7 @@ export class CallExpression extends Expression {
     let callee = this.callee.print(ctx);
     if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
-    return this.wrap(`${callee}(${this.args.print(ctx)})`);
+    return `${callee}(${this.args.print(ctx)})`;
   }
 }
 
@@ -409,9 +380,9 @@ export class NewExpression extends Expression {
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
     if (this.type.isGCedType())
-      return this.wrap(`compilets::MakeObject<${this.type.name}>(${args})`);
+      return `compilets::MakeObject<${this.type.name}>(${args})`;
     else
-      return this.wrap(`new ${this.type.name}(${args})`);
+      return `new ${this.type.name}(${args})`;
   }
 }
 
@@ -435,7 +406,7 @@ export class PropertyAccessExpression extends Expression {
     } else {
       dot = '.';
     }
-    return this.wrap(this.expression.print(ctx) + dot + this.member);
+    return this.expression.print(ctx) + dot + this.member;
   }
 }
 
@@ -451,7 +422,7 @@ export class CustomExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return this.wrap(this.customPrint(ctx));
+    return this.customPrint(ctx);
   }
 }
 
