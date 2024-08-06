@@ -523,6 +523,9 @@ export default class Parser {
       return new syntax.Type('double', 'primitive', modifiers);
     if (flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))
       return new syntax.Type('string', 'string', modifiers);
+    // Check array.
+    if (this.typeChecker.isArrayType(type))
+      return this.parseArrayType(name, type, modifiers);
     throw new Error(`Unsupported type "${name}"`);
   }
 
@@ -608,6 +611,16 @@ export default class Parser {
     // Make sure optional union type does not have null in the subtypes.
     if (cppType.category == 'union' && cppType.isOptional())
       cppType.types = cppType.types.filter(t => t.category != 'null');
+    return cppType;
+  }
+
+  /**
+   * Parse array type.
+   */
+  parseArrayType(name: string, type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
+    const args = this.typeChecker.getTypeArguments(type as ts.TypeReference);
+    const cppType = new syntax.Type(name, 'array', modifiers);
+    cppType.types = args.map(t => this.parseType(t, modifiers));
     return cppType;
   }
 

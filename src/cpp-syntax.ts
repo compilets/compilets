@@ -70,12 +70,13 @@ export class PrintContext {
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'union' | 'object' | 'function' |
+export type Feature = 'optional' | 'union' | 'object' | 'function' | 'array' |
                       'runtime' | 'process' | 'console';
 
 // ===================== Defines the syntax of C++ below =====================
 
-export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
+export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' |
+                           'union' | 'array' |
                            'functor' | 'class' | 'function' | 'external';
 export type TypeModifier = 'optional' | 'property' | 'static';
 
@@ -99,7 +100,9 @@ export class Type {
     if (this.namespace)
       cppType = `${this.namespace}::${cppType}`;
     if (this.isGCedType()) {
-      if (this.category == 'functor')
+      if (this.category == 'array')
+        cppType = `compilets::Array<${this.types[0].print(ctx)}>`;
+      else if (this.category == 'functor')
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
         cppType = `${cppType}`;
@@ -150,13 +153,15 @@ export class Type {
   }
 
   isGCedType() {
-    return this.category == 'functor' || this.category == 'class';
+    return this.category == 'array' ||
+           this.category == 'functor' ||
+           this.category == 'class';
   }
 
   hasGCedType() {
     if (this.isGCedType())
       return true;
-    if (this.category == 'union')
+    if (this.category == 'array' || this.category == 'union')
       return this.types.some(t => t.isGCedType());
     return false;
   }
