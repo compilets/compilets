@@ -32,11 +32,10 @@ class Function final : public Object {
 template<typename Sig, typename... Closure>
 inline Function<Sig>* MakeFunction(std::function<Sig> lambda,
                                    Closure*... closure) {
-  auto* func = cppgc::MakeGarbageCollected<Function<Sig>>(
+  return cppgc::MakeGarbageCollected<Function<Sig>>(
       GetAllocationHandle(),
       std::move(lambda),
       std::vector<cppgc::Member<Object>>({closure...}));
-  return func;
 }
 
 }  // namespace compilets

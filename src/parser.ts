@@ -132,6 +132,12 @@ export default class Parser {
                                            this.parseExpression(right),
                                            operatorToken.getText());
       }
+      case ts.SyntaxKind.ArrayLiteralExpression: {
+        // [1, 2, 3, 4]
+        const {elements} = node as ts.ArrayLiteralExpression;
+        return new syntax.ArrayLiteralExpression(this.parseNodeType(node),
+                                                 elements.map(this.parseExpression.bind(this)));
+      }
       case ts.SyntaxKind.ArrowFunction:
       case ts.SyntaxKind.FunctionExpression: {
         // function() { xxx }

@@ -176,6 +176,8 @@ export class Type {
   addFeatures(ctx: PrintContext) {
     if (this.category == 'union')
       ctx.features.add('union');
+    else if (this.category == 'array')
+      ctx.features.add('array');
     if (this.isStdOptional())
       ctx.features.add('optional');
     if (this.namespace == 'compilets') {
@@ -344,6 +346,21 @@ export class BinaryExpression extends Expression {
   }
 }
 
+export class ArrayLiteralExpression extends Expression {
+  elements: Expression[];
+
+  constructor(type: Type, elements: Expression[]) {
+    super(type);
+    this.elements = elements;
+  }
+
+  override print(ctx: PrintContext) {
+    const elementType = this.type.types[0].print(ctx);
+    const elements = this.elements.map(e => e.print(ctx)).join(', ');
+    return `compilets::MakeArray<${elementType}>({${elements}})`;
+  }
+}
+
 export class FunctionExpression extends Expression {
   returnType: Type;
   parameters: ParameterDeclaration[];
@@ -480,6 +497,8 @@ export class VariableDeclaration extends Declaration {
     this.type = type;
     if (initializer)
       this.initializer = castExpression(initializer, type);
+    else if (type.isObject())
+      this.initializer = new RawExpression(new Type('nullptr', 'null'), 'nullptr');
   }
 
   override print(ctx: PrintContext) {

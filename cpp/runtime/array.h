@@ -11,7 +11,8 @@ namespace compilets {
 template<typename T>
 class ArrayBase : public Object {
  public:
-  ArrayBase() = default;
+  ArrayBase(std::initializer_list<T> elements) : arr_(std::move(elements)) {}
+
   virtual ~ArrayBase() = default;
 
  protected:
@@ -20,18 +21,31 @@ class ArrayBase : public Object {
 
 // Array type for primitive types.
 template<typename T, typename Enable = void>
-class Array final : public ArrayBase<T> {};
+class Array final : public ArrayBase<T> {
+ public:
+  using ArrayBase<T>::ArrayBase;
+};
 
 // Array type for GCed types.
 template<typename T>
-class Array<T, std::enable_if_t<IsCppgcMember<T>>> final : public ArrayBase<T> {
+class Array<T, std::enable_if_t<IsCppgcMember<T>::value>> final
+    : public ArrayBase<T> {
  public:
+  using ArrayBase<T>::ArrayBase;
+
   virtual void Trace(cppgc::Visitor* visitor) const {
-    for (const auto& member : arr_) {
+    for (const auto& member : ArrayBase<T>::arr_) {
       TraceHelper(member);
     }
   }
 };
+
+// Helper to create the Array from literal.
+template<typename T>
+inline Array<T>* MakeArray(std::initializer_list<T> elements) {
+  return cppgc::MakeGarbageCollected<Array<T>>(GetAllocationHandle(),
+                                               std::move(elements));
+}
 
 }  // namespace compilets
 
