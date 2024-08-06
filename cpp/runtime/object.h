@@ -2,10 +2,9 @@
 #define CPP_RUNTIME_OBJECT_H_
 
 #include "cppgc/garbage-collected.h"
-#include "cppgc/member.h"
 #include "cppgc/prefinalizer.h"
-#include "cppgc/visitor.h"
 #include "runtime/runtime.h"
+#include "runtime/type_helper.h"
 
 namespace compilets {
 
@@ -20,6 +19,13 @@ template<typename T, typename... Args>
 T* MakeObject(Args&&... args) {
   return cppgc::MakeGarbageCollected<T>(GetAllocationHandle(),
                                         std::forward<Args>(args)...);
+}
+
+// Helper to trace the type, this is overloaded for union.
+template<typename T>
+inline void TraceHelper(cppgc::Visitor* visitor,
+                        const cppgc::Member<T>& member) {
+  visitor->Trace(member);
 }
 
 }  // namespace compilets

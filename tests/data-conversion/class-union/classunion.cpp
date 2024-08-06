@@ -14,7 +14,7 @@ class HasUnionMember : public compilets::Object {
   std::variant<double, cppgc::Member<Member>> member;
 
   void Trace(cppgc::Visitor* visitor) const override {
-    std::visit([visitor](auto&& arg) { if constexpr (compilets::IsCppgcMember<decltype(arg)>::value) visitor->Trace(arg); }, member);
+    TraceHelper(visitor, member);
   }
 
   virtual ~HasUnionMember() = default;

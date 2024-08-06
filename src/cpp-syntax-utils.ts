@@ -23,16 +23,10 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
     if (member instanceof PropertyDeclaration) {
       if (!member.type.hasGCedType())
         continue;
-      let expr: string;
-      if (member.type.category == 'union') {
-        const visit = 'if constexpr (compilets::IsCppgcMember<decltype(arg)>::value) visitor->Trace(arg);';
-        expr = `std::visit([visitor](auto&& arg) { ${visit} }, ${member.name})`;
-      } else {
-        expr = `visitor->Trace(${member.name})`;
-      }
       body.statements.push(
         new ExpressionStatement(
-          new RawExpression(new Type('void', 'void'), expr)));
+          new RawExpression(new Type('void', 'void'),
+                            `TraceHelper(visitor, ${member.name})`)));
     }
   }
   if (body.statements.length == 0)
