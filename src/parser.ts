@@ -424,10 +424,10 @@ export default class Parser {
    */
   parseNodeType(node: ts.Node): syntax.Type {
     const modifiers: syntax.TypeModifier[] = [];
-    // Find the original declaration.
-    const decl = this.getOriginalDeclaration(node);
-    const type = this.typeChecker.getTypeAtLocation(decl);
-    const isExternalDeclaration = decl.getSourceFile().isDeclarationFile;
+    // Find the type declaration.
+    const typeDeclaration = this.getTypeDeclaration(node);
+    const type = this.typeChecker.getTypeAtLocation(typeDeclaration);
+    const isExternalDeclaration = typeDeclaration.getSourceFile().isDeclarationFile;
     // Check Node.js type.
     if (isExternalDeclaration) {
       const nodeJsType = parseNodeJsType(node, type);
@@ -435,14 +435,23 @@ export default class Parser {
         return nodeJsType;
     }
     // Some type information are part of node instead of type itself.
-    if (ts.isPropertyDeclaration(decl)) {
+    const originalDeclaration = this.getOriginalDeclaration(node);
+    if (ts.isPropertyDeclaration(originalDeclaration)) {
       modifiers.push('property');
-      if ((decl as ts.PropertyDeclaration).questionToken)
+      const decl = originalDeclaration as ts.PropertyDeclaration;
+      if (decl.questionToken)
         modifiers.push('optional');
-      if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+      if (decl.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
         modifiers.push('static');
-    } else if (ts.isParameter(decl)) {
-      if ((decl as ts.ParameterDeclaration).questionToken)
+    } else if (ts.isParameter(originalDeclaration)) {
+      const decl = originalDeclaration as ts.ParameterDeclaration;
+      if (decl.questionToken)
+        modifiers.push('optional');
+    }
+    // Respect the optional info of type's declaration.
+    if (ts.isPropertyDeclaration(typeDeclaration) || ts.isParameter(typeDeclaration)) {
+      const {questionToken} = typeDeclaration as ts.PropertyDeclaration | ts.ParameterDeclaration;
+      if (questionToken && !modifiers.includes('optional'))
         modifiers.push('optional');
     }
     return this.parseTypeWithNode(type, node, modifiers, isExternalDeclaration);
@@ -606,9 +615,16 @@ export default class Parser {
     const symbol = this.typeChecker.getSymbolAtLocation(node);
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return node;
-    const decl = symbol.declarations[0];
-    if (ts.isVariableDeclaration(decl)) {
-      const {type, initializer} = decl as ts.VariableDeclaration;
+    return symbol.declarations[0];
+  }
+
+  /**
+   * Get the declaration that determines the type of the node.
+   */
+  private getTypeDeclaration(node: ts.Node): ts.Node {
+    const decl = this.getOriginalDeclaration(node);
+    if (ts.isVariableDeclaration(decl) || ts.isPropertyDeclaration(decl)) {
+      const {type, initializer} = decl as ts.VariableDeclaration | ts.PropertyDeclaration;
       if (type)
         return type;
       else if (initializer)

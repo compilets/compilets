@@ -35,7 +35,7 @@ class Array<T, std::enable_if_t<IsCppgcMember<T>::value>> final
 
   virtual void Trace(cppgc::Visitor* visitor) const {
     for (const auto& member : ArrayBase<T>::arr_) {
-      TraceHelper(member);
+      TraceHelper(visitor, member);
     }
   }
 };

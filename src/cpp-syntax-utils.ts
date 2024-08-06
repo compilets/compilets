@@ -120,10 +120,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr.whenFalse = castExpression(expr.whenFalse, target);
     return expr;
   }
-  // Do nothing if same type.
   source = source ?? expr.type;
-  if (source.equal(target))
-    return expr;
   if (source.category == 'union' || target.category == 'union') {
     // Parse union conversions, save the result and continue parsing.
     expr = castUnion(expr, target, source);
@@ -161,6 +158,8 @@ export function castArguments(args: Expression[], targetTypes: Type[]) {
 function castUnion(expr: Expression, target: Type, source: Type): Expression {
   // Use the C++ helper to convert between unions.
   if (source.category == 'union' && target.category == 'union') {
+    if (source.equal(target))
+      return expr;
     return new CustomExpression(target, (ctx) => {
       return `compilets::CastVariant(${expr.print(ctx)})`;
     });
