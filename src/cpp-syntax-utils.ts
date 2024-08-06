@@ -102,7 +102,7 @@ export function printExpressionValue(expr: Expression, ctx: PrintContext) {
  * Convert expression to if conditions.
  */
 export function ifExpression(expr: Expression): Expression {
-  if (expr.type.category == 'union' && expr.type.isOptional()) {
+  if (expr.type.category == 'union' && expr.type.isOptional) {
     return new CustomExpression(new Type('bool', 'primitive'), (ctx) => {
       return `std::holds_alternative<std::monostate>(${expr.print(ctx)})`;
     });
@@ -125,13 +125,13 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     // Parse union conversions, save the result and continue parsing.
     expr = castUnion(expr, target, source);
     source = expr.type;
-  } else if (source.isOptional() || target.isOptional()) {
+  } else if (source.isOptional || target.isOptional) {
     // Parse optional types otherwise, as optional union is still an union.
     return castOptional(expr, target, source);
   }
   // Get value from GCed members.
-  if ((source.isProperty() && source.isObject()) &&
-      !(target.isProperty() && target.isObject())) {
+  if ((source.isProperty && source.isObject()) &&
+      !(target.isProperty && target.isObject())) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });
@@ -197,7 +197,7 @@ function castUnion(expr: Expression, target: Type, source: Type): Expression {
 function castOptional(expr: Expression, target: Type, source: Type): Expression {
   // Convert null to std::nullopt.
   if (source.category == 'null' && target.isStdOptional()) {
-    if (target.isProperty())
+    if (target.isProperty)
       return expr;
     return new CustomExpression(source, (ctx) => 'std::nullopt');
   }
@@ -208,8 +208,8 @@ function castOptional(expr: Expression, target: Type, source: Type): Expression 
     });
   }
   // Add .Get() when accessing property.
-  if (source.isObject() && source.isProperty() &&
-      !(target.isObject() && target.isProperty())) {
+  if (source.isObject() && source.isProperty &&
+      !(target.isObject() && target.isProperty)) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });

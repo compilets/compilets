@@ -88,14 +88,25 @@ export type TypeModifier = 'optional' | 'property' | 'static';
 export class Type {
   name: string;
   category: TypeCategory;
-  modifiers: TypeModifier[];
   types: Type[] = [];
   namespace?: string;
+  isOptional = false;
+  isProperty = false;
+  isStatic = false;
 
-  constructor(name: string, category: TypeCategory, modifiers: TypeModifier[] = []) {
+  constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
     this.category = category;
-    this.modifiers = modifiers;
+    if (modifiers) {
+      for (const modifier of modifiers) {
+        if (modifier == 'optional')
+          this.isOptional = true;
+        else if (modifier == 'property')
+          this.isProperty = true;
+        else if (modifier == 'static')
+          this.isStatic = true;
+      }
+    }
   }
 
   print(ctx: PrintContext): string {
@@ -111,14 +122,14 @@ export class Type {
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
         cppType = `${cppType}`;
-      if (this.isProperty())
+      if (this.isProperty)
         return `cppgc::Member<${cppType}>`;
       else
         return `${cppType}*`;
     }
     if (this.category == 'union') {
       const types = this.types!.map(t => t.print(ctx));
-      if (this.isOptional())
+      if (this.isOptional)
         types.push('std::monostate');
       return `std::variant<${types.join(', ')}>`;
     }
@@ -126,7 +137,7 @@ export class Type {
       return 'std::nullptr_t';
     if (this.category == 'string')
       cppType = 'std::string';
-    if (this.isOptional())
+    if (this.isOptional)
       return `std::optional<${cppType}>`;
     return cppType;
   }
@@ -142,7 +153,7 @@ export class Type {
     if (this.name != other.name ||
         this.category != other.category ||
         this.namespace != other.namespace ||
-        this.isOptional() != other.isOptional())
+        this.isOptional != other.isOptional)
       return false;
     if (this.category != 'union')
       return true;
@@ -155,9 +166,12 @@ export class Type {
    * Create a new instance of Type that is completely the same with this one.
    */
   clone(): Type {
-    const newType = new Type(this.name, this.category, this.modifiers.slice());
+    const newType = new Type(this.name, this.category);
     newType.types = this.types?.map(t => t.clone());
     newType.namespace = this.namespace;
+    newType.isOptional = this.isOptional;
+    newType.isProperty = this.isProperty;
+    newType.isStatic = this.isStatic;
     return newType;
   }
 
@@ -166,7 +180,7 @@ export class Type {
    */
   noOptional() {
     const result = this.clone();
-    result.modifiers = result.modifiers.filter(m => m != 'optional');
+    result.isOptional = false;
     return result;
   }
 
@@ -209,16 +223,11 @@ export class Type {
     return false;
   }
 
-  isOptional() {
-    return this.modifiers.includes('optional');
-  }
-
+  /**
+   * Whether this type is represented by std::optional.
+   */
   isStdOptional() {
-    return this.category != 'union' && !this.hasObject() && this.isOptional();
-  }
-
-  isProperty() {
-    return this.modifiers.includes('property');
+    return this.category != 'union' && !this.hasObject() && this.isOptional;
   }
 }
 
@@ -455,7 +464,7 @@ export class PropertyAccessExpression extends Expression {
     this.expression.type.addFeatures(ctx);
     let dot: string;
     if (this.expression.type.isObject()) {
-      if (this.type.modifiers.includes('static'))
+      if (this.type.isStatic)
         dot = '::';
       else
         dot = '->';

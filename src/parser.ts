@@ -587,13 +587,10 @@ export default class Parser {
       // Treat as optional type if type is something like "number | undefined".
       if (cppType.types.length == 2)
         cppType = cppType.types.find(t => t.category != 'null')!;
-      // Add optional modifier.
-      cppType.modifiers = modifiers ?? [];
-      if (!cppType.isOptional())
-        cppType.modifiers.push('optional');
+      cppType.isOptional = true;
     }
     // Make sure optional union type does not have null in the subtypes.
-    if (cppType.category == 'union' && cppType.isOptional())
+    if (cppType.category == 'union' && cppType.isOptional)
       cppType.types = cppType.types.filter(t => t.category != 'null');
     return cppType;
   }
