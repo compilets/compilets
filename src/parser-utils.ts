@@ -63,6 +63,34 @@ export function modifierToString(modifier: ts.ModifierLike): string {
 }
 
 /**
+ * Return whether the declaration has a question token in it.
+ */
+export function hasQuestionToken(decl?: ts.Declaration): boolean {
+  if (!decl)
+    return false;
+  if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
+    const {questionToken} = decl as ts.PropertyDeclaration | ts.ParameterDeclaration;
+    return questionToken != undefined;
+  }
+  return false;
+}
+
+/**
+ * Return whether the declaration has type specified in it.
+ */
+export function hasTypeNode(decl?: ts.Declaration): boolean {
+  if (!decl)
+    return false;
+  if (ts.isVariableDeclaration(decl) ||
+      ts.isPropertyDeclaration(decl) ||
+      ts.isParameter(decl)) {
+    const {type} = decl as ts.VariableDeclaration | ts.PropertyDeclaration | ts.ParameterDeclaration;
+    return type != undefined;
+  }
+  return false;
+}
+
+/**
  * Helper to get all the child nodes.
  */
 export function filterNode(node?: ts.Node, predicate?: (node: ts.Node) => boolean) {
