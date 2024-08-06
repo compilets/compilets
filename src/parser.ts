@@ -22,7 +22,6 @@ export default class Parser {
   project: CppProject;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
-  features = new Set<syntax.Feature>();
 
   constructor(project: CppProject) {
     if (project.files.size > 0)
@@ -43,7 +42,7 @@ export default class Parser {
   }
 
   parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(isMain, this.features);
+    const cppFile = new CppFile(isMain);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.ClassDeclaration:
@@ -148,7 +147,6 @@ export default class Parser {
           throw new UnimplementedError(node, 'Generic function is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
-        this.features.add('function');
         let cppBody: undefined | syntax.Block;
         if (body) {
           if (ts.isBlock(body)) {
@@ -160,16 +158,11 @@ export default class Parser {
             ]);
           }
         }
-        const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-        if (cppParameters.some(p => p.type.isStdOptional()))
-          this.features.add('optional');
-        if (cppParameters.some(p => p.type.category == 'union'))
-          this.features.add('union');
         const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).isGCedType())
                                                                       .map(n => n.getText());
         return new syntax.FunctionExpression(this.parseNodeType(node),
                                              this.parseFunctionReturnType(node),
-                                             cppParameters,
+                                             parameters.map(this.parseParameterDeclaration.bind(this)),
                                              closure,
                                              cppBody);
       }
@@ -307,10 +300,6 @@ export default class Parser {
         // let a = xxx;
         const {name, type} = node;
         const cppType = this.parseNodeType(type ?? name);
-        if (cppType.category == 'union')
-          this.features.add('union');
-        if (cppType.isStdOptional())
-          this.features.add('optional');
         if (node.initializer) {
           // let a = 123;
           return new syntax.VariableDeclaration(name.text,
@@ -349,14 +338,9 @@ export default class Parser {
     if (!ts.isSourceFile(node.parent))
       throw new UnimplementedError(node, 'Local function is not supported');
     const {body, name, parameters} = node;
-    const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-    if (cppParameters.some(p => p.type.isStdOptional()))
-      this.features.add('optional');
-    if (cppParameters.some(p => p.type.category == 'union'))
-      this.features.add('union');
     return new syntax.FunctionDeclaration(name.text,
                                           this.parseFunctionReturnType(node),
-                                          cppParameters,
+                                          parameters.map(this.parseParameterDeclaration.bind(this)),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
   }
 
@@ -370,7 +354,6 @@ export default class Parser {
     const members = node.members.map(this.parseClassElement.bind(this, node));
     const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members);
     members.forEach(m => m.parent = cl);
-    this.features.add('object');
     return cl;
   }
 
@@ -388,14 +371,9 @@ export default class Parser {
         const {modifiers, name, initializer} = node as ts.PropertyDeclaration;
         if (name.kind != ts.SyntaxKind.Identifier)
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
-        const type = this.parseNodeType(name);
-        if (type.isStdOptional())
-          this.features.add('optional');
-        if (type.category == 'union')
-          this.features.add('union');
         return new syntax.PropertyDeclaration((name as ts.Identifier).text,
                                               modifiers?.map(modifierToString) ?? [],
-                                              type,
+                                              this.parseNodeType(name),
                                               initializer ? this.parseExpression(initializer) : undefined);
       }
       case ts.SyntaxKind.MethodDeclaration: {
@@ -411,15 +389,10 @@ export default class Parser {
           throw new UnimplementedError(node, 'Async function is not supported');
         const cppModifiers = modifiers?.map(modifierToString) ?? [];
         cppModifiers.push(...parseHint(node));
-        const cppParameters = parameters.map(this.parseParameterDeclaration.bind(this));
-        if (cppParameters.some(p => p.type.isStdOptional()))
-          this.features.add('optional');
-        if (cppParameters.some(p => p.type.category == 'union'))
-          this.features.add('union');
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
                                             cppModifiers,
                                             this.parseFunctionReturnType(node),
-                                            cppParameters,
+                                            parameters.map(this.parseParameterDeclaration.bind(this)),
                                             body ? this.parseStatement(body) as syntax.Block : undefined);
       }
       case ts.SyntaxKind.SemicolonClassElement:
@@ -452,14 +425,8 @@ export default class Parser {
     // Check Node.js type.
     if (isExternalDeclaration) {
       const nodeJsType = parseNodeJsType(node, type);
-      if (nodeJsType) {
-        this.features.add('runtime');
-        if (nodeJsType.name == 'Console')
-          this.features.add('console');
-        else if (nodeJsType.name == 'Process')
-          this.features.add('process');
+      if (nodeJsType)
         return nodeJsType;
-      }
     }
     // Some type information are part of node instead of type itself.
     if (ts.isPropertyDeclaration(decl)) {

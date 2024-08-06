@@ -18,6 +18,12 @@ export type GenerationMode = 'lib' | 'exe' | 'napi';
 export type PrintMode = 'impl' | 'header' | 'forward';
 
 /**
+ * Optional C++ features used in the code.
+ */
+export type Feature = 'optional' | 'union' | 'array' | 'function' | 'object' |
+                      'runtime' | 'process' | 'console';
+
+/**
  * Control indentation and other formating options when printing AST to C++.
  */
 export class PrintContext {
@@ -37,6 +43,10 @@ export class PrintContext {
    * The depth of indentation.
    */
   level = 0;
+  /**
+   * Used C++ features when printing.
+   */
+  features = new Set<Feature>();
   /**
    * Whether the node should put padding in the beginning.
    * TODO(zcbenz): This was introduced to handle the formatting of if statement,
@@ -67,12 +77,6 @@ export class PrintContext {
     return this.padding;
   }
 }
-
-/**
- * Optional C++ features used in the code.
- */
-export type Feature = 'optional' | 'union' | 'array' | 'function' | 'object' |
-                      'runtime' | 'process' | 'console';
 
 // ===================== Defines the syntax of C++ below =====================
 
@@ -330,6 +334,11 @@ export class FunctionExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
+    if (this.parameters.some(p => p.type.isStdOptional()))
+      ctx.features.add('optional');
+    if (this.parameters.some(p => p.type.category == 'union'))
+      ctx.features.add('union');
+    ctx.features.add('function');
     const returnType = this.returnType.print(ctx);
     const fullParameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
@@ -363,6 +372,8 @@ export class CallExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
+    if (this.callee.type.namespace == 'compilets')
+      ctx.features.add('runtime');
     let callee = printExpressionValue(this.callee, ctx);
     if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
@@ -398,6 +409,13 @@ export class PropertyAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
+    if (this.expression.type.namespace == 'compilets') {
+      ctx.features.add('runtime');
+      if (this.expression.type.name == 'Console')
+        ctx.features.add('console');
+      else if (this.expression.type.name == 'Process')
+        ctx.features.add('process');
+    }
     let dot: string;
     if (this.expression.type.isGCedType()) {
       if (this.type.modifiers.includes('static'))
@@ -445,6 +463,10 @@ export class VariableDeclaration extends Declaration {
   }
 
   override print(ctx: PrintContext) {
+    if (this.type.category == 'union')
+      ctx.features.add('union');
+    if (this.type.isStdOptional())
+      ctx.features.add('optional');
     if (this.initializer)
       return `${this.identifier} = ${this.initializer.print(ctx)}`;
     else
@@ -568,6 +590,10 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    if (this.type.category == 'union')
+      ctx.features.add('union');
+    if (this.type.isStdOptional())
+      ctx.features.add('optional');
     const isStatic = this.modifiers.includes('static');
     let result = ctx.prefix;
     if (isStatic)
@@ -592,6 +618,10 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    if (this.parameters.some(p => p.type.isStdOptional()))
+      ctx.features.add('optional');
+    if (this.parameters.some(p => p.type.category == 'union'))
+      ctx.features.add('union');
     let result = ctx.prefix;
     if (this.modifiers.includes('virtual'))
       result += 'virtual ';
@@ -652,6 +682,7 @@ export class ClassDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
+    ctx.features.add('object');
     return printClassDeclaration(this, ctx);
   }
 
@@ -673,6 +704,10 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
+    if (this.parameters.some(p => p.type.isStdOptional()))
+      ctx.features.add('optional');
+    if (this.parameters.some(p => p.type.category == 'union'))
+      ctx.features.add('union');
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     if (ctx.mode == 'forward')

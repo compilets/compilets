@@ -9,13 +9,11 @@ interface PrintOptions {
  */
 export default class CppFile {
   isMain: boolean;
-  features: Set<syntax.Feature>;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   body = new syntax.MainFunction();
 
-  constructor(isMain: boolean, features: Set<syntax.Feature>) {
+  constructor(isMain: boolean) {
     this.isMain = isMain;
-    this.features = features;
   }
 
   /**
@@ -44,9 +42,8 @@ export default class CppFile {
    */
   print(options: PrintOptions): string {
     const ctx = new syntax.PrintContext(options.generationMode, 'impl', 2);
-    // Put headers at first.
-    let result = this.getHeaders(ctx).print(ctx);
-    // Then forward declarations.
+    // Print forward declarations.
+    let result = '';
     if (this.declarations.statements.length > 1) {
       result += this.declarations.print(new syntax.PrintContext(options.generationMode, 'forward', 2));
       if (this.declarations.statements.length > 0)
@@ -62,6 +59,8 @@ export default class CppFile {
     // 2) or there are statements in body.
     if ((options.generationMode == 'exe' && this.isMain) || !this.body.isEmpty())
       result += this.body.print(ctx);
+    // After printing the body, print headers and put it at first.
+    result = this.getHeaders(ctx).print(ctx) + result;
     // Make sure file has a new line in the end.
     if (result.endsWith('\n'))
       return result;
@@ -73,7 +72,7 @@ export default class CppFile {
    * Get required headers for this file.
    */
   private getHeaders(ctx: syntax.PrintContext): syntax.Headers {
-    let features = this.features;
+    let features = ctx.features;
     // If this is the main file of an exe, it requires runtime headers.
     if (this.isMain && ctx.generationMode == 'exe')
       features = features.union(new Set([ 'runtime' ]));

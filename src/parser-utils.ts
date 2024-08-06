@@ -138,7 +138,7 @@ export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | und
     result = new syntax.Type('Console', 'class');
   // The gc function.
   if (node.getText() == 'gc')
-    result = new syntax.Type('void()', 'function');
+    result = new syntax.Type('gc', 'function');
   if (result)
     result.namespace = 'compilets';
   return result;
