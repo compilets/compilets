@@ -98,11 +98,15 @@ export default class Parser {
                                      type.category == 'null' ? 'nullptr'
                                                              : node.getText());
       }
+      case ts.SyntaxKind.NonNullExpression: {
+        // a!
+        const {expression} = node as ts.NonNullExpression;
+        return new syntax.NonNullExpression(this.parseExpression(expression));
+      }
       case ts.SyntaxKind.ParenthesizedExpression: {
         // (a + b) * (c + d)
         const {expression} = node as ts.ParenthesizedExpression;
-        return new syntax.ParenthesizedExpression(this.parseNodeType(node),
-                                                  this.parseExpression(expression));
+        return new syntax.ParenthesizedExpression(this.parseExpression(expression));
       }
       case ts.SyntaxKind.PostfixUnaryExpression: {
         // a++

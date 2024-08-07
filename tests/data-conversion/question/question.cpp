@@ -33,6 +33,8 @@ void TestQuestionTokenInClass() {
   TakeNumber(head->item.value());
   double n = true ? head->item.value() : 0;
   LinkNode* l = true ? head : head->next.Get();
+  double memberExam = head->item.value();
+  double valueExam = i.value();
 }
 
 void TakeNumber(double n) {}

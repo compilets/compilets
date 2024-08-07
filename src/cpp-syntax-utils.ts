@@ -154,8 +154,10 @@ export function castArguments(args: Expression[], targetTypes: Type[]) {
   return args;
 }
 
-// Conversions involving unions.
-function castUnion(expr: Expression, target: Type, source: Type): Expression {
+/**
+ * Conversions involving unions.
+ */
+export function castUnion(expr: Expression, target: Type, source: Type): Expression {
   // Use the C++ helper to convert between unions.
   if (source.category == 'union' && target.category == 'union') {
     if (source.equal(target))
@@ -193,8 +195,10 @@ function castUnion(expr: Expression, target: Type, source: Type): Expression {
   throw new Error('Not reached');
 }
 
-// Conversions between optionals.
-function castOptional(expr: Expression, target: Type, source: Type): Expression {
+/**
+ * Conversions between optionals.
+ */
+export function castOptional(expr: Expression, target: Type, source: Type): Expression {
   // Convert null to std::nullopt.
   if (source.category == 'null' && target.isStdOptional()) {
     if (target.isProperty)

@@ -5,6 +5,7 @@ import {
   ifExpression,
   castExpression,
   castArguments,
+  castOptional,
 } from './cpp-syntax-utils';
 
 /**
@@ -274,11 +275,29 @@ export class Identifier extends RawExpression {
   }
 }
 
+export class NonNullExpression extends Expression {
+  expression: Expression;
+
+  constructor(expression: Expression) {
+    if (expression.type.isStdOptional()) {
+      super(expression.type.noOptional());
+      this.expression = castOptional(expression, this.type, expression.type);
+    } else {
+      super(expression.type);
+      this.expression = expression;
+    }
+  }
+
+  override print(ctx: PrintContext) {
+    return this.expression.print(ctx);
+  }
+}
+
 export class ParenthesizedExpression extends Expression {
   expression: Expression;
 
-  constructor(type: Type, expression: Expression) {
-    super(type);
+  constructor(expression: Expression) {
+    super(expression.type);
     this.expression = expression;
   }
 
