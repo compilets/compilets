@@ -127,7 +127,7 @@ export class Type {
       cppType = `${this.namespace}::${cppType}`;
     if (this.isObject()) {
       if (this.category == 'array')
-        cppType = `compilets::Array<${this.types[0].print(ctx)}>`;
+        cppType = `compilets::Array<${this.getElementType().print(ctx)}>`;
       else if (this.category == 'functor')
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
@@ -178,7 +178,7 @@ export class Type {
   assignableWith(other: Type): boolean {
     // Array depends on its element type.
     if (this.category == 'array' && other.category == 'array') {
-      return this.types[0].assignableWith(other.types[0]);
+      return this.getElementType().assignableWith(other.getElementType());
     }
     // Object can always be assigned with null.
     if (this.isObject() && other.category == 'null') {
@@ -197,8 +197,7 @@ export class Type {
       return true;
     }
     // Can not assign object property to the target type directly.
-    if (!(this.isProperty && !this.isElement && this.isObject()) &&
-        (other.isProperty && other.isObject())) {
+    if (!this.isCppgcMember() && other.isCppgcMember()) {
       return false;
     }
     return this.equal(other);
@@ -226,6 +225,17 @@ export class Type {
     const result = this.clone();
     result.isOptional = false;
     return result;
+  }
+
+  /**
+   * Helper to get the element type of array.
+   *
+   * This method does not make code shorter, but make it more readable.
+   */
+  getElementType() {
+    if (this.category != 'array')
+      throw new Error('Only array has elementType');
+    return this.types[0];
   }
 
   /**
@@ -277,6 +287,13 @@ export class Type {
    */
   isStdOptional() {
     return this.category != 'union' && !this.hasObject() && this.isOptional;
+  }
+
+  /**
+   * Whether this itype is wrapped by cppgc::Member.
+   */
+  isCppgcMember() {
+    return this.isObject() && (this.isProperty || this.isElement);
   }
 }
 
@@ -444,7 +461,7 @@ export class ArrayLiteralExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    const elementType = this.type.types[0].print(ctx);
+    const elementType = this.type.getElementType().print(ctx);
     const elements = this.elements.map(e => e.print(ctx)).join(', ');
     return `compilets::MakeArray<${elementType}>({${elements}})`;
   }

@@ -127,8 +127,9 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     // 1. This is an empty array, i.e. [].
     // 2. The element type is directly assignable to target type.
     if (expr.elements.length == 0 ||
-        target.types[0].assignableWith(expr.type.types[0])) {
-      expr.type.types[0] = target.types[0].clone();
+        target.getElementType().assignableWith(expr.type.getElementType())) {
+      expr.type.types[0] = target.getElementType().clone();
+      expr.elements = expr.elements.map(e => castExpression(e, expr.type.getElementType()));
       return expr;
     }
   }
@@ -142,8 +143,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     source = expr.type;
   }
   // Get value from GCed members.
-  if ((source.isProperty && source.isObject()) &&
-      !(target.isProperty && !target.isElement && target.isObject())) {
+  if (source.isCppgcMember() && !target.isCppgcMember()) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });
@@ -171,9 +171,9 @@ export function castArguments(args: Expression[], parameters: ParameterDeclarati
     const param = parameters[i];
     if (param.variadic) {
       // When meet a rest parameter, put remaining args in an array.
-      const callArgs = args.slice(i).map(a => castExpression(a, param.type.types[0]));
+      const callArgs = args.slice(i).map(a => castExpression(a, param.type.getElementType()));
       args[i] = new CustomExpression(param.type, (ctx) => {
-        return `compilets::MakeArray<${param.type.types[0].print(ctx)}>({${callArgs.map(a => a.print(ctx)).join(', ')}})`;
+        return `compilets::MakeArray<${param.type.getElementType().print(ctx)}>({${callArgs.map(a => a.print(ctx)).join(', ')}})`;
       });
       return args.slice(0, i + 1);
     }

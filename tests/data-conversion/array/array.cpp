@@ -1,5 +1,6 @@
 #include "runtime/array.h"
 #include "runtime/object.h"
+#include "runtime/union.h"
 
 class Item;
 class Collection;
@@ -14,9 +15,12 @@ class Collection : public compilets::Object {
 
   cppgc::Member<compilets::Array<cppgc::Member<Item>>> maybeItems = compilets::MakeArray<cppgc::Member<Item>>({nullptr});
 
+  cppgc::Member<compilets::Array<std::variant<double, cppgc::Member<Item>>>> multiItems = compilets::MakeArray<std::variant<double, cppgc::Member<Item>>>({static_cast<double>(123)});
+
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, items);
     TraceHelper(visitor, maybeItems);
+    TraceHelper(visitor, multiItems);
   }
 
   virtual ~Collection() = default;
@@ -33,4 +37,6 @@ void TestArray() {
   c->items = items;
   compilets::Array<cppgc::Member<Item>>* maybeItems = c->maybeItems.Get();
   c->maybeItems = maybeItems;
+  compilets::Array<std::variant<double, cppgc::Member<Item>>>* multiItems = c->multiItems.Get();
+  c->multiItems = multiItems;
 }
