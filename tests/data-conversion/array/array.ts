@@ -1,7 +1,7 @@
 class Item {}
 
 class Collection {
-  items: Item[];
+  items: Item[] = [];
 }
 
 function TestArray() {

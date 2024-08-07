@@ -4,6 +4,7 @@ import {
   Expression,
   RawExpression,
   CustomExpression,
+  ArrayLiteralExpression,
   ConditionalExpression,
   ClassDeclaration,
   ClassElement,
@@ -120,6 +121,13 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr.whenFalse = castExpression(expr.whenFalse, target);
     return expr;
   }
+  // The empty array literal [] can be converted to any array type.
+  if (expr instanceof ArrayLiteralExpression &&
+      expr.elements.length == 0 &&
+      target.category == 'array') {
+    expr.type.types[0] = target.types[0].clone();
+    return expr;
+  }
   source = source ?? expr.type;
   if (source.category == 'union' || target.category == 'union') {
     // Parse union conversions, save the result and continue parsing.
@@ -128,6 +136,14 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   } else if (source.isOptional || target.isOptional) {
     // Parse optional types otherwise, as optional union is still an union.
     return castOptional(expr, target, source);
+  }
+  // For conversions between arrays, we must manually handle cppgc::Member.
+  if (source.category == 'array' && target.category == 'array') {
+    if (source.isProperty != target.isProperty) {
+      return new CustomExpression(target, (ctx) => {
+        return `compilets::CastArray(${expr.print(ctx)})`;
+      });
+    }
   }
   // Get value from GCed members.
   if ((source.isProperty && source.isObject()) &&
