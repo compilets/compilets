@@ -177,14 +177,30 @@ export class Type {
    */
   assignableWith(other: Type): boolean {
     // Array depends on its element type.
-    if (this.category == 'array' && other.category == 'array')
+    if (this.category == 'array' && other.category == 'array') {
       return this.types[0].assignableWith(other.types[0]);
-    // Objects can always be assigned with null.
-    if ((this.isObject() || this.isOptional) && other.category == 'null')
+    }
+    // Object can always be assigned with null.
+    if (this.isObject() && other.category == 'null') {
       return true;
-    // Unions can be directly assigned with its subtype.
-    if (this.category == 'union' && other.category != 'union')
+    }
+    // Union can be directly assigned with its subtype.
+    if (this.category == 'union' && other.category != 'union') {
       return this.types.some(t => t.assignableWith(other));
+    }
+    // Optional can be assigned with its non-optional type.
+    if (this.isStdOptional() && this.noOptional().assignableWith(other)) {
+      return true;
+    }
+    // Optional object can be assigned with non-optional object.
+    if (this.isObject() && this.isOptional && this.noOptional().equal(other)) {
+      return true;
+    }
+    // Can not assign object property to the target type directly.
+    if (!(this.isProperty && !this.isElement && this.isObject()) &&
+        (other.isProperty && other.isObject())) {
+      return false;
+    }
     return this.equal(other);
   }
 

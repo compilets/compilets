@@ -105,7 +105,7 @@ export function printExpressionValue(expr: Expression, ctx: PrintContext) {
 export function ifExpression(expr: Expression): Expression {
   if (expr.type.category == 'union' && expr.type.isOptional) {
     return new CustomExpression(new Type('bool', 'primitive'), (ctx) => {
-      return `std::holds_alternative<std::monostate>(${expr.print(ctx)})`;
+      return `!std::holds_alternative<std::monostate>(${expr.print(ctx)})`;
     });
   }
   return expr;
@@ -133,21 +133,17 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     }
   }
   source = source ?? expr.type;
+  // Parse composited types.
   if (source.category == 'union' || target.category == 'union') {
-    // Do union conversions, save the result and continue parsing.
     expr = castUnion(expr, target, source);
     source = expr.type;
-  } else if (source.category == 'array' || target.category == 'array') {
-    // Do array conversions, save the result and continue parsing.
-    expr = castArray(expr, target, source);
-    source = expr.type;
   } else if (source.isOptional || target.isOptional) {
-    // Parse optional types otherwise, as optional union is still an union.
-    return castOptional(expr, target, source);
+    expr = castOptional(expr, target, source);
+    source = expr.type;
   }
   // Get value from GCed members.
   if ((source.isProperty && source.isObject()) &&
-      !(target.isProperty && target.isObject())) {
+      !(target.isProperty && !target.isElement && target.isObject())) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });
@@ -158,9 +154,13 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
+  // Whether the types can be assigned without any explicit conversion.
   if (target.assignableWith(source))
     return expr;
-  throw new Error(`Unable to cast expression from ${source.name} to ${target.name}`);
+  // Use the universal Cast function.
+  return new CustomExpression(target, (ctx) => {
+    return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
+  });
 }
 
 /**
@@ -186,16 +186,8 @@ export function castArguments(args: Expression[], parameters: ParameterDeclarati
  * Conversions involving unions.
  */
 export function castUnion(expr: Expression, target: Type, source: Type): Expression {
-  // Use the C++ helper to convert between unions.
-  if (source.category == 'union' && target.category == 'union') {
-    if (source.equal(target))
-      return expr;
-    return new CustomExpression(target, (ctx) => {
-      return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
-    });
-  }
   // From non-union to union.
-  if (target.category == 'union') {
+  if (source.category != 'union' && target.category == 'union') {
     // Number literal in C++ is not necessarily double.
     if (source.name == 'double' && source.category == 'primitive') {
       return new CustomExpression(source, (ctx) => {
@@ -204,7 +196,7 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
     }
     // Convert null to std::monostate.
     if (source.category == 'null')
-      return new CustomExpression(source, (ctx) => 'std::monostate{}');
+      return new CustomExpression(target, (ctx) => 'std::monostate{}');
     // Find the target subtype and do an explicit conversion.
     const subtype = target.types.find(t => t.equal(source));
     if (!subtype)
@@ -212,28 +204,13 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
     return castExpression(expr, subtype);
   }
   // From union to non-union.
-  if (source.category == 'union') {
+  if (source.category == 'union' && target.category != 'union') {
     const subtype = source.types.find(t => t.equal(target));
     if (!subtype)
       throw new Error('The union does not contain the target type');
     return new CustomExpression(subtype, (ctx) => {
       return `std::get<${subtype.print(ctx)}>(${expr.print(ctx)})`;
     });
-  }
-  throw new Error('Not reached');
-}
-
-/**
- * Conversions involving arrays.
- */
-export function castArray(expr: Expression, target: Type, source: Type): Expression {
-  // Use the C++ helper to convert between arrays.
-  if (source.category == 'array' && target.category == 'array') {
-    if (!target.assignableWith(source)) {
-      return new CustomExpression(target, (ctx) => {
-        return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
-      });
-    }
   }
   return expr;
 }
@@ -246,20 +223,13 @@ export function castOptional(expr: Expression, target: Type, source: Type): Expr
   if (source.category == 'null' && target.isStdOptional()) {
     if (target.isProperty)
       return expr;
-    return new CustomExpression(source, (ctx) => 'std::nullopt');
+    return new CustomExpression(target, (ctx) => 'std::nullopt');
   }
   // Add .value() when accessing value.
   if (source.isStdOptional() && !target.isStdOptional()) {
-    return new CustomExpression(source, (ctx) => {
+    return new CustomExpression(target, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.value()`;
     });
   }
-  // Add .Get() when accessing property.
-  if (source.isObject() && source.isProperty &&
-      !(target.isObject() && target.isProperty)) {
-    return new CustomExpression(source, (ctx) => {
-      return `${printExpressionValue(expr, ctx)}.Get()`;
-    });
-  }
-  return castExpression(expr, target.noOptional(), source.noOptional());
+  return expr;
 }
