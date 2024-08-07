@@ -12,8 +12,11 @@ class Collection : public compilets::Object {
  public:
   cppgc::Member<compilets::Array<cppgc::Member<Item>>> items = compilets::MakeArray<cppgc::Member<Item>>({});
 
+  cppgc::Member<compilets::Array<cppgc::Member<Item>>> maybeItems = compilets::MakeArray<cppgc::Member<Item>>({nullptr});
+
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, items);
+    TraceHelper(visitor, maybeItems);
   }
 
   virtual ~Collection() = default;
@@ -27,4 +30,7 @@ void TestArray() {
   c->items = eleArr;
   eleArr = c->items.Get();
   compilets::Array<cppgc::Member<Item>>* items = c->items.Get();
+  c->items = items;
+  compilets::Array<cppgc::Member<Item>>* maybeItems = c->maybeItems.Get();
+  c->maybeItems = maybeItems;
 }

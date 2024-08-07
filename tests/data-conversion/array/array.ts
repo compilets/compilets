@@ -2,6 +2,7 @@ class Item {}
 
 class Collection {
   items: Item[] = [];
+  maybeItems: (Item | undefined)[] = [undefined];
 }
 
 function TestArray() {
@@ -14,4 +15,8 @@ function TestArray() {
   eleArr = c.items;
 
   const items = c.items;
+  c.items = items;
+
+  const maybeItems = c.maybeItems;
+  c.maybeItems = maybeItems;
 }

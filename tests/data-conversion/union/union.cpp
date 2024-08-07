@@ -13,7 +13,7 @@ void TakeNumber(double n) {}
 void TestUnion() {
   std::variant<double, bool> bn = static_cast<double>(999);
   bn = true;
-  TakeOptionalUnion(compilets::CastVariant(bn));
+  TakeOptionalUnion(compilets::Cast<std::variant<double, bool, std::monostate>>(bn));
   TakeOptionalUnion(static_cast<double>(888));
   TakeOptionalUnion(true);
   bool b = std::get<bool>(bn);

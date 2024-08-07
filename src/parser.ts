@@ -587,7 +587,7 @@ export default class Parser {
     let hasUndefined = false;
     let cppType = new syntax.Type(name, 'union', modifiers);
     for (const t of union.types) {
-      const subtype = this.parseType(t, modifiers?.filter(m => m == 'property'));
+      const subtype = this.parseType(t, modifiers?.filter(m => m == 'property' || m == 'element'));
       if (subtype.category == 'null') {
         if (subtype.name == 'null')
           hasNull = true;

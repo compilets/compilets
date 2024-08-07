@@ -121,17 +121,25 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr.whenFalse = castExpression(expr.whenFalse, target);
     return expr;
   }
-  // The empty array literal [] can be converted to any array type.
-  if (expr instanceof ArrayLiteralExpression &&
-      expr.elements.length == 0 &&
-      target.category == 'array') {
-    expr.type.types[0] = target.types[0].clone();
-    return expr;
+  // The array literal's type depends on the target type.
+  if (expr instanceof ArrayLiteralExpression && target.category == 'array') {
+    // Change array type to target type if:
+    // 1. This is an empty array, i.e. [].
+    // 2. The element type is directly assignable to target type.
+    if (expr.elements.length == 0 ||
+        target.types[0].assignableWith(expr.type.types[0])) {
+      expr.type.types[0] = target.types[0].clone();
+      return expr;
+    }
   }
   source = source ?? expr.type;
   if (source.category == 'union' || target.category == 'union') {
-    // Parse union conversions, save the result and continue parsing.
+    // Do union conversions, save the result and continue parsing.
     expr = castUnion(expr, target, source);
+    source = expr.type;
+  } else if (source.category == 'array' || target.category == 'array') {
+    // Do array conversions, save the result and continue parsing.
+    expr = castArray(expr, target, source);
     source = expr.type;
   } else if (source.isOptional || target.isOptional) {
     // Parse optional types otherwise, as optional union is still an union.
@@ -150,12 +158,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
-  // Check for conversion failures.
-  if (source.equal(target))
-    return expr;
-  if (target.category == 'union')
-    return expr;
-  if (source.category == 'null')
+  if (target.assignableWith(source))
     return expr;
   throw new Error(`Unable to cast expression from ${source.name} to ${target.name}`);
 }
@@ -188,7 +191,7 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
     if (source.equal(target))
       return expr;
     return new CustomExpression(target, (ctx) => {
-      return `compilets::CastVariant(${expr.print(ctx)})`;
+      return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
     });
   }
   // From non-union to union.
@@ -218,6 +221,21 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
     });
   }
   throw new Error('Not reached');
+}
+
+/**
+ * Conversions involving arrays.
+ */
+export function castArray(expr: Expression, target: Type, source: Type): Expression {
+  // Use the C++ helper to convert between arrays.
+  if (source.category == 'array' && target.category == 'array') {
+    if (!target.assignableWith(source)) {
+      return new CustomExpression(target, (ctx) => {
+        return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
+      });
+    }
+  }
+  return expr;
 }
 
 /**

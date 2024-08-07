@@ -7,24 +7,6 @@
 
 namespace compilets {
 
-template<typename... From>
-struct CastVariantProxy {
-  const std::variant<From...>& v;
-
-  template<typename... To>
-  operator std::variant<To...>() const {
-    return std::visit([](const auto& arg) {
-      return std::variant<To...>{arg};
-    }, v);
-  }
-};
-
-// Convert a variant to its super set.
-template<typename... From>
-auto CastVariant(const std::variant<From...>& v) {
-  return CastVariantProxy<From...>{v};
-}
-
 // Helper to trace the union type.
 template<typename... Ts>
 inline void TraceHelper(cppgc::Visitor* visitor,
@@ -34,6 +16,12 @@ inline void TraceHelper(cppgc::Visitor* visitor,
       TraceHelper(visitor, arg);
     }
   }, member);
+}
+
+// Convert a variant to its super set.
+template<typename Target, typename... Ts>
+inline Target Cast(const std::variant<Ts...>& value) {
+  return std::visit([](const auto& v) { return Cast<Target>(v); }, value);
 }
 
 // Extend IsCppgcMember to check members inside a variant.

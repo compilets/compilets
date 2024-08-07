@@ -49,6 +49,15 @@ inline Array<T>* MakeArray(std::vector<T> elements) {
                                                std::move(elements));
 }
 
+// Convert one array to another.
+template<typename Target, typename T>
+inline Array<Target>* Cast(Array<T>* arr) {
+  std::vector<Target> elements;
+  for (const T& element : arr->value())
+    elements.push_back(Cast<Target>(element));
+  return MakeArray<Target>(std::move(elements));
+}
+
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_ARRAY_H_

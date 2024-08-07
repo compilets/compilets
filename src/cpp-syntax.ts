@@ -155,7 +155,7 @@ export class Type {
   /**
    * Check if this is the same type with `other`.
    *
-   * Modifier `static` and `property` are ignored.
+   * Modifiers static/property/external/element are ignored.
    */
   equal(other: Type): boolean {
     if (this === other)
@@ -170,6 +170,22 @@ export class Type {
     // For unions, also compare all subtypes.
     return this.types.some(t => other.types.some(s => t.equal(s))) &&
            other.types.some(s => this.types.some(t => s.equal(t)));
+  }
+
+  /**
+   * Check if the type can be assigned with `other` directly in C++.
+   */
+  assignableWith(other: Type): boolean {
+    // Array depends on its element type.
+    if (this.category == 'array' && other.category == 'array')
+      return this.types[0].assignableWith(other.types[0]);
+    // Objects can always be assigned with null.
+    if ((this.isObject() || this.isOptional) && other.category == 'null')
+      return true;
+    // Unions can be directly assigned with its subtype.
+    if (this.category == 'union' && other.category != 'union')
+      return this.types.some(t => t.assignableWith(other));
+    return this.equal(other);
   }
 
   /**
