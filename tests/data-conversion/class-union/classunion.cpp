@@ -32,4 +32,5 @@ void TestClassUnion() {
   HasUnionMember* has = compilets::MakeObject<HasUnionMember>();
   has->member = member;
   member = std::get<cppgc::Member<Member>>(has->member).Get();
+  Member* memberCast = std::get<cppgc::Member<Member>>(has->member).Get();
 }

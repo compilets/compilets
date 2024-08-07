@@ -142,7 +142,14 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
-  return expr;
+  // Check for conversion failures.
+  if (source.equal(target))
+    return expr;
+  if (target.category == 'union')
+    return expr;
+  if (source.category == 'null')
+    return expr;
+  throw new Error(`Unable to cast expression from ${source.name} to ${target.name}`);
 }
 
 /**

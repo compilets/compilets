@@ -18,4 +18,5 @@ void TestUnion() {
   TakeOptionalUnion(true);
   bool b = std::get<bool>(bn);
   TakeNumber(std::get<double>(bn));
+  double numberCast = std::get<double>(bn);
 }

@@ -19,4 +19,6 @@ function TestClassUnion() {
   let has = new HasUnionMember();
   has.member = member;
   member = has.member;
+
+  let memberCast = has.member as Member;
 }

@@ -98,6 +98,12 @@ export default class Parser {
                                      type.category == 'null' ? 'nullptr'
                                                              : node.getText());
       }
+      case ts.SyntaxKind.AsExpression: {
+        // b as boolean
+        const {type, expression} = node as ts.AsExpression;
+        return new syntax.AsExpression(this.parseNodeType(type),
+                                       this.parseExpression(expression));
+      }
       case ts.SyntaxKind.NonNullExpression: {
         // a!
         const {expression} = node as ts.NonNullExpression;

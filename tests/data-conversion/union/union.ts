@@ -15,4 +15,6 @@ function TestUnion() {
 
   let b: boolean = bn;
   TakeNumber(bn);
+
+  let numberCast = bn as number;
 }

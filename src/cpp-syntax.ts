@@ -275,6 +275,19 @@ export class Identifier extends RawExpression {
   }
 }
 
+export class AsExpression extends Expression {
+  expression: Expression;
+
+  constructor(type: Type, expression: Expression) {
+    super(type);
+    this.expression = castExpression(expression, type);
+  }
+
+  override print(ctx: PrintContext) {
+    return this.expression.print(ctx);
+  }
+}
+
 export class NonNullExpression extends Expression {
   expression: Expression;
 
