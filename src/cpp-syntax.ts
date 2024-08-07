@@ -84,7 +84,8 @@ export class PrintContext {
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
                            'external';
-export type TypeModifier = 'optional' | 'property' | 'static';
+export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
+                           'not-function';
 
 export class Type {
   name: string;
@@ -94,6 +95,7 @@ export class Type {
   isOptional = false;
   isProperty = false;
   isStatic = false;
+  isExternal = false;
 
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
@@ -102,10 +104,14 @@ export class Type {
       for (const modifier of modifiers) {
         if (modifier == 'optional')
           this.isOptional = true;
+        else if (modifier == 'external')
+          this.isExternal = true;
         else if (modifier == 'property')
           this.isProperty = true;
         else if (modifier == 'static')
           this.isStatic = true;
+        else if (modifier == 'not-function' && this.category == 'function')
+          this.category = 'functor';
       }
     }
   }
@@ -437,8 +443,8 @@ export class FunctionExpression extends Expression {
 export class CallArguments {
   args: Expression[];
 
-  constructor(args: Expression[], targetTypes: Type[]) {
-    this.args = castArguments(args, targetTypes);
+  constructor(args: Expression[], parameters: ParameterDeclaration[]) {
+    this.args = castArguments(args, parameters);
   }
 
   print(ctx: PrintContext) {
@@ -536,10 +542,13 @@ export class VariableDeclaration extends Declaration {
     super();
     this.identifier = identifier;
     this.type = type;
-    if (initializer)
+    if (initializer) {
+      // Make sure initializer is casted to the variable type.
       this.initializer = castExpression(initializer, type);
-    else if (type.isObject())
+    } else if (type.isObject()) {
+      // Make sure pointers are initialized to nullptr.
       this.initializer = new RawExpression(new Type('nullptr', 'null'), 'nullptr');
+    }
   }
 
   override print(ctx: PrintContext) {
@@ -576,11 +585,13 @@ export abstract class NamedDeclaration extends Declaration {
 
 export class ParameterDeclaration extends NamedDeclaration {
   type: Type;
+  variadic: boolean;
   initializer?: Expression;
 
-  constructor(name: string, type: Type, initializer?: Expression) {
+  constructor(name: string, type: Type, variadic = false, initializer?: Expression) {
     super(name);
     this.type = type;
+    this.variadic = variadic;
     if (initializer)
       this.initializer = castExpression(initializer, type);
   }

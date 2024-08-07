@@ -331,12 +331,17 @@ export default class Parser {
     throw new UnimplementedError(node, 'Unsupported variable declaration');
   }
 
+  parseParameters(parameters: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[]): syntax.ParameterDeclaration[] {
+    return parameters.map(this.parseParameterDeclaration.bind(this));
+  }
+
   parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
-    const {name, initializer} = node;
+    const {name, dotDotDotToken, initializer} = node;
     if (name.kind != ts.SyntaxKind.Identifier)
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
     return new syntax.ParameterDeclaration((name as ts.Identifier).text,
                                            this.parseNodeType(name),
+                                           dotDotDotToken != undefined,
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
@@ -358,7 +363,7 @@ export default class Parser {
     const {body, name, parameters} = node;
     return new syntax.FunctionDeclaration(name.text,
                                           this.parseFunctionReturnType(node),
-                                          parameters.map(this.parseParameterDeclaration.bind(this)),
+                                          this.parseParameters(parameters),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
   }
 
@@ -381,7 +386,7 @@ export default class Parser {
         // constructor(xxx) { yyy }
         const {body, parameters} = node as ts.ConstructorDeclaration;
         return new syntax.ConstructorDeclaration(parent.name!.text,
-                                                 parameters.map(this.parseParameterDeclaration.bind(this)),
+                                                 this.parseParameters(parameters),
                                                  body ? this.parseStatement(body) as syntax.Block : undefined);
       }
       case ts.SyntaxKind.PropertyDeclaration: {
@@ -410,7 +415,7 @@ export default class Parser {
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
                                             cppModifiers,
                                             this.parseFunctionReturnType(node),
-                                            parameters.map(this.parseParameterDeclaration.bind(this)),
+                                            this.parseParameters(parameters),
                                             body ? this.parseStatement(body) as syntax.Block : undefined);
       }
       case ts.SyntaxKind.SemicolonClassElement:
@@ -425,10 +430,9 @@ export default class Parser {
     const resolvedSignature = this.typeChecker.getResolvedSignature(node);
     if (!resolvedSignature)
       throw new UnimplementedError(node, 'Can not get resolved signature');
-    const targetTypes = resolvedSignature.parameters.map(m => this.parseParameterDeclaration(m.valueDeclaration as ts.ParameterDeclaration))
-                                                    .map(t => t.type);
+    const parameters = resolvedSignature.parameters.map(p => p.valueDeclaration as ts.ParameterDeclaration);
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
-                                    targetTypes);
+                                    this.parseParameters(parameters));
   }
 
   /**
@@ -439,10 +443,18 @@ export default class Parser {
     // Get the original declaration of the node.
     const decl = this.getOriginalDeclaration(node);
     // Get property information from original declaration.
-    if (decl && ts.isPropertyDeclaration(decl)) {
-      modifiers.push('property');
-      if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
-        modifiers.push('static');
+    if (decl) {
+      if (ts.isVariableDeclaration(decl) ||
+          ts.isPropertyDeclaration(decl) ||
+          ts.isParameter(decl)) {
+        // Convert function to functor when the node is a variable.
+        modifiers.push('not-function');
+      }
+      if (ts.isPropertyDeclaration(decl)) {
+        modifiers.push('property');
+        if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+          modifiers.push('static');
+      }
     }
     // The type is optional in 2 cases:
     // 1. The original decl has a question token.
@@ -457,25 +469,23 @@ export default class Parser {
     const typeNode = decl ? this.getTypeNode(decl) : node;
     const type = this.typeChecker.getTypeAtLocation(typeNode);
     // Whether the declaration in in a d.ts file.
-    const isExternalDeclaration = root ? root.getSourceFile().isDeclarationFile : false;
+    if (root?.getSourceFile().isDeclarationFile)
+      modifiers.push('external');
     // Check Node.js type.
-    if (isExternalDeclaration) {
+    if (modifiers.includes('external')) {
       const nodeJsType = parseNodeJsType(node, type);
       if (nodeJsType)
         return nodeJsType;
     }
-    return this.parseTypeWithNode(type, node, modifiers, isExternalDeclaration);
+    return this.parseTypeWithNode(type, node, modifiers);
   }
 
   /**
    * Wrap parseType with detailed error information.
    */
-  parseTypeWithNode(type: ts.Type,
-                    node: ts.Node,
-                    modifiers?: syntax.TypeModifier[],
-                    isExternalDeclaration = false): syntax.Type {
+  parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
     try {
-      return this.parseType(type, modifiers, isExternalDeclaration);
+      return this.parseType(type, modifiers);
     } catch (error: unknown) {
       if (error instanceof Error)
         throw new UnimplementedError(node, error.message);
@@ -487,9 +497,7 @@ export default class Parser {
   /**
    * Parse TypeScript type to C++ type.
    */
-  parseType(type: ts.Type,
-            modifiers?: syntax.TypeModifier[],
-            isExternalDeclaration = false): syntax.Type {
+  parseType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Check literals.
     if (type.isNumberLiteral())
       return new syntax.Type('double', 'primitive', modifiers);
@@ -504,7 +512,7 @@ export default class Parser {
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
-      return this.parseUnionType(name, type as ts.UnionType, modifiers, isExternalDeclaration);
+      return this.parseUnionType(name, type as ts.UnionType, modifiers);
     // Check builtin types.
     const flags = type.getFlags();
     if (flags & (ts.TypeFlags.Never | ts.TypeFlags.Void))
@@ -566,8 +574,7 @@ export default class Parser {
    */
   parseUnionType(name: string,
                  union: ts.UnionType,
-                 modifiers?: syntax.TypeModifier[],
-                 isExternalDeclaration = false): syntax.Type {
+                 modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Literal unions are treated as a single type.
     if (union.types.every(t => t.isNumberLiteral()))
       return new syntax.Type('double', 'primitive', modifiers);
@@ -591,7 +598,7 @@ export default class Parser {
         cppType.types.push(subtype);
     }
     // Null and undefined are treated as the same thing in C++.
-    if (hasNull && hasUndefined && !isExternalDeclaration)
+    if (hasNull && hasUndefined && !cppType.isExternal)
       throw new Error('Can not include both null and undefined in one union');
     if (hasNull || hasUndefined) {
       // Treat as optional type if type is something like "number | undefined".

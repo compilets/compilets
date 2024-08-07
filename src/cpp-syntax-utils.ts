@@ -153,11 +153,21 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
 }
 
 /**
- * Compare the sourceTypes and targetTypes, and do conversion when required.
+ * Convert args to parameter types.
  */
-export function castArguments(args: Expression[], targetTypes: Type[]) {
-  for (let i = 0; i < args.length; ++i)
-    args[i] = castExpression(args[i], targetTypes[i]);
+export function castArguments(args: Expression[], parameters: ParameterDeclaration[]) {
+  for (let i = 0; i < args.length; ++i) {
+    const param = parameters[i];
+    if (param.variadic) {
+      // When meet a rest parameter, put remaining args in an array.
+      const callArgs = args.slice(i).map(a => castExpression(a, param.type.types[0]));
+      args[i] = new CustomExpression(param.type, (ctx) => {
+        return `compilets::MakeArray<${param.type.types[0].print(ctx)}>({${callArgs.map(a => a.print(ctx)).join(', ')}})`;
+      });
+      return args.slice(0, i + 1);
+    }
+    args[i] = castExpression(args[i], param.type);
+  }
   return args;
 }
 
