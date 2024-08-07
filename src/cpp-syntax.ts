@@ -85,7 +85,7 @@ export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
                            'external';
 export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
-                           'not-function';
+                           'element' | 'not-function';
 
 export class Type {
   name: string;
@@ -96,6 +96,7 @@ export class Type {
   isProperty = false;
   isStatic = false;
   isExternal = false;
+  isElement = false;
 
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
@@ -110,6 +111,8 @@ export class Type {
           this.isProperty = true;
         else if (modifier == 'static')
           this.isStatic = true;
+        else if (modifier == 'element')
+          this.isElement = true;
         else if (modifier == 'not-function' && this.category == 'function')
           this.category = 'functor';
       }
@@ -129,7 +132,7 @@ export class Type {
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
         cppType = `${cppType}`;
-      if (this.isProperty)
+      if (this.isProperty || this.isElement)
         return `cppgc::Member<${cppType}>`;
       else
         return `${cppType}*`;
@@ -179,6 +182,8 @@ export class Type {
     newType.isOptional = this.isOptional;
     newType.isProperty = this.isProperty;
     newType.isStatic = this.isStatic;
+    newType.isExternal = this.isExternal;
+    newType.isElement = this.isElement;
     return newType;
   }
 
@@ -195,18 +200,23 @@ export class Type {
    * Check the C++ features used in this type and add them to `ctx.features`.
    */
   addFeatures(ctx: PrintContext) {
-    if (this.category == 'union')
+    if (this.category == 'union') {
       ctx.features.add('union');
-    else if (this.category == 'array')
+    } else if (this.category == 'array') {
       ctx.features.add('array');
-    if (this.isStdOptional())
+    }
+    if (this.isStdOptional()) {
       ctx.features.add('optional');
+    }
     if (this.namespace == 'compilets') {
       ctx.features.add('runtime');
       if (this.name == 'Console')
         ctx.features.add('console');
       else if (this.name == 'Process')
         ctx.features.add('process');
+    }
+    for (const type of this.types) {
+      type.addFeatures(ctx);
     }
   }
 

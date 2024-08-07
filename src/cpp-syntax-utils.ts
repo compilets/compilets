@@ -137,14 +137,6 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     // Parse optional types otherwise, as optional union is still an union.
     return castOptional(expr, target, source);
   }
-  // For conversions between arrays, we must manually handle cppgc::Member.
-  if (source.category == 'array' && target.category == 'array') {
-    if (source.isProperty != target.isProperty) {
-      return new CustomExpression(target, (ctx) => {
-        return `compilets::CastArray(${expr.print(ctx)})`;
-      });
-    }
-  }
   // Get value from GCed members.
   if ((source.isProperty && source.isObject()) &&
       !(target.isProperty && target.isObject())) {

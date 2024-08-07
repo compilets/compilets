@@ -49,22 +49,6 @@ inline Array<T>* MakeArray(std::vector<T> elements) {
                                                std::move(elements));
 }
 
-// Convert between Array<T> and Array<cppgc::Member<T>>.
-template<typename T>
-Array<cppgc::Member<T>>* CastArray(Array<T*>* from) {
-  std::vector<cppgc::Member<T>> to;
-  for (T* e : from->value())
-    to.push_back(e);
-  return MakeArray<cppgc::Member<T>>(std::move(to));
-}
-template<typename T>
-Array<T*>* CastArray(const cppgc::Member<Array<cppgc::Member<T>>>& from) {
-  std::vector<T*> to;
-  for (const cppgc::Member<T>& e : from->value())
-    to.push_back(e.Get());
-  return MakeArray<T*>(std::move(to));
-}
-
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_ARRAY_H_

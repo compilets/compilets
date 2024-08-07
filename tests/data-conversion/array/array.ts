@@ -12,5 +12,6 @@ function TestArray() {
   let c = new Collection();
   c.items = eleArr;
   eleArr = c.items;
-  const arr = c.items;
+
+  const items = c.items;
 }

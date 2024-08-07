@@ -615,10 +615,10 @@ export default class Parser {
   /**
    * Parse array type.
    */
-  parseArrayType(name: string, type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseArrayType(name: string, type: ts.Type, modifiers: syntax.TypeModifier[] = []): syntax.Type {
     const args = this.typeChecker.getTypeArguments(type as ts.TypeReference);
     const cppType = new syntax.Type(name, 'array', modifiers);
-    cppType.types = args.map(t => this.parseType(t, modifiers));
+    cppType.types = args.map(t => this.parseType(t, ['element', ...modifiers]));
     return cppType;
   }
 
