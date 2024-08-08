@@ -10,9 +10,11 @@ import {
   UnsupportedError,
   operatorToString,
   modifierToString,
+  FunctionLikeNode,
+  isFunctionLikeNode,
   hasQuestionToken,
   hasTypeNode,
-  getFunctionClosure,
+  filterNode,
   parseHint,
   parseNodeJsType,
 } from './parser-utils';
@@ -155,36 +157,7 @@ export default class Parser {
       case ts.SyntaxKind.ArrowFunction:
       case ts.SyntaxKind.FunctionExpression: {
         // function() { xxx }
-        const funcNode = node as ts.ArrowFunction | ts.FunctionExpression;
-        const {body, parameters, modifiers, asteriskToken, exclamationToken, questionToken, typeParameters} = funcNode;
-        if (asteriskToken)
-          throw new UnimplementedError(node, 'Generator is not supported');
-        if (questionToken)
-          throw new UnimplementedError(node, 'Question token in function is not supported');
-        if (exclamationToken)
-          throw new UnimplementedError(node, 'Exclamation token in function is not supported');
-        if (typeParameters)
-          throw new UnimplementedError(node, 'Generic function is not supported');
-        if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
-          throw new UnimplementedError(node, 'Async function is not supported');
-        let cppBody: undefined | syntax.Block;
-        if (body) {
-          if (ts.isBlock(body)) {
-            cppBody = this.parseStatement(body) as syntax.Block;
-          } else {
-            // Arrow function may use expression as body, convert it to block.
-            cppBody = new syntax.Block([
-              new syntax.ReturnStatement(this.parseExpression(body)),
-            ]);
-          }
-        }
-        const closure = getFunctionClosure(this.typeChecker, funcNode).filter(n => this.parseNodeType(n).hasObject())
-                                                                      .map(n => n.getText());
-        return new syntax.FunctionExpression(this.parseNodeType(node),
-                                             this.parseFunctionReturnType(node),
-                                             parameters.map(this.parseParameterDeclaration.bind(this)),
-                                             closure,
-                                             cppBody);
+        return this.parseFunctionExpression(node as ts.FunctionExpression | ts.ArrowFunction);
       }
       case ts.SyntaxKind.CallExpression: {
         // func(xxx)
@@ -294,7 +267,7 @@ export default class Parser {
         const {expression} = node as ts.ReturnStatement;
         let returnType = new syntax.Type('void', 'void')
         if (expression) {
-          const func = ts.findAncestor(node.parent, n => ts.isFunctionExpression(n) || ts.isArrowFunction(n) || ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n));
+          const func = ts.findAncestor(node.parent, isFunctionLikeNode);
           if (!func)
             throw new UnsupportedError(node, 'Can not find the function return type of return statement');
           returnType = this.parseFunctionReturnType(func);
@@ -370,12 +343,45 @@ export default class Parser {
     if (node.modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
       throw new UnimplementedError(node, 'Async function is not supported');
     if (!ts.isSourceFile(node.parent))
-      throw new UnimplementedError(node, 'Local function is not supported');
+      throw new UnimplementedError(node, 'Local function declaration is not supported');
     const {body, name, parameters} = node;
+    this.forbidClosure(node);
     return new syntax.FunctionDeclaration(name.text,
                                           this.parseFunctionReturnType(node),
                                           this.parseParameters(parameters),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
+  }
+
+  parseFunctionExpression(node: ts.FunctionExpression | ts.ArrowFunction): syntax.FunctionExpression {
+    const {body, parameters, modifiers, asteriskToken, exclamationToken, questionToken, typeParameters} = node;
+    if (asteriskToken)
+      throw new UnimplementedError(node, 'Generator is not supported');
+    if (questionToken)
+      throw new UnimplementedError(node, 'Question token in function is not supported');
+    if (exclamationToken)
+      throw new UnimplementedError(node, 'Exclamation token in function is not supported');
+    if (typeParameters)
+      throw new UnimplementedError(node, 'Generic function is not supported');
+    if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
+      throw new UnimplementedError(node, 'Async function is not supported');
+    let cppBody: undefined | syntax.Block;
+    if (body) {
+      if (ts.isBlock(body)) {
+        cppBody = this.parseStatement(body) as syntax.Block;
+      } else {
+        // Arrow function may use expression as body, convert it to block.
+        cppBody = new syntax.Block([
+          new syntax.ReturnStatement(this.parseExpression(body)),
+        ]);
+      }
+    }
+    const closure = this.getCapturedIdentifiers(node).filter(n => this.parseNodeType(n).hasObject())
+                                                     .map(n => n.getText());
+    return new syntax.FunctionExpression(this.parseNodeType(node),
+                                         this.parseFunctionReturnType(node),
+                                         parameters.map(this.parseParameterDeclaration.bind(this)),
+                                         closure,
+                                         cppBody);
   }
 
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
@@ -396,6 +402,7 @@ export default class Parser {
       case ts.SyntaxKind.Constructor: {
         // constructor(xxx) { yyy }
         const {body, parameters} = node as ts.ConstructorDeclaration;
+        this.forbidClosure(node as ts.ConstructorDeclaration);
         return new syntax.ConstructorDeclaration(parent.name!.text,
                                                  this.parseParameters(parameters),
                                                  body ? this.parseStatement(body) as syntax.Block : undefined);
@@ -421,6 +428,7 @@ export default class Parser {
           throw new UnimplementedError(name, 'Generic method is not supported');
         if (modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
           throw new UnimplementedError(node, 'Async function is not supported');
+        this.forbidClosure(node as ts.MethodDeclaration);
         const cppModifiers = modifiers?.map(modifierToString) ?? [];
         cppModifiers.push(...parseHint(node));
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
@@ -685,5 +693,46 @@ export default class Parser {
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return undefined;
     return symbol.declarations[0];
+  }
+
+  /**
+   * Throws error if the function uses closure.
+   */
+  private forbidClosure(node: FunctionLikeNode) {
+    const captured = this.getCapturedIdentifiers(node);
+    if (captured.length > 0) {
+      const capturedNames = [...new Set(captured.map(i => `"${i.getText()}"`))].join(', ');
+      throw new UnimplementedError(node, `Function declaration can not include reference to outer state: ${capturedNames}`);
+    }
+  }
+
+  /**
+   * Return the names and types of outer variables referenced by the function.
+   */
+  private getCapturedIdentifiers(func: FunctionLikeNode) {
+    const closure: ts.Identifier[] = [];
+    for (const node of filterNode(func.body, ts.isIdentifier)) {
+      const symbol = this.typeChecker.getSymbolAtLocation(node);
+      if (!symbol)
+        throw new UnimplementedError(node, 'An identifier in function without symbol');
+      // Ignore symbols without definition.
+      const {valueDeclaration} = symbol;
+      if (!valueDeclaration)
+        continue;
+      // References to globals and properties are fine.
+      if (valueDeclaration.getSourceFile().isDeclarationFile ||
+          ts.isClassDeclaration(valueDeclaration) ||
+          ts.isFunctionDeclaration(valueDeclaration) ||
+          ts.isPropertyDeclaration(valueDeclaration) ||
+          ts.isMethodDeclaration(valueDeclaration) ||
+          ts.isLiteralTypeNode(valueDeclaration)) {
+        continue;
+      }
+      // Find identifiers not declared inside the function.
+      if (!ts.findAncestor(symbol.valueDeclaration, (n) => n == func)) {
+        closure.push(node as ts.Identifier);
+      }
+    }
+    return closure;
   }
 }

@@ -91,6 +91,22 @@ export function hasTypeNode(decl?: ts.Declaration): boolean {
 }
 
 /**
+ * Whether the node is a function type.
+ */
+export type FunctionLikeNode = ts.FunctionDeclaration |
+                               ts.FunctionExpression |
+                               ts.ArrowFunction |
+                               ts.ConstructorDeclaration |
+                               ts.MethodDeclaration;
+export function isFunctionLikeNode(node: ts.Node): node is FunctionLikeNode {
+  return ts.isFunctionDeclaration(node) ||
+         ts.isFunctionExpression(node) ||
+         ts.isArrowFunction(node) ||
+         ts.isConstructorDeclaration(node) ||
+         ts.isMethodDeclaration(node);
+}
+
+/**
  * Helper to get all the child nodes.
  */
 export function filterNode(node?: ts.Node, predicate?: (node: ts.Node) => boolean) {
@@ -104,24 +120,6 @@ export function filterNode(node?: ts.Node, predicate?: (node: ts.Node) => boolea
   };
   visit(node);
   return results;
-}
-
-/**
- * Return the names and types of outer variables referenced by the function.
- */
-export function getFunctionClosure(typeChecker: ts.TypeChecker,
-                                   func: ts.FunctionDeclaration |
-                                         ts.FunctionExpression |
-                                         ts.ArrowFunction) {
-  const closure: ts.Identifier[] = [];
-  for (const node of filterNode(func.body, ts.isIdentifier)) {
-    const symbol = typeChecker.getSymbolAtLocation(node);
-    if (!symbol)
-      throw new UnimplementedError(node, 'An identifier in function without symbol');
-    if (!ts.findAncestor(symbol.valueDeclaration, (n) => n == func))
-      closure.push(node as ts.Identifier);
-  }
-  return closure;
 }
 
 /**
