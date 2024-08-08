@@ -83,7 +83,7 @@ export class PrintContext {
 
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
-                           'external';
+                           'external' | 'any';
 export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
                            'element' | 'not-function';
 
@@ -117,11 +117,15 @@ export class Type {
           this.category = 'functor';
       }
     }
+    if (this.category == 'any' && !this.isExternal)
+      throw new Error('The "any" type is not supported');
   }
 
   print(ctx: PrintContext): string {
     if (this.category == 'function')
       throw new Error('Raw function type should never be printed out');
+    if (this.category == 'any')  // could be printed as part of signature name
+      return '_Any';
     let cppType = this.name;
     if (this.namespace)
       cppType = `${this.namespace}::${cppType}`;

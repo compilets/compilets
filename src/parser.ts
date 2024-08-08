@@ -545,6 +545,8 @@ export default class Parser {
       return new syntax.Type('double', 'primitive', modifiers);
     if (flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))
       return new syntax.Type('string', 'string', modifiers);
+    if (flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown))
+      return new syntax.Type(name, 'any', modifiers);
     // Check array.
     if (this.typeChecker.isArrayType(type))
       return this.parseArrayType(name, type, modifiers);

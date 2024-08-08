@@ -116,6 +116,8 @@ export function ifExpression(expr: Expression): Expression {
  * Convert the expression of source type to target type if necessary.
  */
 export function castExpression(expr: Expression, target: Type, source?: Type): Expression {
+  if (target.category == 'any')
+    return expr;
   // The operands of ?: do not necessarily have same type.
   if (expr instanceof ConditionalExpression) {
     expr.whenTrue = castExpression(expr.whenTrue, target);
@@ -187,8 +189,15 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
  */
 export function castArguments(args: Expression[], parameters: ParameterDeclaration[]) {
   for (let i = 0; i < args.length; ++i) {
-    const param = parameters[i];
-    if (param.variadic) {
+    let param: ParameterDeclaration;
+    if (i > parameters.length - 1) {
+      if (!parameters[parameters.length - 1].variadic)
+        throw new Error('More arguments passed than the function can take.');
+      param = parameters[parameters.length - 1];
+    } else {
+      param = parameters[i];
+    }
+    if (param.variadic && !param.type.isExternal) {
       // When meet a rest parameter, put remaining args in an array.
       const callArgs = args.slice(i).map(a => castExpression(a, param.type.getElementType()));
       args[i] = new CustomExpression(param.type, (ctx) => {
@@ -196,7 +205,8 @@ export function castArguments(args: Expression[], parameters: ParameterDeclarati
       });
       return args.slice(0, i + 1);
     }
-    args[i] = castExpression(args[i], param.type);
+    args[i] = castExpression(args[i], param.variadic ? param.type.getElementType()
+                                                     : param.type);
   }
   return args;
 }
