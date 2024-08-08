@@ -322,6 +322,12 @@ export class RawExpression extends Expression {
   }
 }
 
+export class NumericLiteral extends RawExpression {
+  constructor(type: Type, text: string) {
+    super(type, text);
+  }
+}
+
 export class StringLiteral extends RawExpression {
   constructor(type: Type, text: string) {
     super(type, `"${text}"`);
@@ -569,6 +575,21 @@ export class PropertyAccessExpression extends Expression {
       dot = '.';
     }
     return this.expression.print(ctx) + dot + this.member;
+  }
+}
+
+export class ElementAccessExpression extends Expression {
+  expression: Expression;
+  arg: Expression;
+
+  constructor(type: Type, expression: Expression, arg: Expression) {
+    super(type);
+    this.expression = expression;
+    this.arg = castExpression(arg, new Type('size_t', 'primitive'));
+  }
+
+  override print(ctx: PrintContext) {
+    return `${printExpressionValue(this.expression, ctx)}->value()[${this.arg.print(ctx)}]`;
   }
 }
 
@@ -873,8 +894,7 @@ export class MainFunction extends DeclarationStatement {
         new ExpressionStatement(new RawExpression(new Type('compilets::State', 'external'),
                                                   'compilets::State state')),
         ...this.body.statements,
-        new ReturnStatement(new RawExpression(new Type('number', 'primitive'),
-                                              '0')),
+        new ReturnStatement(new RawExpression(new Type('int', 'primitive'), '0')),
       ]);
     } else {
       signature = 'void Main()';

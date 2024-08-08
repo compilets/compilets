@@ -4,6 +4,7 @@ import {
   Expression,
   RawExpression,
   CustomExpression,
+  NumericLiteral,
   ArrayLiteralExpression,
   ConditionalExpression,
   ClassDeclaration,
@@ -133,6 +134,15 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
       return expr;
     }
   }
+  // The numeric literal's type is dynamic, it could be the target type if it
+  // is a direct assignment, otherwise it requires a explicit conversion.
+  if (expr instanceof NumericLiteral) {
+    if (target.category == 'primitive')
+      return expr;
+    return new CustomExpression(target, (ctx) => {
+      return `static_cast<double>(${expr.print(ctx)})`;
+    });
+  }
   source = source ?? expr.type;
   // Parse composited types.
   if (source.category == 'union' || target.category == 'union') {
@@ -154,9 +164,18 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
+  // Convert between primitive types.
+  if (source.category == 'primitive' && target.category == 'primitive') {
+    if (source.name == target.name)
+      return expr;
+    return new CustomExpression(target, (ctx) => {
+      return `static_cast<${target.name}>(${expr.print(ctx)})`;
+    });
+  }
   // Whether the types can be assigned without any explicit conversion.
-  if (target.assignableWith(source))
+  if (target.assignableWith(source)) {
     return expr;
+  }
   // Use the universal Cast function.
   return new CustomExpression(target, (ctx) => {
     return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
@@ -188,12 +207,6 @@ export function castArguments(args: Expression[], parameters: ParameterDeclarati
 export function castUnion(expr: Expression, target: Type, source: Type): Expression {
   // From non-union to union.
   if (source.category != 'union' && target.category == 'union') {
-    // Number literal in C++ is not necessarily double.
-    if (source.name == 'double' && source.category == 'primitive') {
-      return new CustomExpression(source, (ctx) => {
-        return `static_cast<double>(${expr.print(ctx)})`;
-      });
-    }
     // Convert null to std::monostate.
     if (source.category == 'null')
       return new CustomExpression(target, (ctx) => 'std::monostate{}');

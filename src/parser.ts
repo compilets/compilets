@@ -80,7 +80,6 @@ export default class Parser {
 
   parseExpression(node: ts.Expression): syntax.Expression {
     switch (node.kind) {
-      case ts.SyntaxKind.NumericLiteral:
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
       case ts.SyntaxKind.ThisKeyword:
@@ -89,6 +88,9 @@ export default class Parser {
       case ts.SyntaxKind.NullKeyword:
         return new syntax.RawExpression(this.parseNodeType(node),
                                         'nullptr');
+      case ts.SyntaxKind.NumericLiteral:
+        return new syntax.NumericLiteral(this.parseNodeType(node),
+                                         node.getText());
       case ts.SyntaxKind.StringLiteral:
         return new syntax.StringLiteral(this.parseNodeType(node),
                                         (node as ts.StringLiteral).text);
@@ -222,6 +224,15 @@ export default class Parser {
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
                                                    (name as ts.Identifier).text);
+      }
+      case ts.SyntaxKind.ElementAccessExpression: {
+        // arr[0]
+        const {expression, argumentExpression, questionDotToken} = node as ts.ElementAccessExpression;
+        if (questionDotToken)
+          throw new UnimplementedError(node, 'The ?.[] operator is not supported');
+        return new syntax.ElementAccessExpression(this.parseNodeType(node),
+                                                  this.parseExpression(expression),
+                                                  this.parseExpression(argumentExpression));
       }
     }
     throw new UnimplementedError(node, 'Unsupported expression');
