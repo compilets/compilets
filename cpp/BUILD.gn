@@ -30,6 +30,9 @@ test("cpp_unittests") {
     "runtime/tests/stack_unittest.cc",
   ]
 
+  include_dirs = [ "cppgc" ]
+  cflags_cc = [ "-Wno-uninitialized-const-reference" ]
+
   deps = [
     ":runtime",
     "//testing/gtest",
