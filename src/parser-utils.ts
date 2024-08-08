@@ -169,3 +169,10 @@ export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | und
     result.namespace = 'compilets';
   return result;
 }
+
+/*
+ * Remove duplicate elements in the array.
+ */
+export function uniqueArray<T>(a: T[], compare: (item1: T, item2: T) => boolean): T[] {
+  return a.filter((x, pos) => a.findIndex((y) => compare(x, y)) == pos);
+}

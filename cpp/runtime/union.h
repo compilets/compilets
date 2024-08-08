@@ -1,11 +1,25 @@
 #ifndef CPP_RUNTIME_UNION_H_
 #define CPP_RUNTIME_UNION_H_
 
+#include <type_traits>
 #include <variant>
 
 #include "runtime/type_helper.h"
 
 namespace compilets {
+
+class Object;
+
+// Get the object pointer from variant.
+template<typename... Ts>
+inline Object* GetObject(const std::variant<Ts...>& value) {
+  return std::visit([](auto&& v) {
+    if constexpr (std::is_pointer_v<decltype(v)>)
+      return v;
+    else
+      return nullptr;
+  }, value);
+}
 
 // Helper to trace the union type.
 template<typename... Ts>

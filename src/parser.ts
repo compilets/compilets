@@ -17,6 +17,7 @@ import {
   filterNode,
   parseHint,
   parseNodeJsType,
+  uniqueArray,
 } from './parser-utils';
 
 /**
@@ -375,8 +376,8 @@ export default class Parser {
         ]);
       }
     }
-    const closure = this.getCapturedIdentifiers(node).filter(n => this.parseNodeType(n).hasObject())
-                                                     .map(n => n.getText());
+    const closure = this.getCapturedIdentifiers(node).map(n => this.parseExpression(n))
+                                                     .filter(e => e.type.hasObject());
     return new syntax.FunctionExpression(this.parseNodeType(node),
                                          this.parseFunctionReturnType(node),
                                          parameters.map(this.parseParameterDeclaration.bind(this)),
@@ -733,6 +734,6 @@ export default class Parser {
         closure.push(node as ts.Identifier);
       }
     }
-    return closure;
+    return uniqueArray(closure, (x, y) => x.getText() == y.getText());
   }
 }

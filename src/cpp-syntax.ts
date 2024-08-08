@@ -476,18 +476,28 @@ export class ArrayLiteralExpression extends Expression {
 export class FunctionExpression extends Expression {
   returnType: Type;
   parameters: ParameterDeclaration[];
-  closure: string[];
+  closure: Expression[];
   body?: Block;
 
   constructor(type: Type,
               returnType: Type,
               parameters: ParameterDeclaration[],
-              closure: string[],
+              closure: Expression[],
               body?: Block) {
     super(type);
     this.returnType = returnType;
     this.parameters = parameters;
-    this.closure = closure;
+    this.closure = closure.map(expr => {
+      if (expr.type.isObject())
+        return expr;
+      if (expr.type.category == 'union') {
+        // Get the pointer to GCed object from union.
+        return new CustomExpression(new Type('Object', 'class'), (ctx) => {
+          return `compilets::GetObject(${expr.print(ctx)})`;
+        });
+      }
+      throw new Error(`Can not store type "${expr.type.name}" as closure`);
+    });
     this.body = body;
     this.shouldAddParenthesesForPropertyAccess = true;
   }
@@ -500,7 +510,8 @@ export class FunctionExpression extends Expression {
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
     const body = this.body?.print(ctx) ?? '{}';
     const lambda = `[=](${fullParameters}) -> ${returnType} ${body}`;
-    return `compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...this.closure ].join(', ')})`;
+    const closure = this.closure.map(c => c.print(ctx));
+    return `compilets::MakeFunction<${returnType}(${shortParameters})>(${[ lambda, ...closure ].join(', ')})`;
   }
 }
 
