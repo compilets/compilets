@@ -1,4 +1,4 @@
-#include "cpp/runtime/runtime.h"
+#include "runtime/runtime.h"
 
 namespace compilets {
 

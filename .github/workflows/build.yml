@@ -34,6 +34,9 @@ jobs:
         run: |
           yarn
           yarn test
+          yarn tsx src/cli.ts gn-gen --target cpp
+          yarn tsx src/cli.ts build --target cpp cpp_unittests
+          ./cpp/out/Debug/cpp_unittests
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')

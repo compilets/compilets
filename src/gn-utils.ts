@@ -13,7 +13,7 @@ interface GnGenOptions extends CommonGnOptions {
 }
 
 interface NinjaBuildOptions extends CommonGnOptions {
-  target?: string;
+  targets?: string[];
 }
 
 /**
@@ -49,7 +49,7 @@ export async function ninjaBuild(targetDir: string, options: NinjaBuildOptions) 
     ninja += '.exe';
   const outDir = 'out/' + options.config ?? 'Release';
   await spawnAsync(ninja,
-                   [ '-C', outDir, options.target ?? 'default' ],
+                   [ '-C', outDir, ...(options.targets ?? [ 'default' ]) ],
                    {cwd: targetDir, stdio: options.stream ? 'inherit' : 'pipe'});
 }
 

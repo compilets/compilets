@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import {Builtins, Cli, Command, Option} from 'clipanion';
-import {generateCppProject, ninjaBuild} from './index';
+import {generateCppProject, ninjaBuild, gnGen} from './index';
 import packageJson from '../package.json';
 
 export class GenCommand extends Command {
@@ -34,6 +34,19 @@ export class GenCommand extends Command {
   }
 }
 
+export class GnGenCommand extends Command {
+  static paths = [ [ 'gn-gen' ] ];
+  static usage = Command.Usage({
+    description: 'Run "gn gen" for the C++ project.',
+  });
+
+  target = Option.String('--target', {required: true, description: 'The path of C++ project'});
+
+  async execute() {
+    await gnGen(this.target, {config: 'Debug', stream: true});
+  }
+}
+
 export class BuildCommand extends Command {
   static paths = [ [ 'build' ] ];
   static usage = Command.Usage({
@@ -51,10 +64,11 @@ export class BuildCommand extends Command {
   });
 
   target = Option.String('--target', {description: 'The path of C++ project, default is $CWD/cpp-project'});
+  names = Option.Rest();
 
   async execute() {
     const target = this.target ?? `${process.cwd()}/cpp-project`;
-    await ninjaBuild(target, {config: 'Debug', stream: true});
+    await ninjaBuild(target, {config: 'Debug', stream: true, targets: this.names});
   }
 }
 
@@ -67,5 +81,6 @@ const cli = new Cli({
 cli.register(Builtins.HelpCommand);
 cli.register(Builtins.VersionCommand);
 cli.register(GenCommand);
+cli.register(GnGenCommand);
 cli.register(BuildCommand);
 cli.runExit(process.argv.slice(2)).then(() => process.exit());

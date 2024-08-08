@@ -10,4 +10,5 @@ package-lock.json
 npm-debug.log
 yarn-error.log
 /node_modules/
+/cpp/out/
 /tests/build-*
