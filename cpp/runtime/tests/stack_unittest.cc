@@ -24,23 +24,31 @@ class StackScanTest : public ::testing::Test {
 
   Stack* GetStack() const { return stack_.get(); }
 
+  // Provide containers with pointers in them, doing insertion inside the test
+  // methods would make the pointers show on stack/registers which invalidates
+  // the tests.
+  // https://groups.google.com/g/v8-users/c/bL_IgURDZhs/m/HsMlBsVACAAJ
+  const std::vector<int*>& GetVector() const { return vec_; }
+  const std::variant<int*, bool>& GetVariant() const { return var_; }
+
  private:
   std::unique_ptr<Stack> stack_;
+  std::vector<int*> vec_ = {new int{0}};
+  std::variant<int*, bool> var_ = {new int{0}};
 };
 
 class StackScanner final : public StackVisitor {
  public:
   void VisitPointer(const void* address) final {
-    if (address == needle_)
-      found_ = true;
+    ptrs_.insert(address);
   }
 
-  void set_needle(void* ptr) { needle_ = ptr; }
-  bool found() const { return found_; }
+  bool HasPointer(const void* address) const {
+    return ptrs_.contains(address);
+  }
 
  private:
-  void* needle_ = nullptr;
-  bool found_ = false;
+  std::set<const void*> ptrs_;
 };
 
 }  // namespace
@@ -69,20 +77,18 @@ TEST_F(StackScanTest, IsOnStackForVector) {
 TEST_F(StackScanTest, IteratePointersFindsValueInVariant) {
   auto scanner = std::make_unique<StackScanner>();
   {
-    std::variant<int*, bool> var = new int{0};
-    scanner->set_needle(std::get<int*>(var));
+    std::variant<int*, bool> var = GetVariant();
     GetStack()->IteratePointersForTesting(scanner.get());
-    EXPECT_TRUE(scanner->found());
+    EXPECT_TRUE(scanner->HasPointer(std::get<int*>(var)));
   }
 }
 
-TEST_F(StackScanTest, IteratePointersFindsValueInVector) {
+TEST_F(StackScanTest, IteratePointersFindsNoValueInVector) {
   auto scanner = std::make_unique<StackScanner>();
   {
-    std::vector<int*> vec = {new int{0}};
-    scanner->set_needle(vec[0]);
+    std::vector<int*> vec = GetVector();
     GetStack()->IteratePointersForTesting(scanner.get());
-    EXPECT_TRUE(scanner->found());
+    EXPECT_FALSE(scanner->HasPointer(vec[0]));
   }
 }
 
