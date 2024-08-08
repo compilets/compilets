@@ -140,7 +140,7 @@ export function parseHint(node: ts.Node): string[] {
 /**
  * Return a proper type representation for Node.js objects.
  */
-export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | undefined {
+export function parseNodeJsType(node: ts.Node, type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type | undefined {
   let result: syntax.Type | undefined;
   // The gc function is defined as optional.
   if (type.isUnion())
@@ -156,15 +156,15 @@ export function parseNodeJsType(node: ts.Node, type: ts.Type): syntax.Type | und
   });
   if (!decl)
     return result;
-  // The process object.
   const name = type.symbol.name;
+  // Global objects.
   if (name == 'Process')
-    result = new syntax.Type('Process', 'class');
+    result = new syntax.Type('Process', 'class', modifiers);
   else if (name == 'Console')
-    result = new syntax.Type('Console', 'class');
+    result = new syntax.Type('Console', 'class', modifiers);
   // The gc function.
   if (node.getText() == 'gc')
-    result = new syntax.Type('gc', 'function');
+    result = new syntax.Type('gc', 'function', modifiers);
   if (result)
     result.namespace = 'compilets';
   return result;

@@ -99,9 +99,9 @@ export default class Parser {
                                         (node as ts.StringLiteral).text);
       case ts.SyntaxKind.Identifier: {
         const type = this.parseNodeType(node);
-        return new syntax.Identifier(type,
-                                     type.category == 'null' ? 'nullptr'
-                                                             : node.getText());
+        const text = type.category == 'null' ? 'nullptr' : node.getText();
+        const isExternal = this.getOriginalDeclaration(node)?.getSourceFile().isDeclarationFile == true;
+        return new syntax.Identifier(type, text, isExternal);
       }
       case ts.SyntaxKind.AsExpression: {
         // b as boolean
@@ -493,7 +493,7 @@ export default class Parser {
       modifiers.push('external');
     // Check Node.js type.
     if (modifiers.includes('external')) {
-      const nodeJsType = parseNodeJsType(node, type);
+      const nodeJsType = parseNodeJsType(node, type, modifiers);
       if (nodeJsType)
         return nodeJsType;
     }

@@ -339,12 +339,15 @@ export class StringLiteral extends RawExpression {
 }
 
 export class Identifier extends RawExpression {
-  constructor(type: Type, text: string) {
+  isExternal: boolean;
+
+  constructor(type: Type, text: string, isExternal: boolean) {
     super(type, text);
+    this.isExternal = isExternal;
   }
 
   override print(ctx: PrintContext) {
-    if (this.type.namespace)
+    if (this.type.namespace && this.isExternal == this.type.isExternal)
       return `${this.type.namespace}::${this.text}`;
     return super.print(ctx);
   }
@@ -545,7 +548,7 @@ export class CallExpression extends Expression {
   override print(ctx: PrintContext) {
     this.callee.type.addFeatures(ctx);
     let callee = printExpressionValue(this.callee, ctx);
-    if (this.callee.type.category == 'functor')
+    if (this.callee.type.category == 'functor' && !this.callee.type.isExternal)
       callee = `${callee}->value()`;
     return `${callee}(${this.args.print(ctx)})`;
   }

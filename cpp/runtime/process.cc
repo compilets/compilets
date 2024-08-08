@@ -2,6 +2,10 @@
 
 namespace compilets {
 
+void Process::exit() {
+  ::exit(0);
+}
+
 void Process::exit(std::variant<double, std::monostate> arg) {
   int code = 0;
   if (std::holds_alternative<double>(arg))

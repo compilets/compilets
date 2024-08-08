@@ -5,6 +5,6 @@
 void TestGlobals() {
   compilets::process->exit(static_cast<double>(0));
   compilets::Process* processRef = compilets::process;
-  compilets::processRef->exit();
+  processRef->exit();
   compilets::console->log("text", 123, compilets::process);
 }

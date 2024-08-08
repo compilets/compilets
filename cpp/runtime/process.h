@@ -9,6 +9,7 @@ namespace compilets {
 
 class Process : public Object {
  public:
+  void exit();
   void exit(std::variant<double, std::monostate> arg);
 };
 
