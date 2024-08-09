@@ -38,6 +38,12 @@ inline Function<Sig>* MakeFunction(std::function<Sig> lambda,
       std::vector<cppgc::Member<Object>>({closure...}));
 }
 
+// Convert function to string.
+template<typename Sig>
+inline std::u16string ValueToString(Function<Sig>* value) {
+  return u"<function>";
+}
+
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_FUNCTION_H_

@@ -19,4 +19,10 @@ function TestString() {
 
   let strLength = str.length;
   let literalLength = "literal".length;
+  let charactar = str[0];
+
+  let templ = `
+  This is a long string
+  ${1 + 3} ${"literal"} ${str} ${[1, 2, 3]}
+  `;
 }

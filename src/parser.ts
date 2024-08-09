@@ -85,23 +85,35 @@ export default class Parser {
     switch (node.kind) {
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
+        return new syntax.RawExpression(new syntax.Type('bool', 'primitive'),
+                                        node.getText());
       case ts.SyntaxKind.ThisKeyword:
         return new syntax.RawExpression(this.parseNodeType(node),
                                         node.getText());
       case ts.SyntaxKind.NullKeyword:
-        return new syntax.RawExpression(this.parseNodeType(node),
+        return new syntax.RawExpression(new syntax.Type('null', 'null'),
                                         'nullptr');
       case ts.SyntaxKind.NumericLiteral:
-        return new syntax.NumericLiteral(this.parseNodeType(node),
-                                         node.getText());
+        return new syntax.NumericLiteral(node.getText());
       case ts.SyntaxKind.StringLiteral:
-        return new syntax.StringLiteral(this.parseNodeType(node),
-                                        (node as ts.StringLiteral).text);
+        return new syntax.StringLiteral((node as ts.StringLiteral).text);
       case ts.SyntaxKind.Identifier: {
         const type = this.parseNodeType(node);
         const text = type.category == 'null' ? 'nullptr' : node.getText();
         const isExternal = this.getOriginalDeclaration(node)?.getSourceFile().isDeclarationFile == true;
         return new syntax.Identifier(type, text, isExternal);
+      }
+      case ts.SyntaxKind.TemplateExpression: {
+        // `prefix${value}`
+        const {head, templateSpans} = node as ts.TemplateExpression;
+        const spans: syntax.Expression[] = [];
+        spans.push(new syntax.StringLiteral(head.text));
+        for (const span of templateSpans) {
+          if (span.literal.text)
+            spans.push(new syntax.StringLiteral(span.literal.text));
+          spans.push(this.parseExpression(span.expression));
+        }
+        return new syntax.TemplateString(spans);
       }
       case ts.SyntaxKind.AsExpression: {
         // b as boolean

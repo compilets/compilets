@@ -49,6 +49,12 @@ inline Array<T>* MakeArray(std::vector<T> elements) {
                                                std::move(elements));
 }
 
+// Convert array to string.
+template<typename T>
+inline std::u16string ValueToString(Array<T>* value) {
+  return u"<array>";
+}
+
 // Convert one array to another.
 template<typename Target, typename T>
 inline Array<Target>* Cast(Array<T>* arr) {

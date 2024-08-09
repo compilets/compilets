@@ -20,8 +20,11 @@ String::String()
 
 String::String(std::u16string str)
     : value_(std::make_shared<std::u16string>(std::move(str))) {
-  this->length = static_cast<double>(simdutf::count_utf16(value_->c_str(),
-                                                          value_->length()));
+  this->length = value_->length();
+}
+
+String String::operator[](size_t index) const {
+  return String(std::u16string{value()[index]});
 }
 
 std::string String::ToUTF8() const {

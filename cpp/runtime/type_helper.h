@@ -1,12 +1,19 @@
 #ifndef CPP_TYPE_HELPER_H_
 #define CPP_TYPE_HELPER_H_
 
+#include <string>
 #include <type_traits>
 
 #include "cppgc/member.h"
 #include "cppgc/visitor.h"
 
 namespace compilets {
+
+// Convert value to string.
+template<typename T>
+inline std::u16string ValueToString(const T& value) {
+  return u"<value>";
+}
 
 // Convert value from one type to another.
 template<typename T>

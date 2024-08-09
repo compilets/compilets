@@ -28,6 +28,11 @@ inline void TraceHelper(cppgc::Visitor* visitor,
   visitor->Trace(member);
 }
 
+// Convert object to string.
+inline std::u16string ValueToString(Object* value) {
+  return u"<object>";
+}
+
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_OBJECT_H_

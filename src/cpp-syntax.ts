@@ -329,14 +329,14 @@ export class RawExpression extends Expression {
 }
 
 export class NumericLiteral extends RawExpression {
-  constructor(type: Type, text: string) {
-    super(type, text);
+  constructor(text: string) {
+    super(new Type('double', 'primitive'), text);
   }
 }
 
 export class StringLiteral extends RawExpression {
-  constructor(type: Type, text: string) {
-    super(type, `u"${text}"`);
+  constructor(text: string) {
+    super(new Type('string', 'string'), 'u' + JSON.stringify(text));
   }
 }
 
@@ -352,6 +352,25 @@ export class Identifier extends RawExpression {
     if (this.type.namespace && this.isExternal == this.type.isExternal)
       return `${this.type.namespace}::${this.text}`;
     return super.print(ctx);
+  }
+}
+
+export class TemplateString extends Expression {
+  spans: Expression[];
+
+  constructor(spans: Expression[]) {
+    super(new Type('string', 'string'));
+    this.spans = spans;
+  }
+
+  override print(ctx: PrintContext) {
+    ctx.features.add('string');
+    let result = 'compilets::StringBuilder()';
+    for (const span of this.spans) {
+      result += `.Append(${span.print(ctx)})`;
+    }
+    result += '.Take()';
+    return result;
   }
 }
 
@@ -476,6 +495,7 @@ export class ArrayLiteralExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
+    ctx.features.add('array');
     const elementType = this.type.getElementType().print(ctx);
     const elements = this.elements.map(e => e.print(ctx)).join(', ');
     return `compilets::MakeArray<${elementType}>({${elements}})`;
@@ -623,7 +643,8 @@ export class ElementAccessExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return `${printExpressionValue(this.expression, ctx)}->value()[${this.arg.print(ctx)}]`;
+    const accessor = this.expression.type.category == 'array' ? '->value()' : '';
+    return `${printExpressionValue(this.expression, ctx)}${accessor}[${this.arg.print(ctx)}]`;
   }
 }
 

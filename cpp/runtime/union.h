@@ -32,6 +32,12 @@ inline void TraceHelper(cppgc::Visitor* visitor,
   }, member);
 }
 
+// Convert variant to string.
+template<typename... Ts>
+inline std::u16string ValueToString(const std::variant<Ts...>& value) {
+  return u"<variant>";
+}
+
 // Convert a variant to its super set.
 template<typename Target, typename... Ts>
 inline Target Cast(const std::variant<Ts...>& value) {
