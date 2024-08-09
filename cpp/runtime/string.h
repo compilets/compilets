@@ -9,6 +9,8 @@
 
 namespace compilets {
 
+std::u16string ValueToString(double value);
+
 // Immutable string.
 class String {
  public:
@@ -29,11 +31,6 @@ class String {
   std::shared_ptr<std::u16string> value_;
 };
 
-// Operators for string.
-String operator+(const String& left, const String& right);
-std::ostream& operator<<(std::ostream& os, const String& str);
-std::ostream& operator<<(std::ostream& os, const char16_t* str);
-
 // Helper for concatenating multiple strings.
 class StringBuilder {
  public:
@@ -48,8 +45,8 @@ class StringBuilder {
   }
 
   template<typename T>
-  StringBuilder& Append(const T& value) {
-    value_ += ValueToString(value);
+  StringBuilder& Append(T&& value) {
+    value_ += ValueToString(std::forward<T>(value));
     return *this;
   }
 
@@ -60,6 +57,16 @@ class StringBuilder {
  private:
   std::u16string value_;
 };
+
+// Operators for string.
+String operator+(const String& left, const String& right);
+String operator+(const char16_t* left, const String& right);
+String operator+(const String& left, const char16_t* right);
+bool operator==(const String& left, const String& right);
+bool operator==(const char16_t* left, const String& right);
+bool operator==(const String& left, const char16_t* right);
+std::ostream& operator<<(std::ostream& os, const String& str);
+std::ostream& operator<<(std::ostream& os, const char16_t* str);
 
 }  // namespace compilets
 

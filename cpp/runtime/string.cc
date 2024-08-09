@@ -1,9 +1,20 @@
 #include "runtime/string.h"
+
+#include <format>
+
 #include "simdutf/simdutf.h"
 
 namespace compilets {
 
 namespace {
+
+std::u16string UTF8ToUTF16(const char* str, size_t length) {
+  size_t utf16len = simdutf::utf16_length_from_utf8(str, length);
+  std::u16string utf16(utf16len, '\0');
+  size_t written = simdutf::convert_utf8_to_utf16(str, length, utf16.data());
+  assert(utf16len == written);
+  return utf16;
+}
 
 std::string UTF16ToUTF8(const char16_t* str, size_t length) {
   size_t utf8len = simdutf::utf8_length_from_utf16(str, length);
@@ -14,6 +25,11 @@ std::string UTF16ToUTF8(const char16_t* str, size_t length) {
 }
 
 }  // namespace
+
+std::u16string ValueToString(double value) {
+  std::string str = std::format("{}", value);
+  return UTF8ToUTF16(str.c_str(), str.length());
+}
 
 String::String()
     : value_(std::make_shared<std::u16string>()) {}
@@ -33,6 +49,26 @@ std::string String::ToUTF8() const {
 
 String operator+(const String& left, const String& right) {
   return String(left.value() + right.value());
+}
+
+String operator+(const char16_t* left, const String& right) {
+  return String(std::u16string(right.value()) += left);
+}
+
+String operator+(const String& left, const char16_t* right) {
+  return String(left.value() + right);
+}
+
+bool operator==(const String& left, const String& right) {
+  return left.value() == right.value();
+}
+
+bool operator==(const char16_t* left, const String& right) {
+  return right.value() == left;
+}
+
+bool operator==(const String& left, const char16_t* right) {
+  return left.value() == right;
 }
 
 std::ostream& operator<<(std::ostream& os, const String& str) {
