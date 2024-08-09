@@ -209,6 +209,12 @@ Tools below will help developement of this project:
 * [TypeScript AST Viewer](https://ts-ast-viewer.com/)
 * [TypeScript API Reference](https://typestrong.org/typedoc-auto-docs/typedoc/modules/TypeScript.html)
 
+About GN, the build system used for building C++ code:
+
+* [GN Homepage](https://gn.googlesource.com/gn/)
+* [GN Reference](https://gn.googlesource.com/gn/+/main/docs/reference.md)
+* [Standalone GN](https://github.com/yue/build-gn)
+
 ## License
 
 This project is published under GPLv3 license, including the C++ files that are
