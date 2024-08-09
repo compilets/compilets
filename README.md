@@ -22,17 +22,20 @@ npm install -g compilets
 Help:
 
 ```
-━━━ Compilets - 0.0.1-dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ Compilets - 0.0.1-dev ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   $ compilets <command>
 
-━━━ General commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ General commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  compilets build [--target #0]
+  compilets build [--target #0] ...
     Build C++ project.
 
   compilets gen [--root #0] [--target #0]
     Generate a C++ project from TypeScript project.
+
+  compilets gn-gen <--target #0>
+    Run "gn gen" for the C++ project.
 ```
 
 Example:
@@ -160,6 +163,32 @@ types: `std::nullopt` for `std::optional`, `std::monostate` for `std::variant`,
 strictly typed code, and to avoid generating incorrect code, errors will be
 thrown when the TypeScript code needs to strictly distinguish between `null`
 and `undefined`.
+
+### String
+
+Technically string is an object type in JavaScript, however since we are not
+going to support prototype manipulation, it is safe to treat string as a
+primitive type in C++, which simplifies things a lot and helps performance.
+
+On the other hand, in TypeScript code assigning a string to a variable involves
+no copy, and we can not just represent strings as `std::string`, which would
+be very slow when the TypeScript code pass strings around.
+
+So in Compilets string is represented as a custom type that stores string in a
+`std::shared_ptr`:
+
+```cpp
+class String {
+  std::shared_ptr<std::u16string> value;
+};
+```
+
+For string concatenations like `"a" + "b" + "c"`, it is optimized to use the
+StringBuilder pattern:
+
+```cpp
+StringBuilder().Append("a").Append("b").Append("c")
+```
 
 ## Developement
 
