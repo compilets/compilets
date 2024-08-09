@@ -113,7 +113,7 @@ export default class Parser {
             spans.push(new syntax.StringLiteral(span.literal.text));
           spans.push(this.parseExpression(span.expression));
         }
-        return new syntax.TemplateString(spans);
+        return new syntax.StringConcatenation(spans);
       }
       case ts.SyntaxKind.AsExpression: {
         // b as boolean
@@ -155,11 +155,7 @@ export default class Parser {
       }
       case ts.SyntaxKind.BinaryExpression: {
         // a + b
-        const {left, right, operatorToken} = node as ts.BinaryExpression;
-        return new syntax.BinaryExpression(this.parseNodeType(node),
-                                           this.parseExpression(left),
-                                           this.parseExpression(right),
-                                           operatorToken.getText());
+        return this.parseBinaryExpression(node as ts.BinaryExpression);
       }
       case ts.SyntaxKind.ArrayLiteralExpression: {
         // [1, 2, 3, 4]
@@ -298,6 +294,24 @@ export default class Parser {
         throw new UnsupportedError(node, 'C++ only supports top-level functions');
     }
     throw new UnimplementedError(node, 'Unsupported statement');
+  }
+
+  parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
+    const {left, right, operatorToken} = node;
+    const cppLeft = this.parseExpression(left);
+    const cppRight = this.parseExpression(right);
+    if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
+      // Concatenate 2 string literals.
+      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
+        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
+      // Left hand is a string concatenation.
+      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
+        return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
+    }
+    return new syntax.BinaryExpression(this.parseNodeType(node),
+                                       cppLeft,
+                                       cppRight,
+                                       operatorToken.getText());
   }
 
   parseVariableDeclarationList(node: ts.VariableDeclarationList): syntax.VariableDeclarationList {

@@ -25,4 +25,8 @@ function TestString() {
   This is a long string
   ${1 + 3} ${"literal"} ${str} ${[1, 2, 3]}
   `;
+
+  if ("literal" == "literal") {
+    let literalAdd = "li" + "ter" + "ral";
+  }
 }

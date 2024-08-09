@@ -355,7 +355,7 @@ export class Identifier extends RawExpression {
   }
 }
 
-export class TemplateString extends Expression {
+export class StringConcatenation extends Expression {
   spans: Expression[];
 
   constructor(spans: Expression[]) {
@@ -476,9 +476,16 @@ export class BinaryExpression extends Expression {
   constructor(type: Type, left: Expression, right: Expression, operator: string) {
     super(type);
     this.left = left;
-    this.right = operator == '=' ? castExpression(right, left.type) : right;
+    this.right = right;
     this.operator = operator;
     this.shouldAddParenthesesForPropertyAccess = true;
+    // Assignment requires type conversion.
+    if (operator == '=')
+      this.right = castExpression(right, left.type);
+    // When operating 2 string literals, convert left to string type, because
+    // C++ does not allow operator overloading for 2 pointers.
+    if (this.left instanceof StringLiteral && this.right instanceof StringLiteral)
+      this.left = new ToStringExpression(left);
   }
 
   override print(ctx: PrintContext) {
@@ -593,20 +600,31 @@ export class NewExpression extends Expression {
   }
 }
 
+// Converts the expression to string.
+export class ToStringExpression extends Expression {
+  expression: Expression;
+
+  constructor(expression: Expression) {
+    super(new Type('string', 'string'));
+    this.expression = expression;
+  }
+
+  override print(ctx: PrintContext) {
+    ctx.features.add('string');
+    return `compilets::String(${this.expression.print(ctx)})`;
+  }
+}
+
 export class PropertyAccessExpression extends Expression {
   expression: Expression;
   member: string;
 
   constructor(type: Type, expression: Expression, member: string) {
     super(type);
-    if (expression instanceof StringLiteral) {
-      this.expression = new CustomExpression(expression.type, (ctx) => {
-        ctx.features.add('string');
-        return `compilets::String(${expression.print(ctx)})`;
-      });
-    } else {
+    if (expression instanceof StringLiteral)
+      this.expression = new ToStringExpression(expression);
+    else
       this.expression = castExpression(expression, expression.type);
-    }
     this.member = member;
   }
 
@@ -631,14 +649,10 @@ export class ElementAccessExpression extends Expression {
 
   constructor(type: Type, expression: Expression, arg: Expression) {
     super(type);
-    if (expression instanceof StringLiteral) {
-      this.expression = new CustomExpression(expression.type, (ctx) => {
-        ctx.features.add('string');
-        return `compilets::String(${expression.print(ctx)})`;
-      });
-    } else {
+    if (expression instanceof StringLiteral)
+      this.expression = new ToStringExpression(expression);
+    else
       this.expression = castExpression(expression, expression.type);
-    }
     this.arg = castExpression(arg, new Type('size_t', 'primitive'));
   }
 

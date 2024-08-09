@@ -17,7 +17,7 @@ class String {
   String();
   String(std::u16string str);
   template<size_t N>
-  String(const char16_t (&str)[N]) : String(std::u16string(str, N)) {}
+  String(const char16_t (&str)[N]) : String(std::u16string(str, N - 1)) {}
 
   String operator[](size_t index) const;
 
