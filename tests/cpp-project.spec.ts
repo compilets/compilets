@@ -1,7 +1,6 @@
-import assert from 'node:assert';
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
-import {describe, it} from 'node:test';
+import {assert} from 'chai';
 import {tempDirSync} from '@compilets/using-temp-dir';
 
 import {generateCppProject, ninjaBuild} from '../src/index.ts';
@@ -11,7 +10,10 @@ process.env.CCACHE_NOHASHDIR = 'true';
 // Do not check compiler time, as we are using downloaded clang.
 process.env.CCACHE_COMPILERCHECK = 'none';
 
-describe('CppProject', () => {
+describe('CppProject', function() {
+  this.slow(3 * 1000);
+  this.timeout(60 * 1000);
+
   it('simple-generation', async () => {
     using target = tempDirSync(`${__dirname}/build-`);
     const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path);

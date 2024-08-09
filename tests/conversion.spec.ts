@@ -1,10 +1,12 @@
 import fs from 'node:fs';
-import assert from 'node:assert';
-import {describe, it} from 'node:test';
+import {assert} from 'chai';
 
 import {CppProject, Parser} from '../src/index.ts';
 
-describe('Conversion', () => {
+describe('Conversion', function() {
+  this.slow(1000);
+  this.timeout(3 * 1000);
+
   // Every subdir under data-conversion/ is a subtest.
   const dirs = fs.readdirSync(`${__dirname}/data-conversion`);
   for (const dir of dirs) {
