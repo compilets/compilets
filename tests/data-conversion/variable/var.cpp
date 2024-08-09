@@ -1,8 +1,10 @@
+#include "runtime/string.h"
+
 void TestVariable() {
   bool u;
   bool t = true;
-  std::string s1 = "str";
-  std::string s2 = "str";
+  compilets::String s1 = u"str";
+  compilets::String s2 = u"str";
   double n1 = 123;
   double n2 = 4.56;
   double n3 = n1 + n2;

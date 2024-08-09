@@ -7,6 +7,7 @@ config("runtime_config") {
 source_set("runtime") {
   public_configs = [ ":runtime_config" ]
   public_deps = [ "cppgc" ]
+  deps = [ "simdutf" ]
   sources = [
     "runtime/array.h",
     "runtime/console.cc",
@@ -19,6 +20,8 @@ source_set("runtime") {
     "runtime/process.h",
     "runtime/runtime.cc",
     "runtime/runtime.h",
+    "runtime/string.cc",
+    "runtime/string.h",
     "runtime/type_helper.h",
     "runtime/union.h",
   ]

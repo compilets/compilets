@@ -1,4 +1,5 @@
 #include "runtime/object.h"
+#include "runtime/string.h"
 
 class Empty;
 class EmptyConstructor;
@@ -30,7 +31,7 @@ class NonSimple : public compilets::Object {
   }
 
  private:
-  std::string prop = "For a breath I tarry.";
+  compilets::String prop = u"For a breath I tarry.";
 };
 
 double NonSimple::count = 0;

@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "runtime/object.h"
+#include "runtime/string.h"
 
 namespace compilets {
 

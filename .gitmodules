@@ -1,3 +1,6 @@
 [submodule "cpp/cppgc"]
 	path = cpp/cppgc
 	url = https://github.com/compilets/cppgc.git
+[submodule "cpp/simdutf"]
+	path = cpp/simdutf
+	url = https://github.com/compilets/simdutf

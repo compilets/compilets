@@ -10,6 +10,6 @@ void TestLoop() {
     123;
   }
   for (double i = 0; i < 10; ++i) {
-    "str";
+    u"str";
   }
 }

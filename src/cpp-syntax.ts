@@ -21,8 +21,8 @@ export type PrintMode = 'impl' | 'header' | 'forward';
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'union' | 'array' | 'function' | 'object' |
-                      'runtime' | 'process' | 'console';
+export type Feature = 'optional' | 'string' | 'union' | 'array' | 'function' |
+                      'object' | 'runtime' | 'process' | 'console';
 
 /**
  * Control indentation and other formating options when printing AST to C++.
@@ -150,7 +150,7 @@ export class Type {
     if (this.category == 'null')
       return 'std::nullptr_t';
     if (this.category == 'string')
-      cppType = 'std::string';
+      cppType = 'compilets::String';
     if (this.isOptional)
       return `std::optional<${cppType}>`;
     return cppType;
@@ -246,7 +246,9 @@ export class Type {
    * Check the C++ features used in this type and add them to `ctx.features`.
    */
   addFeatures(ctx: PrintContext) {
-    if (this.category == 'union') {
+    if (this.category == 'string') {
+      ctx.features.add('string');
+    } else if (this.category == 'union') {
       ctx.features.add('union');
     } else if (this.category == 'array') {
       ctx.features.add('array');
@@ -334,7 +336,7 @@ export class NumericLiteral extends RawExpression {
 
 export class StringLiteral extends RawExpression {
   constructor(type: Type, text: string) {
-    super(type, `"${text}"`);
+    super(type, `u"${text}"`);
   }
 }
 
