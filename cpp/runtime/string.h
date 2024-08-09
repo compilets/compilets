@@ -15,6 +15,9 @@ class String {
   template<size_t N>
   String(const char16_t (&str)[N]) : String(std::u16string(str, N)) {}
 
+  double length = 0;
+
+  // Helpers.
   std::string ToUTF8() const;
 
   const std::u16string& value() const { return *value_.get(); }

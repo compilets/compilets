@@ -579,7 +579,14 @@ export class PropertyAccessExpression extends Expression {
 
   constructor(type: Type, expression: Expression, member: string) {
     super(type);
-    this.expression = castExpression(expression, expression.type);
+    if (expression instanceof StringLiteral) {
+      this.expression = new CustomExpression(expression.type, (ctx) => {
+        ctx.features.add('string');
+        return `compilets::String(${expression.print(ctx)})`;
+      });
+    } else {
+      this.expression = castExpression(expression, expression.type);
+    }
     this.member = member;
   }
 
@@ -604,7 +611,14 @@ export class ElementAccessExpression extends Expression {
 
   constructor(type: Type, expression: Expression, arg: Expression) {
     super(type);
-    this.expression = expression;
+    if (expression instanceof StringLiteral) {
+      this.expression = new CustomExpression(expression.type, (ctx) => {
+        ctx.features.add('string');
+        return `compilets::String(${expression.print(ctx)})`;
+      });
+    } else {
+      this.expression = castExpression(expression, expression.type);
+    }
     this.arg = castExpression(arg, new Type('size_t', 'primitive'));
   }
 

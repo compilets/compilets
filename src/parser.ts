@@ -193,7 +193,7 @@ export default class Parser {
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         const obj = this.parseExpression(expression);
-        if (obj.type.category != 'class')
+        if (obj.type.category != 'class' && obj.type.category != 'string')
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,

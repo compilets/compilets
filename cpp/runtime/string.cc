@@ -19,7 +19,10 @@ String::String()
     : value_(std::make_shared<std::u16string>()) {}
 
 String::String(std::u16string str)
-    : value_(std::make_shared<std::u16string>(std::move(str))) {}
+    : value_(std::make_shared<std::u16string>(std::move(str))) {
+  this->length = static_cast<double>(simdutf::count_utf16(value_->c_str(),
+                                                          value_->length()));
+}
 
 std::string String::ToUTF8() const {
   return UTF16ToUTF8(value_->c_str(), value_->length());
