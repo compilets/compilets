@@ -3,14 +3,16 @@ class Prop {}
 class Base {
   public prop: Prop;
 
-  constructor() {
+  constructor(prop: Prop) {
+    this.prop = prop;
   }
 }
 
 class Derived extends Base {
-  public childProp: Prop;
+  public childProp?: Prop;
 
   constructor() {
+    super(new Prop());
   }
 }
 

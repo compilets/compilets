@@ -13,7 +13,9 @@ class Base : public compilets::Object {
  public:
   cppgc::Member<Prop> prop;
 
-  Base() {}
+  Base(Prop* prop) {
+    this->prop = prop;
+  }
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, prop);
@@ -26,7 +28,7 @@ class Derived : public Base {
  public:
   cppgc::Member<Prop> childProp;
 
-  Derived() {}
+  Derived() : Base(compilets::MakeObject<Prop>()) {}
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, childProp);

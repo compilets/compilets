@@ -32,14 +32,14 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
                             `TraceHelper(visitor, ${member.name})`)));
     }
   }
+  if (body.statements.length == 0)
+    return null;
   if (type.base) {
     body.statements.push(
       new ExpressionStatement(
         new RawExpression(new Type('void', 'void'),
                           `${type.base.name}::Trace(visitor)`)));
   }
-  if (body.statements.length == 0)
-    return null;
   // Create the visitor parameter.
   const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor*', 'external'));
   // Create the method.

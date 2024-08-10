@@ -789,7 +789,7 @@ export class ParameterDeclaration extends NamedDeclaration {
 
 export abstract class ClassElement extends NamedDeclaration {
   modifiers: string[];
-  parent?: ClassDeclaration;
+  classDeclaration?: ClassDeclaration;
 
   constructor(name: string, modifiers?: string[]) {
     super(name);
@@ -810,17 +810,23 @@ export class SemicolonClassElement extends ClassElement {
 export class ConstructorDeclaration extends ClassElement {
   parameters: ParameterDeclaration[];
   body?: Block;
+  baseCall?: CallArguments;
 
-  constructor(name: string, parameters: ParameterDeclaration[], body?: Block) {
+  constructor(name: string, parameters: ParameterDeclaration[], body?: Block, baseCall?: CallArguments) {
     super(name);
     this.parameters = parameters;
     this.body = body;
+    this.baseCall = baseCall;
   }
 
   override print(ctx: PrintContext) {
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const body = this.body?.print(ctx) ?? '= default;';
-    return `${ctx.prefix}${this.name}(${parameters}) ${body}`;
+    const baseType = this.classDeclaration?.type.base?.name;
+    if (!baseType && this.baseCall)
+      throw new Error(`There is no base class for "${this.name}" but super is called`);
+    const baseCall = this.baseCall ? ` : ${baseType}(${this.baseCall.print(ctx)})` : '';
+    return `${ctx.prefix}${this.name}(${parameters})${baseCall} ${body}`;
   }
 }
 

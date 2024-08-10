@@ -427,19 +427,16 @@ export default class Parser {
     }
     const members = node.members.map(this.parseClassElement.bind(this, node));
     const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members, base);
-    members.forEach(m => m.parent = cl);
+    members.forEach(m => m.classDeclaration = cl);
     return cl;
   }
 
-  parseClassElement(parent: ts.ClassDeclaration, node: ts.ClassElement): syntax.ClassElement {
+  parseClassElement(classDeclaration: ts.ClassDeclaration,
+                    node: ts.ClassElement): syntax.ClassElement {
     switch (node.kind) {
       case ts.SyntaxKind.Constructor: {
         // constructor(xxx) { yyy }
-        const {body, parameters} = node as ts.ConstructorDeclaration;
-        this.forbidClosure(node as ts.ConstructorDeclaration);
-        return new syntax.ConstructorDeclaration(parent.name!.text,
-                                                 this.parseParameters(parameters),
-                                                 body ? this.parseStatement(body) as syntax.Block : undefined);
+        return this.parseConstructorDeclaration(classDeclaration, node as ts.ConstructorDeclaration);
       }
       case ts.SyntaxKind.PropertyDeclaration: {
         // prop: type = xxx;
@@ -475,6 +472,34 @@ export default class Parser {
         return new syntax.SemicolonClassElement();
     }
     throw new UnimplementedError(node, 'Unsupported class element');
+  }
+
+  parseConstructorDeclaration(classDeclaration: ts.ClassDeclaration, node: ts.ConstructorDeclaration): syntax.ConstructorDeclaration {
+    let {body, parameters} = node;
+    this.forbidClosure(node as ts.ConstructorDeclaration);
+    let baseCall: syntax.CallArguments | undefined;
+    if (body) {
+      // The super call can only be used as the first statement.
+      const superCall = filterNode(body, (node) => ts.isCallExpression(node) && node.expression.kind == ts.SyntaxKind.SuperKeyword) as ts.CallExpression[];
+      if (superCall.length == 1) {
+        const firstStatement = body.statements[0];
+        if (!ts.isExpressionStatement(firstStatement) ||
+            !ts.isCallExpression(firstStatement.expression) ||
+            superCall[0] != firstStatement.expression) {
+          throw new UnimplementedError(superCall[0], 'The super call must be placed as the first statement in body');
+        }
+        // Convert the super call to C++.
+        baseCall = this.parseArguments(superCall[0], superCall[0]['arguments']);
+        // Remove the super call from body.
+        body = ts.factory.createBlock(body.statements.slice(1));
+      } else if (superCall.length > 1) {
+        throw new UnimplementedError(superCall[1], 'The super call can only be called once');
+      }
+    }
+    return new syntax.ConstructorDeclaration(classDeclaration.name!.text,
+                                             this.parseParameters(parameters),
+                                             body ? this.parseStatement(body) as syntax.Block : undefined,
+                                             baseCall);
   }
 
   parseArguments(node: ts.CallLikeExpression, args?: ts.NodeArray<ts.Expression>) {
