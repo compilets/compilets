@@ -7,7 +7,7 @@ class Base {
     this.prop = prop;
   }
 
-  method() {}
+  method(arg?: Prop) {}
 }
 
 class Derived extends Base {
@@ -17,7 +17,9 @@ class Derived extends Base {
     super(new Prop());
   }
 
-  override method() {}
+  override method(arg?: Prop) {
+    super.method(arg);
+  }
 }
 
 class NotDerived implements Base {

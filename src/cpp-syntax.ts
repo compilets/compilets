@@ -83,7 +83,7 @@ export class PrintContext {
 
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
-                           'external' | 'any';
+                           'external' | 'super' | 'any';
 export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
                            'element' | 'persistent' | 'not-function';
 
@@ -643,6 +643,19 @@ export class ToStringExpression extends Expression {
   }
 }
 
+export class BaseResolutionExpression extends Expression {
+  classType: Type;
+
+  constructor(classType: Type) {
+    super(new Type(classType.name, 'super'));
+    this.classType = classType;
+  }
+
+  override print(ctx: PrintContext) {
+    return this.classType.name + '::';
+  }
+}
+
 export class PropertyAccessExpression extends Expression {
   expression: Expression;
   member: string;
@@ -651,19 +664,24 @@ export class PropertyAccessExpression extends Expression {
     super(type);
     if (expression instanceof StringLiteral)
       this.expression = new ToStringExpression(expression);
+    else if (expression instanceof BaseResolutionExpression)
+      this.expression = expression;
     else
       this.expression = castExpression(expression, expression.type);
     this.member = member;
   }
 
   override print(ctx: PrintContext) {
-    this.expression.type.addFeatures(ctx);
+    const {type} = this.expression;
+    type.addFeatures(ctx);
     let dot: string;
-    if (this.expression.type.isObject()) {
+    if (type.isObject()) {
       if (this.type.isStatic)
         dot = '::';
       else
         dot = '->';
+    } else if (type.category == 'super') {
+      dot = '';
     } else {
       dot = '.';
     }

@@ -93,6 +93,8 @@ export default class Parser {
       case ts.SyntaxKind.NullKeyword:
         return new syntax.RawExpression(new syntax.Type('null', 'null'),
                                         'nullptr');
+      case ts.SyntaxKind.SuperKeyword:
+        return new syntax.BaseResolutionExpression(this.parseNodeType(node));
       case ts.SyntaxKind.NumericLiteral:
         return new syntax.NumericLiteral(node.getText());
       case ts.SyntaxKind.StringLiteral:
@@ -201,8 +203,11 @@ export default class Parser {
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         const obj = this.parseExpression(expression);
-        if (obj.type.category != 'class' && obj.type.category != 'string')
+        if (obj.type.category != 'class' &&
+            obj.type.category != 'string' &&
+            obj.type.category != 'super') {
           throw new UnimplementedError(name, 'Only support accessing properties of class');
+        }
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
                                                    (name as ts.Identifier).text);
