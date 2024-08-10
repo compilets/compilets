@@ -508,6 +508,13 @@ export default class Parser {
         if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
           modifiers.push('static');
       }
+      // For variable declaration, the comments are in the declarationList.
+      const hintNode = ts.isVariableDeclaration(decl) ? decl.parent : decl;
+      // Parse the hints in comments.
+      for (const hint of parseHint(hintNode)) {
+        if (hint == 'persistent')
+          modifiers.push('persistent');
+      }
     }
     // The type is optional in 2 cases:
     // 1. The original decl has a question token.

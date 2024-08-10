@@ -9,6 +9,9 @@ class Owner {
   members: Member[] = [new Member];
 }
 
-new Owner;
+// compilets: persistent
+let owner = new Owner;
+gc();
+owner = null;
 gc();
 process.exit(1);

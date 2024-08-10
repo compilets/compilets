@@ -85,7 +85,7 @@ export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
                            'external' | 'any';
 export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
-                           'element' | 'not-function';
+                           'element' | 'persistent' | 'not-function';
 
 export class Type {
   name: string;
@@ -98,6 +98,7 @@ export class Type {
   isStatic = false;
   isExternal = false;
   isElement = false;
+  isPersistent = false;
 
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
@@ -114,6 +115,8 @@ export class Type {
           this.isStatic = true;
         else if (modifier == 'element')
           this.isElement = true;
+        else if (modifier == 'persistent')
+          this.isPersistent = true;
         else if (modifier == 'not-function' && this.category == 'function')
           this.category = 'functor';
       }
@@ -137,7 +140,9 @@ export class Type {
         cppType = `compilets::Function<${cppType}>`;
       else if (this.category == 'class')
         cppType = `${cppType}`;
-      if (this.isProperty || this.isElement)
+      if (this.isPersistent)
+        return `cppgc::Persistent<${cppType}>`;
+      else if (this.isCppgcMember())
         return `cppgc::Member<${cppType}>`;
       else
         return `${cppType}*`;
@@ -160,7 +165,7 @@ export class Type {
   /**
    * Check if this is the same type with `other`.
    *
-   * Modifiers static/property/external/element are ignored.
+   * Modifiers static/property/external/element/persistent are ignored.
    */
   equal(other: Type): boolean {
     if (this === other)
@@ -207,6 +212,10 @@ export class Type {
     }
     // Can not assign object property to the target type directly.
     if (!this.isCppgcMember() && other.isCppgcMember()) {
+      return false;
+    }
+    // Can not assign persistent to the target type directly.
+    if (!this.isPersistent && other.isPersistent) {
       return false;
     }
     return this.equal(other);
@@ -314,7 +323,7 @@ export class Type {
   }
 
   /**
-   * Whether this itype is wrapped by cppgc::Member.
+   * Whether this type is wrapped by cppgc::Member.
    */
   isCppgcMember() {
     return this.isObject() && (this.isProperty || this.isElement);

@@ -160,8 +160,9 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr = castOptional(expr, target, source);
     source = expr.type;
   }
-  // Get value from GCed members.
-  if (source.isCppgcMember() && !target.isCppgcMember()) {
+  // Get value from cppgc smart pointers.
+  if ((source.isCppgcMember() && !target.isCppgcMember()) ||
+      (source.isPersistent && !target.isPersistent)) {
     return new CustomExpression(source, (ctx) => {
       return `${printExpressionValue(expr, ctx)}.Get()`;
     });
