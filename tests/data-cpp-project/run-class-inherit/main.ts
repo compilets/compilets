@@ -7,14 +7,19 @@ class Prop {
 
 class Base {
   public prop: Prop = new Prop();
+
+  method() { return 'base'; }
 }
 
 class Derived extends Base {
+  method() { return 'derived'; }
 }
 
 // compilets: persistent
-let derived = new Derived();
+let base = new Derived();
+if (base.method() != "derived")
+  process.exit(2);
 gc();
-derived = null;
+base = null;
 gc();
 process.exit(1);

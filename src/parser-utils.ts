@@ -50,6 +50,8 @@ export function operatorToString(operator: ts.SyntaxKind) {
  */
 export function modifierToString(modifier: ts.ModifierLike): string {
   switch (modifier.kind) {
+    case ts.SyntaxKind.OverrideKeyword:
+      return 'override';
     case ts.SyntaxKind.PrivateKeyword:
       return 'private';
     case ts.SyntaxKind.ProtectedKeyword:

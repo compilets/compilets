@@ -9,7 +9,7 @@ void TestVariadicArgs();
 
 class VariadicArgsMethod : public compilets::Object {
  public:
-  void method(compilets::Array<double>* args) {}
+  virtual void method(compilets::Array<double>* args) {}
 };
 
 void VariadicArgs(bool arg, compilets::Array<double>* args) {}

@@ -6,6 +6,8 @@ class Base {
   constructor(prop: Prop) {
     this.prop = prop;
   }
+
+  method() {}
 }
 
 class Derived extends Base {
@@ -14,6 +16,8 @@ class Derived extends Base {
   constructor() {
     super(new Prop());
   }
+
+  override method() {}
 }
 
 class NotDerived implements Base {

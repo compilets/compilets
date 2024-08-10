@@ -26,7 +26,7 @@ class NonSimple : public compilets::Object {
   virtual ~NonSimple() = default;
 
  protected:
-  bool method() {
+  virtual bool method() {
     return true;
   }
 

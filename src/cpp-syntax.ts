@@ -567,6 +567,7 @@ export class FunctionExpression extends Expression {
 
   override print(ctx: PrintContext) {
     ctx.features.add('function');
+    this.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
     const returnType = this.returnType.print(ctx);
     const fullParameters = ParameterDeclaration.printParameters(ctx, this.parameters);
@@ -885,6 +886,7 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    this.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
     let result = ctx.prefix;
     if (this.modifiers.includes('virtual'))
@@ -970,6 +972,7 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
+    this.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);

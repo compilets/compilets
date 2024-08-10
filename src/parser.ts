@@ -462,6 +462,13 @@ export default class Parser {
         this.forbidClosure(node as ts.MethodDeclaration);
         const cppModifiers = modifiers?.map(modifierToString) ?? [];
         cppModifiers.push(...parseHint(node));
+        // In TypeScript every method is "virtual", while it is possible to
+        // lookup all derived classes to decide whether to make the method
+        // virtual, it is not worth the efforts.
+        if (!cppModifiers.includes('override') &&
+            !cppModifiers.includes('destructor')) {
+          cppModifiers.push('virtual');
+        }
         return new syntax.MethodDeclaration((name as ts.Identifier).text,
                                             cppModifiers,
                                             this.parseFunctionReturnType(node),
