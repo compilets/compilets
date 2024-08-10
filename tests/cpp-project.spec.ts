@@ -11,8 +11,11 @@ process.env.CCACHE_NOHASHDIR = 'true';
 process.env.CCACHE_COMPILERCHECK = 'none';
 
 describe('CppProject', function() {
-  this.slow(3 * 1000);
-  this.timeout(60 * 1000);
+  this.slow(10 * 1000);
+  if (process.platform == 'win32')
+    this.timeout(5 * 60 * 1000);
+  else
+    this.timeout(60 * 1000);
 
   it('simple-generation', async () => {
     using target = tempDirSync(`${__dirname}/build-`);
