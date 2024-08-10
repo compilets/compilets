@@ -91,6 +91,7 @@ export class Type {
   name: string;
   category: TypeCategory;
   types: Type[] = [];
+  base?: Type;
   namespace?: string;
   isOptional = false;
   isProperty = false;
@@ -188,6 +189,10 @@ export class Type {
     if (this.isObject() && other.category == 'null') {
       return true;
     }
+    // Derived class can be assigned to base class.
+    if (other.inheritsFrom(this)) {
+      return true;
+    }
     // Union can be directly assigned with its subtype.
     if (this.category == 'union' && other.category != 'union') {
       return this.types.some(t => t.assignableWith(other));
@@ -266,6 +271,19 @@ export class Type {
     for (const type of this.types) {
       type.addFeatures(ctx);
     }
+  }
+
+  /**
+   * Return whether this type inherits from base.
+   */
+  inheritsFrom(base: Type): boolean {
+    if (!this.isObject() || !base.isObject())
+      return false;
+    if (!this.base)
+      return false;
+    if (this.base.equal(base))
+      return true;
+    return this.base.inheritsFrom(base);
   }
 
   /**
@@ -883,14 +901,16 @@ export abstract class DeclarationStatement extends Statement {
 
 export class ClassDeclaration extends DeclarationStatement {
   type: Type;
+  base?: Type;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
   destructor?: ClassElement;
 
-  constructor(type: Type, members: ClassElement[]) {
+  constructor(type: Type, members: ClassElement[], base?: Type) {
     super(type.name);
     this.type = type;
+    this.base = base;
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);
@@ -901,7 +921,7 @@ export class ClassDeclaration extends DeclarationStatement {
     }
     if (this.type.hasObject()) {
       // Add Trace method if it includes cppgc::Member.
-      const trace = createTraceMethod(members);
+      const trace = createTraceMethod(this.type, members);
       if (trace)
         this.publicMembers.push(trace);
       // Add a virtual destructor if the class is not trivially destrutible.

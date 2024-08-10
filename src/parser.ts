@@ -416,10 +416,17 @@ export default class Parser {
       throw new UnimplementedError(node, 'Empty class name is not supported');
     if (node.typeParameters)
       throw new UnimplementedError(node, 'Generic class is not supported');
-    if (node.heritageClauses)
-      throw new UnimplementedError(node, 'Class inheritance is not supported');
+    let base: syntax.Type | undefined;
+    if (node.heritageClauses) {
+      for (const clause of node.heritageClauses) {
+        // Ignore implements clause, it is only a hint for type checker.
+        if (clause.token == ts.SyntaxKind.ImplementsKeyword)
+          continue;
+        base = this.parseNodeType(clause.types[0].expression);
+      }
+    }
     const members = node.members.map(this.parseClassElement.bind(this, node));
-    const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members);
+    const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members, base);
     members.forEach(m => m.parent = cl);
     return cl;
   }
@@ -554,7 +561,7 @@ export default class Parser {
       return this.parseFunctionType(type, modifiers);
     // Check class.
     if (type.isClass())
-      return new syntax.Type(type.symbol.name, 'class', modifiers);
+      return this.parseClassType(type, modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
@@ -615,6 +622,20 @@ export default class Parser {
       category = 'functor';
     }
     return new syntax.Type(`${returnType}(${parameters})`, category, modifiers);
+  }
+
+  /**
+   * Parse the class type.
+   */
+  parseClassType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
+    const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
+    for (const base of type.getBaseTypes()!) {
+      if (base.isClass()) {
+        cppType.base = this.parseType(base);
+        break;
+      }
+    }
+    return cppType;
   }
 
   /**

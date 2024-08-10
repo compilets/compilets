@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import {assert} from 'chai';
+import assert from 'node:assert';
 
 import {CppProject, Parser} from '../src/index.ts';
 

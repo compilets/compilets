@@ -1,6 +1,6 @@
 import fs from 'node:fs';
+import assert from 'node:assert';
 import {execFileSync} from 'node:child_process';
-import {assert} from 'chai';
 import {tempDirSync} from '@compilets/using-temp-dir';
 
 import {generateCppProject, ninjaBuild} from '../src/index.ts';

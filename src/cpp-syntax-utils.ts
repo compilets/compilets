@@ -19,7 +19,7 @@ import {
 /**
  * Create the Trace method required by cppgc::GarbageCollected.
  */
-export function createTraceMethod(members: ClassElement[]): MethodDeclaration | null {
+export function createTraceMethod(type: Type, members: ClassElement[]): MethodDeclaration | null {
   // Collect all the GCed members from the class.
   const body = new Block();
   for (const member of members) {
@@ -31,6 +31,12 @@ export function createTraceMethod(members: ClassElement[]): MethodDeclaration | 
           new RawExpression(new Type('void', 'void'),
                             `TraceHelper(visitor, ${member.name})`)));
     }
+  }
+  if (type.base) {
+    body.statements.push(
+      new ExpressionStatement(
+        new RawExpression(new Type('void', 'void'),
+                          `${type.base.name}::Trace(visitor)`)));
   }
   if (body.statements.length == 0)
     return null;
@@ -48,8 +54,8 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
     return `class ${decl.name};`;
   const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
   // Print class name and inheritance.
-  const inheritance = decl.type.isObject() ? ' : public compilets::Object' : '';
-  let result = `${ctx.prefix}class ${decl.name}${inheritance} {\n`;
+  const base = decl.base ? decl.base.name : 'compilets::Object';
+  let result = `${ctx.prefix}class ${decl.name} : public ${base} {\n`;
   ctx.level++;
   // Print the finalizer macro.
   if (decl.destructor) {
