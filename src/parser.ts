@@ -12,6 +12,7 @@ import {
   modifierToString,
   FunctionLikeNode,
   isFunctionLikeNode,
+  isClass,
   hasQuestionToken,
   hasTypeNode,
   filterNode,
@@ -186,11 +187,8 @@ export default class Parser {
       case ts.SyntaxKind.NewExpression: {
         // new Class(xxx)
         const newExpression = node as ts.NewExpression;
-        const {expression, typeArguments} = newExpression;
         const args = newExpression['arguments'];  // arguments is a keyword
-        if (typeArguments)
-          throw new UnimplementedError(node, 'Generic new is not supported');
-        if (!ts.isIdentifier(expression))
+        if (!ts.isIdentifier(newExpression.expression))
           throw new UnsupportedError(node, 'The new operator only accepts class name');
         return new syntax.NewExpression(this.parseNodeType(node),
                                         this.parseArguments(newExpression, args));
@@ -417,23 +415,13 @@ export default class Parser {
   }
 
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
-    if (!node.name)
+    const {name, members, typeParameters, heritageClauses} = node;
+    if (!name)
       throw new UnimplementedError(node, 'Empty class name is not supported');
-    if (node.typeParameters)
-      throw new UnimplementedError(node, 'Generic class is not supported');
-    let base: syntax.Type | undefined;
-    if (node.heritageClauses) {
-      for (const clause of node.heritageClauses) {
-        // Ignore implements clause, it is only a hint for type checker.
-        if (clause.token == ts.SyntaxKind.ImplementsKeyword)
-          continue;
-        base = this.parseNodeType(clause.types[0].expression);
-      }
-    }
-    const members = node.members.map(this.parseClassElement.bind(this, node));
-    const cl = new syntax.ClassDeclaration(this.parseNodeType(node), members, base);
-    members.forEach(m => m.classDeclaration = cl);
-    return cl;
+    const cppMembers = members.map(this.parseClassElement.bind(this, node));
+    const classDeclaration = new syntax.ClassDeclaration(this.parseNodeType(node), cppMembers);
+    cppMembers.forEach(m => m.classDeclaration = classDeclaration);
+    return classDeclaration;
   }
 
   parseClassElement(classDeclaration: ts.ClassDeclaration,
@@ -603,15 +591,15 @@ export default class Parser {
     // Check function.
     if (type.getCallSignatures().length > 0)
       return this.parseFunctionType(type, modifiers);
-    // Check class.
-    if (type.isClass())
-      return this.parseClassType(type, modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
       return this.parseUnionType(name, type as ts.UnionType, modifiers);
-    // Check builtin types.
+    // Check type parameter.
     const flags = type.getFlags();
+    if (flags & ts.TypeFlags.TypeParameter)
+      return new syntax.Type(name, 'template', modifiers);
+    // Check builtin types.
     if (flags & (ts.TypeFlags.Never | ts.TypeFlags.Void))
         return new syntax.Type(name, 'void', modifiers);
     if (flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
@@ -627,6 +615,9 @@ export default class Parser {
     // Check array.
     if (this.typeChecker.isArrayType(type))
       return this.parseArrayType(name, type, modifiers);
+    // Check class.
+    if (isClass(type))
+      return this.parseClassType(type, modifiers);
     throw new Error(`Unsupported type "${name}"`);
   }
 
@@ -671,14 +662,18 @@ export default class Parser {
   /**
    * Parse the class type.
    */
-  parseClassType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseClassType(type: ts.GenericType, modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
-    for (const base of type.getBaseTypes()!) {
-      if (base.isClass()) {
-        cppType.base = this.parseType(base);
-        break;
-      }
-    }
+    // Parse base classes.
+    const base = type.getBaseTypes()?.find(isClass);
+    if (base)
+      cppType.base = this.parseType(base);
+    // Parse type parameters.
+    if (type.typeParameters && type.typeParameters.length > 0)
+      cppType.types = type.typeParameters.map(p => this.parseType(p));
+    // Parse type arguments.
+    if (type.typeArguments && type.typeArguments.length > 0)
+      cppType.templateArguments = type.typeArguments.map(a => this.parseType(a));
     return cppType;
   }
 
@@ -750,6 +745,8 @@ export default class Parser {
       } else if (initializer) {
         const initDecl = this.getOriginalDeclaration(initializer);
         return initDecl ? this.getTypeNode(initDecl) : initializer;
+      } else {
+        throw new Error('Can not find type or initializer in the declaration');
       }
     }
     return decl;

@@ -50,12 +50,26 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
  * Print the class declaration.
  */
 export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext): string {
-  if (ctx.mode == 'forward')
-    return `class ${decl.name};`;
-  const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
+  // The template prefix.
+  let templateClause = '';
+  if (decl.type.types.length > 0) {
+    const typenames = decl.type.types.map(t => `typename ${t.name}`);
+    templateClause = `template<${typenames}>`;
+  }
+  // Forward declaration.
+  if (ctx.mode == 'forward') {
+    let result = `class ${decl.type.name};`;
+    if (templateClause)
+      return templateClause + '\n' + result;
+    return result;
+  }
   // Print class name and inheritance.
-  const base = decl.base ? decl.base.name : 'compilets::Object';
+  const base = decl.type.base?.getCppName() ?? 'compilets::Object';
   let result = `${ctx.prefix}class ${decl.name} : public ${base} {\n`;
+  if (templateClause)
+    result = ctx.prefix + templateClause + '\n' + result;
+  // Indent for class content.
+  const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
   ctx.level++;
   // Print the finalizer macro.
   if (decl.destructor) {

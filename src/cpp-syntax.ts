@@ -83,7 +83,7 @@ export class PrintContext {
 
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
-                           'external' | 'super' | 'any';
+                           'external' | 'super' | 'template' | 'any';
 export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
                            'element' | 'persistent' | 'not-function';
 
@@ -93,6 +93,7 @@ export class Type {
   types: Type[] = [];
   base?: Type;
   namespace?: string;
+  templateArguments?: Type[];
   isOptional = false;
   isProperty = false;
   isStatic = false;
@@ -130,9 +131,7 @@ export class Type {
       throw new Error('Raw function type should never be printed out');
     if (this.category == 'any')  // could be printed as part of signature name
       return '_Any';
-    let cppType = this.name;
-    if (this.namespace)
-      cppType = `${this.namespace}::${cppType}`;
+    let cppType = this.getCppName();
     if (this.isObject()) {
       if (this.category == 'array')
         cppType = `compilets::Array<${this.getElementType().print(ctx)}>`;
@@ -243,6 +242,18 @@ export class Type {
     const result = this.clone();
     result.isOptional = false;
     return result;
+  }
+
+  /**
+   * Return the C++ type name for the type.
+   */
+  getCppName() {
+    let name = this.name;
+    if (this.category == 'class' && this.templateArguments)
+      name = `${name}<${this.templateArguments.map(a => a.getCppName())}>`;
+    if (this.namespace)
+      name = `${this.namespace}::${name}`;
+    return name;
   }
 
   /**
@@ -622,9 +633,9 @@ export class NewExpression extends Expression {
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
     if (this.type.isObject())
-      return `compilets::MakeObject<${this.type.name}>(${args})`;
+      return `compilets::MakeObject<${this.type.getCppName()}>(${args})`;
     else
-      return `new ${this.type.name}(${args})`;
+      return `new ${this.type.getCppName()}(${args})`;
   }
 }
 
@@ -936,16 +947,14 @@ export abstract class DeclarationStatement extends Statement {
 
 export class ClassDeclaration extends DeclarationStatement {
   type: Type;
-  base?: Type;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
   destructor?: ClassElement;
 
-  constructor(type: Type, members: ClassElement[], base?: Type) {
+  constructor(type: Type, members: ClassElement[]) {
     super(type.name);
     this.type = type;
-    this.base = base;
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);

@@ -109,6 +109,16 @@ export function isFunctionLikeNode(node: ts.Node): node is FunctionLikeNode {
 }
 
 /**
+ * Return whether the type is a class or a generic class. The ts.isClass ignores
+ * generic class.
+ */
+export function isClass(type: ts.Type): type is ts.GenericType {
+  if (!(type.flags & ts.TypeFlags.Object))
+    return false;
+  return ((type as ts.ObjectType).objectFlags & (ts.ObjectFlags.Class | ts.ObjectFlags.Reference)) != 0;
+}
+
+/**
  * Helper to get all the child nodes.
  */
 export function filterNode(node?: ts.Node, predicate?: (node: ts.Node) => boolean) {
