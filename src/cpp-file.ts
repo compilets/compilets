@@ -80,9 +80,6 @@ export default class CppFile {
     const headers = new syntax.Headers();
     for (const feature of features) {
       switch (feature) {
-        case 'optional':
-          headers.stl.push(new syntax.IncludeStatement('angle-bracket', feature));
-          break;
         case 'string':
         case 'union':
         case 'array':

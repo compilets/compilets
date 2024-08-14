@@ -1,5 +1,3 @@
-#include <optional>
-
 #include "runtime/function.h"
 #include "runtime/object.h"
 

@@ -21,7 +21,7 @@ export type PrintMode = 'impl' | 'header' | 'forward';
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'optional' | 'string' | 'union' | 'array' | 'function' |
+export type Feature = 'string' | 'union' | 'array' | 'function' |
                       'object' | 'runtime' | 'process' | 'console';
 
 /**
@@ -132,6 +132,12 @@ export class Type {
     if (this.category == 'any')  // could be printed as part of signature name
       return '_Any';
     let cppType = this.getCppName();
+    if (this.category == 'template') {
+      if (this.isOptional)
+        return `compilets::OptionalCppgcMemberT<${cppType}>`;
+      else
+        return `compilets::CppgcMemberT<${cppType}>`;
+    }
     if (this.isObject()) {
       if (this.category == 'array')
         cppType = `compilets::Array<${this.getElementType().print(ctx)}>`;
@@ -275,9 +281,6 @@ export class Type {
       ctx.features.add('union');
     } else if (this.category == 'array') {
       ctx.features.add('array');
-    }
-    if (this.isStdOptional()) {
-      ctx.features.add('optional');
     }
     if (this.namespace == 'compilets') {
       ctx.features.add('runtime');

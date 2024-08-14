@@ -1,20 +1,22 @@
-#include <optional>
-
 #include "runtime/object.h"
 #include "runtime/union.h"
 
+class Item;
 template<typename T>
 class Wrapper;
 void TestGenericClass();
 
+class Item : public compilets::Object {
+};
+
 template<typename T>
 class Wrapper : public compilets::Object {
  public:
-  T member;
+  compilets::CppgcMemberT<T> member;
 
-  std::optional<T> optionalMember;
+  compilets::OptionalCppgcMemberT<T> optionalMember;
 
-  compilets::Union<bool, T> unionMember;
+  compilets::Union<bool, compilets::CppgcMemberT<T>> unionMember;
 
   virtual ~Wrapper() = default;
 };
@@ -25,4 +27,9 @@ void TestGenericClass() {
   n = primitive->optionalMember.value();
   std::optional<double> optionalNumber = primitive->optionalMember;
   compilets::Union<double, bool> numberOrBool = primitive->unionMember;
+  Wrapper<Item>* nested = compilets::MakeObject<Wrapper<Item>>();
+  Item* item = nested->member;
+  item = nested->optionalMember;
+  Item* optionalItem = nested->optionalMember;
+  compilets::Union<bool, Item*> itemOrBool = nested->unionMember;
 }

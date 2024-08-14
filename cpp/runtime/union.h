@@ -52,6 +52,12 @@ inline std::u16string ValueToString(const Union<Ts...>& value) {
   return u"<variant>";
 }
 
+// Replace T with cppgc::Member<T>.
+template<typename... Ts>
+struct CppgcMember<Union<Ts...>> {
+  using Type = Union<typename CppgcMember<Ts>::Type...>;
+};
+
 // Extend IsCppgcMember to check members inside a variant.
 template<typename... Ts>
 struct IsCppgcMember<Union<Ts...>>

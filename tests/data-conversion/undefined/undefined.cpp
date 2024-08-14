@@ -1,5 +1,3 @@
-#include <optional>
-
 #include "runtime/object.h"
 #include "runtime/union.h"
 

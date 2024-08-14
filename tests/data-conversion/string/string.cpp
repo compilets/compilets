@@ -1,5 +1,3 @@
-#include <optional>
-
 #include "runtime/array.h"
 #include "runtime/console.h"
 #include "runtime/runtime.h"

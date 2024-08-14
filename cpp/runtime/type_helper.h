@@ -1,6 +1,7 @@
 #ifndef CPP_TYPE_HELPER_H_
 #define CPP_TYPE_HELPER_H_
 
+#include <optional>
 #include <string>
 #include <type_traits>
 
@@ -25,6 +26,24 @@ template<typename Target, typename T>
 inline Target Cast(T&& value) {
   return Target(std::forward<T>(value));
 }
+
+// Receive the type representing property of an object for T.
+template<typename T, typename enable = void>
+struct CppgcMember {
+  using Type = T;
+};
+
+template<typename T, typename enable = void>
+using CppgcMemberT = CppgcMember<T, enable>::Type;
+
+// Same with above but for optional properties.
+template<typename T, typename enable = void>
+struct OptionalCppgcMember {
+  using Type = std::optional<T>;
+};
+
+template<typename T, typename enable = void>
+using OptionalCppgcMemberT = OptionalCppgcMember<T, enable>::Type;
 
 // Check if a type is cppgc::Member.
 template<typename T>
