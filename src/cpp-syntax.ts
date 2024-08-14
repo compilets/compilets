@@ -177,8 +177,13 @@ export class Type {
     if (this.category != 'union')
       return true;
     // For unions, also compare all subtypes.
-    return this.types.some(t => other.types.some(s => t.equal(s))) &&
-           other.types.some(s => this.types.some(t => s.equal(t)));
+    if (this.types.length != other.types.length)
+      return false;
+    for (let i = 0; i < this.types.length; ++i) {
+      if (!this.types[i].equal(other.types[i]))
+        return false;
+    }
+    return true;
   }
 
   /**

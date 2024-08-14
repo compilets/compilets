@@ -15,6 +15,7 @@ import {
   isClass,
   hasQuestionToken,
   hasTypeNode,
+  hasTypeParameter,
   filterNode,
   parseHint,
   parseNodeJsType,
@@ -552,7 +553,11 @@ export default class Parser {
     }
     // Get the node the represents the type of node, and query its type.
     const typeNode = decl ? this.getTypeNode(decl) : node;
-    const type = this.typeChecker.getTypeAtLocation(typeNode);
+    let type = this.typeChecker.getTypeAtLocation(typeNode);
+    // If there is unknown type parameter in the type, rely on typeChecker to
+    // resolve the type.
+    if (typeNode != node && hasTypeParameter(type))
+      type = this.typeChecker.getTypeAtLocation(node);
     // Whether the declaration in in a d.ts file.
     if (root?.getSourceFile().isDeclarationFile)
       modifiers.push('external');
