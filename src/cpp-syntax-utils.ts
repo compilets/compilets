@@ -174,13 +174,6 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr = castOptional(expr, target, source);
     source = expr.type;
   }
-  // Get value from cppgc smart pointers.
-  if ((source.isCppgcMember() && !target.isCppgcMember()) ||
-      (source.isPersistent && !target.isPersistent)) {
-    return new CustomExpression(source, (ctx) => {
-      return `${printExpressionValue(expr, ctx)}.Get()`;
-    });
-  }
   // Convert function pointer to functor object.
   if (source.category == 'function' && target.category == 'functor') {
     return new CustomExpression(target, (ctx) => {

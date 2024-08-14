@@ -41,11 +41,11 @@ void TestArray() {
   double multiElement = (a->value()[0] == 1984 ? a : numArr)->value()[0];
   Collection* c = compilets::MakeObject<Collection>();
   c->items = eleArr;
-  eleArr = c->items.Get();
-  compilets::Array<cppgc::Member<Item>>* items = c->items.Get();
+  eleArr = c->items;
+  compilets::Array<cppgc::Member<Item>>* items = c->items;
   c->items = items;
-  compilets::Array<cppgc::Member<Item>>* maybeItems = c->maybeItems.Get();
+  compilets::Array<cppgc::Member<Item>>* maybeItems = c->maybeItems;
   c->maybeItems = maybeItems;
-  compilets::Array<compilets::Union<double, cppgc::Member<Item>>>* multiItems = c->multiItems.Get();
+  compilets::Array<compilets::Union<double, cppgc::Member<Item>>>* multiItems = c->multiItems;
   c->multiItems = multiItems;
 }

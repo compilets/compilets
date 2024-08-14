@@ -171,15 +171,16 @@ export class Type {
       return true;
     if (this.name != other.name ||
         this.category != other.category ||
-        this.namespace != other.namespace ||
-        this.isOptional != other.isOptional)
+        this.namespace != other.namespace)
       return false;
+    // For object types the optional modifier does not affect its C++ type.
+    if (!this.isObject() && this.isOptional != other.isOptional)
+      return false;
+    // For unions, compare all subtypes.
     if (this.category != 'union')
       return true;
-    // For unions, also compare all subtypes.
     return this.types.some(t => other.types.some(s => t.equal(s))) &&
            other.types.some(s => this.types.some(t => s.equal(t)));
-    return true;
   }
 
   /**
@@ -213,14 +214,6 @@ export class Type {
     // Optional object can be assigned with non-optional object.
     if (this.isObject() && this.isOptional && this.noOptional().equal(other)) {
       return true;
-    }
-    // Can not assign object property to the target type directly.
-    if (!this.isCppgcMember() && other.isCppgcMember()) {
-      return false;
-    }
-    // Can not assign persistent to the target type directly.
-    if (!this.isPersistent && other.isPersistent) {
-      return false;
     }
     return this.equal(other);
   }

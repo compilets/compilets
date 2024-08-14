@@ -1,3 +1,4 @@
+#include "runtime/function.h"
 #include "runtime/object.h"
 
 class Prop;
@@ -18,6 +19,12 @@ class Owner : public compilets::Object {
     this->prop2 = prop;
   }
 
+  virtual compilets::Function<Prop*()>* method() {
+    return compilets::MakeFunction<Prop*()>([=]() -> Prop* {
+      return this->prop1;
+    }, this);
+  }
+
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, prop1);
     TraceHelper(visitor, prop2);
@@ -29,4 +36,6 @@ class Owner : public compilets::Object {
 void TestNested() {
   Owner* o = compilets::MakeObject<Owner>(compilets::MakeObject<Prop>());
   o->prop1 = o->prop2;
+  compilets::Function<Prop*()>* getter = o->method();
+  Prop* p = getter->value()();
 }
