@@ -33,14 +33,25 @@ inline std::u16string ValueToString(Object* value) {
   return u"<object>";
 }
 
+// Make T* for objects.
+template<typename T>
+struct Value<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {
+  using Type = T*;
+};
+
+template<typename T>
+struct OptionalValue<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {
+  using Type = Value<T>::Type;
+};
+
 // Make cppgc::Member<T> for objects.
 template<typename T>
-struct CppgcMember<T, std::enable_if_t<std::is_base_of_v< Object, T>>> {
+struct CppgcMember<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {
   using Type = cppgc::Member<T>;
 };
 
 template<typename T>
-struct OptionalCppgcMember<T, std::enable_if_t<std::is_base_of_v< Object, T>>> {
+struct OptionalCppgcMember<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {
   using Type = CppgcMember<T>::Type;
 };
 

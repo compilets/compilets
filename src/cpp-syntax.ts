@@ -133,10 +133,17 @@ export class Type {
       return '_Any';
     let cppType = this.getCppName();
     if (this.category == 'template') {
-      if (this.isOptional)
-        return `compilets::OptionalCppgcMemberT<${cppType}>`;
-      else
-        return `compilets::CppgcMemberT<${cppType}>`;
+      if (this.isCppgcMember()) {
+        if (this.isOptional)
+          return `compilets::OptionalCppgcMemberType<${cppType}>`;
+        else
+          return `compilets::CppgcMemberType<${cppType}>`;
+      } else {
+        if (this.isOptional)
+          return `compilets::OptionalValueType<${cppType}>`;
+        else
+          return `compilets::ValueType<${cppType}>`;
+      }
     }
     if (this.isObject()) {
       if (this.category == 'array')
@@ -254,7 +261,7 @@ export class Type {
   getCppName() {
     let name = this.name;
     if (this.category == 'class' && this.templateArguments)
-      name = `${name}<${this.templateArguments.map(a => a.getCppName())}>`;
+      name = `${name}<${this.templateArguments.map(a => a.getCppName()).join(', ')}>`;
     if (this.namespace)
       name = `${this.namespace}::${name}`;
     return name;
@@ -331,14 +338,18 @@ export class Type {
    * Whether this type is represented by std::optional.
    */
   isStdOptional() {
-    return this.category != 'union' && !this.hasObject() && this.isOptional;
+    return this.category != 'union' &&
+           this.category != 'template' &&
+           this.isOptional &&
+           !this.hasObject();
   }
 
   /**
    * Whether this type is wrapped by cppgc::Member.
    */
   isCppgcMember() {
-    return this.isObject() && (this.isProperty || this.isElement);
+    return (this.isObject() || this.category == 'template') &&
+           (this.isProperty || this.isElement);
   }
 }
 

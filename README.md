@@ -148,9 +148,13 @@ represent the empty state.
 
 ### Question mark and `std::optional`
 
-The optional function parameters and class properties in TypeScript are
-represented as `std::optional` in C++. For example `func(arg?: boolean)` becomes
-`func(std::optional<bool> arg)`.
+The optional function parameters and class properties in TypeScript are simply
+represented as `std::optional` in C++ for most cases, for example the
+`func(arg?: boolean)` signature becomes `func(std::optional<bool> arg)`.
+
+For object types like class and function, since they are already represented
+as pointers, wrapping them with `std::optional` would be wasteful, so they
+are always pointers regardless they are optional or not.
 
 ### `null` and `undefined`
 
@@ -189,6 +193,27 @@ StringBuilder pattern:
 ```cpp
 StringBuilder().Append("a").Append("b").Append("c")
 ```
+
+### Generic class
+
+The type parameters of TypeScript classes can be directly translated to C++
+without much efforts:
+
+```typescript
+class Generic<U> {
+  member: U;
+}
+```
+
+```cpp
+template<typename U>
+class Wrapper : public compilets::Object {
+  compilets::CppgcMemberType<U> member;
+};
+```
+
+For generic constrains like `Generic<Type extends Interface>`, the constrains
+part is simply ignored.
 
 ## Developement
 

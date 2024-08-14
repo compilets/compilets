@@ -54,7 +54,7 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
   let templateClause = '';
   if (decl.type.types.length > 0) {
     const typenames = decl.type.types.map(t => `typename ${t.name}`);
-    templateClause = `template<${typenames}>`;
+    templateClause = `template<${typenames.join(', ')}>`;
   }
   // Forward declaration.
   if (ctx.mode == 'forward') {
@@ -256,6 +256,14 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
  * Conversions between optionals.
  */
 export function castOptional(expr: Expression, target: Type, source: Type): Expression {
+  // Use helper when there is template type.
+  if (source.category == 'template' || target.category == 'template') {
+    if (source.isOptional) {
+      return new CustomExpression(target, (ctx) => {
+        return `compilets::GetOptionalValue(${expr.print(ctx)})`;
+      });
+    }
+  }
   // Convert null to std::nullopt.
   if (source.category == 'null' && target.isStdOptional()) {
     if (target.isProperty)

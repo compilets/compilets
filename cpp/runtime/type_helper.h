@@ -27,23 +27,52 @@ inline Target Cast(T&& value) {
   return Target(std::forward<T>(value));
 }
 
-// Receive the type representing property of an object for T.
+// Read value from optional.
+template<typename T>
+inline T GetOptionalValue(T value) {
+  return std::move(value);
+}
+
+template<typename T>
+inline T GetOptionalValue(std::optional<T> value) {
+  return std::move(*value);
+}
+
+// Receive the value type for T.
+template<typename T, typename enable = void>
+struct Value {
+  using Type = T;
+};
+
+template<typename T, typename enable = void>
+using ValueType = Value<T, enable>::Type;
+
+// Receive the optional value type for T.
+template<typename T, typename enable = void>
+struct OptionalValue {
+  using Type = std::optional<T>;
+};
+
+template<typename T, typename enable = void>
+using OptionalValueType = OptionalValue<T, enable>::Type;
+
+// Receive the property type for T.
 template<typename T, typename enable = void>
 struct CppgcMember {
   using Type = T;
 };
 
 template<typename T, typename enable = void>
-using CppgcMemberT = CppgcMember<T, enable>::Type;
+using CppgcMemberType = CppgcMember<T, enable>::Type;
 
-// Same with above but for optional properties.
+// Receive the optional property type for T.
 template<typename T, typename enable = void>
 struct OptionalCppgcMember {
   using Type = std::optional<T>;
 };
 
 template<typename T, typename enable = void>
-using OptionalCppgcMemberT = OptionalCppgcMember<T, enable>::Type;
+using OptionalCppgcMemberType = OptionalCppgcMember<T, enable>::Type;
 
 // Check if a type is cppgc::Member.
 template<typename T>
