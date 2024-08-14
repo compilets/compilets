@@ -1,3 +1,11 @@
+class MethodClosure {
+  prop = 8964;
+
+  method() {
+    return () => this.prop;
+  }
+}
+
 function TestFunctionClosure() {
   let n = 123;
   let takeNumber = () => { return n; }

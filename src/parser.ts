@@ -806,12 +806,28 @@ export default class Parser {
    * Return the names and types of outer variables referenced by the function.
    */
   private getCapturedIdentifiers(func: FunctionLikeNode) {
-    const closure: ts.Identifier[] = [];
-    for (const node of filterNode(func.body, ts.isIdentifier)) {
+    const closure: (ts.Identifier | ts.ThisExpression)[] = [];
+    // Consider "this" as part of closure unless it is a method.
+    let isVariable: (node: ts.Node) => boolean;
+    if (ts.isConstructorDeclaration(func) ||
+        ts.isMethodDeclaration(func) ||
+        ts.isGetAccessor(func) ||
+        ts.isSetAccessor(func)) {
+      isVariable = ts.isIdentifier;
+    } else {
+      isVariable = (node: ts.Node) => ts.isIdentifier(node) || node.kind == ts.SyntaxKind.ThisKeyword;
+    }
+    // Iterate through all child nodes of function body.
+    for (const node of filterNode(func.body, isVariable)) {
+      // Keep references to "this".
+      if (node.kind == ts.SyntaxKind.ThisKeyword) {
+        closure.push(node as ts.ThisExpression);
+        continue;
+      }
+      // Ignore symbols without definition.
       const symbol = this.typeChecker.getSymbolAtLocation(node);
       if (!symbol)
         throw new UnimplementedError(node, 'An identifier in function without symbol');
-      // Ignore symbols without definition.
       const {valueDeclaration} = symbol;
       if (!valueDeclaration)
         continue;

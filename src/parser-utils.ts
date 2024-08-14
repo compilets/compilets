@@ -132,14 +132,17 @@ export function isClass(type: ts.Type): type is ts.GenericType {
 /**
  * Helper to get all the child nodes.
  */
-export function filterNode(node?: ts.Node, predicate?: (node: ts.Node) => boolean) {
+export function filterNode(node?: ts.Node,
+                           predicate?: (node: ts.Node) => boolean,
+                           isLeaf: (node: ts.Node) => boolean = () => false) {
   const results: ts.Node[] = [];
   if (!node)
     return results;
   const visit = (node: ts.Node) => {
     if (!predicate || predicate(node))
       results.push(node);
-    ts.forEachChild(node, visit);
+    if (!isLeaf(node))
+      ts.forEachChild(node, visit);
   };
   visit(node);
   return results;

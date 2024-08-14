@@ -1,6 +1,23 @@
 #include "runtime/array.h"
 #include "runtime/function.h"
+#include "runtime/object.h"
 #include "runtime/union.h"
+
+class MethodClosure;
+void TestFunctionClosure();
+
+class MethodClosure : public compilets::Object {
+ public:
+  double prop = 8964;
+
+  virtual compilets::Function<double()>* method() {
+    return compilets::MakeFunction<double()>([=]() -> double {
+      return this->prop;
+    }, this);
+  }
+
+  virtual ~MethodClosure() = default;
+};
 
 void TestFunctionClosure() {
   double n = 123;
