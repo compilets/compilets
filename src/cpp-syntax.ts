@@ -150,7 +150,7 @@ export class Type {
       const types = this.types!.map(t => t.print(ctx));
       if (this.isOptional)
         types.push('std::monostate');
-      return `std::variant<${types.join(', ')}>`;
+      return `compilets::Union<${types.join(', ')}>`;
     }
     if (this.category == 'null')
       return 'std::nullptr_t';
@@ -177,12 +177,8 @@ export class Type {
     if (this.category != 'union')
       return true;
     // For unions, also compare all subtypes.
-    if (this.types.length != other.types.length)
-      return false;
-    for (let i = 0; i < this.types.length; ++i) {
-      if (!this.types[i].equal(other.types[i]))
-        return false;
-    }
+    return this.types.some(t => other.types.some(s => t.equal(s))) &&
+           other.types.some(s => this.types.some(t => s.equal(t)));
     return true;
   }
 
@@ -205,6 +201,10 @@ export class Type {
     // Union can be directly assigned with its subtype.
     if (this.category == 'union' && other.category != 'union') {
       return this.types.some(t => t.assignableWith(other));
+    }
+    // Union can be directly assigned with another union with subtypes.
+    if (this.category == 'union' && other.category == 'union') {
+      return other.types.some(t => this.assignableWith(t));
     }
     // Optional can be assigned with its non-optional type.
     if (this.isStdOptional() && this.noOptional().assignableWith(other)) {
@@ -572,7 +572,7 @@ export class FunctionExpression extends Expression {
       if (expr.type.category == 'union') {
         // Get the pointer to GCed object from union.
         return new CustomExpression(new Type('Object', 'class'), (ctx) => {
-          return `compilets::GetObject(${expr.print(ctx)})`;
+          return `${printExpressionValue(expr, ctx)}.GetObject()`;
         });
       }
       throw new Error(`Can not store type "${expr.type.name}" as closure`);

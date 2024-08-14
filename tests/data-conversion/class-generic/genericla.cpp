@@ -14,7 +14,7 @@ class Wrapper : public compilets::Object {
 
   std::optional<T> optionalMember;
 
-  std::variant<bool, T> unionMember;
+  compilets::Union<bool, T> unionMember;
 
   virtual ~Wrapper() = default;
 };
@@ -24,5 +24,5 @@ void TestGenericClass() {
   double n = primitive->member;
   n = primitive->optionalMember.value();
   std::optional<double> optionalNumber = primitive->optionalMember;
-  std::variant<double, bool> numberOrBool = primitive->unionMember;
+  compilets::Union<double, bool> numberOrBool = primitive->unionMember;
 }

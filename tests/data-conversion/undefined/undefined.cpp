@@ -8,7 +8,7 @@ void TestUndefined();
 
 class LinkNode : public compilets::Object {
  public:
-  std::variant<double, bool, std::monostate> item;
+  compilets::Union<double, bool, std::monostate> item;
 
   cppgc::Member<LinkNode> next;
 
@@ -26,7 +26,7 @@ void TestUndefined() {
   orUndefined = std::nullopt;
   std::optional<double> orNull;
   orNull = std::nullopt;
-  std::variant<double, bool, std::monostate> optionalUnion;
+  compilets::Union<double, bool, std::monostate> optionalUnion;
   optionalUnion = std::monostate{};
   LinkNode* node = compilets::MakeObject<LinkNode>();
   node->item = true;

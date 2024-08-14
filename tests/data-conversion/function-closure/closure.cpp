@@ -11,8 +11,8 @@ void TestFunctionClosure() {
   compilets::Function<compilets::Array<double>*()>* takeArray = compilets::MakeFunction<compilets::Array<double>*()>([=]() -> compilets::Array<double>* {
     return arr;
   }, arr);
-  std::variant<double, compilets::Array<double>*> uni;
+  compilets::Union<double, compilets::Array<double>*> uni;
   compilets::Function<compilets::Array<double>*()>* takeUnion = compilets::MakeFunction<compilets::Array<double>*()>([=]() -> compilets::Array<double>* {
     return std::get<compilets::Array<double>*>(uni);
-  }, compilets::GetObject(uni));
+  }, uni.GetObject());
 }

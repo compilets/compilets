@@ -1,21 +1,29 @@
 #include "runtime/union.h"
 
-void TakeOptionalUnion(std::variant<double, bool, std::monostate> a);
+void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a);
 void TakeNumber(double n);
+compilets::Union<double, bool> ReturnUnion();
 void TestUnion();
 
-void TakeOptionalUnion(std::variant<double, bool, std::monostate> a) {
+void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a) {
   if (!!std::holds_alternative<std::monostate>(a)) {}
 }
 
 void TakeNumber(double n) {}
 
+compilets::Union<double, bool> ReturnUnion() {
+  return static_cast<double>(123);
+}
+
 void TestUnion() {
-  std::variant<double, bool> bn = static_cast<double>(999);
+  compilets::Union<double, bool> bn = static_cast<double>(999);
   bn = true;
-  TakeOptionalUnion(compilets::Cast<std::variant<double, bool, std::monostate>>(bn));
+  TakeOptionalUnion(bn);
   TakeOptionalUnion(static_cast<double>(888));
   TakeOptionalUnion(true);
+  compilets::Union<double, bool> nb = ReturnUnion();
+  bn = ReturnUnion();
+  bn = nb;
   bool b = std::get<bool>(bn);
   TakeNumber(std::get<double>(bn));
   double numberCast = std::get<double>(bn);

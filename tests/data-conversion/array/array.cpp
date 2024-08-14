@@ -17,7 +17,7 @@ class Collection : public compilets::Object {
 
   cppgc::Member<compilets::Array<cppgc::Member<Item>>> maybeItems = compilets::MakeArray<cppgc::Member<Item>>({nullptr});
 
-  cppgc::Member<compilets::Array<std::variant<double, cppgc::Member<Item>>>> multiItems = compilets::MakeArray<std::variant<double, cppgc::Member<Item>>>({static_cast<double>(123)});
+  cppgc::Member<compilets::Array<compilets::Union<double, cppgc::Member<Item>>>> multiItems = compilets::MakeArray<compilets::Union<double, cppgc::Member<Item>>>({static_cast<double>(123)});
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, items);
@@ -34,7 +34,7 @@ void TestArray() {
   double element = a->value()[0];
   std::optional<double> indexOptional;
   element = a->value()[static_cast<size_t>(indexOptional.value())];
-  std::variant<double, bool> indexUnion = static_cast<double>(123);
+  compilets::Union<double, bool> indexUnion = static_cast<double>(123);
   element = a->value()[static_cast<size_t>(std::get<double>(indexUnion))];
   compilets::Array<double>* numArr = compilets::MakeArray<double>({1, 2, 3, 4});
   compilets::Array<cppgc::Member<Item>>* eleArr = compilets::MakeArray<cppgc::Member<Item>>({compilets::MakeObject<Item>(), compilets::MakeObject<Item>()});
@@ -46,6 +46,6 @@ void TestArray() {
   c->items = items;
   compilets::Array<cppgc::Member<Item>>* maybeItems = c->maybeItems.Get();
   c->maybeItems = maybeItems;
-  compilets::Array<std::variant<double, cppgc::Member<Item>>>* multiItems = c->multiItems.Get();
+  compilets::Array<compilets::Union<double, cppgc::Member<Item>>>* multiItems = c->multiItems.Get();
   c->multiItems = multiItems;
 }

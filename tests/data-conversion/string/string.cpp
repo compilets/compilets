@@ -22,7 +22,7 @@ void TestString() {
   std::optional<compilets::String> optionalStr;
   optionalStr = str;
   str = optionalStr.value();
-  std::variant<compilets::String, double> unionString = u"unionString";
+  compilets::Union<compilets::String, double> unionString = u"unionString";
   str = std::get<compilets::String>(unionString);
   double strLength = str.length;
   double literalLength = compilets::String(u"literal").length;

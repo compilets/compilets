@@ -11,7 +11,7 @@ class Member : public compilets::Object {
 
 class HasUnionMember : public compilets::Object {
  public:
-  std::variant<double, cppgc::Member<Member>> member;
+  compilets::Union<double, cppgc::Member<Member>> member;
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceHelper(visitor, member);
@@ -23,11 +23,11 @@ class HasUnionMember : public compilets::Object {
 void TakeClass(Member* c) {}
 
 void TestClassUnion() {
-  std::variant<bool, Member*> bc = compilets::MakeObject<Member>();
+  compilets::Union<bool, Member*> bc = compilets::MakeObject<Member>();
   TakeClass(std::get<Member*>(bc));
   Member* member = std::get<Member*>(bc);
   TakeClass(member);
-  std::variant<bool, Member*> abc = bc;
+  compilets::Union<bool, Member*> abc = bc;
   TakeClass(std::get<Member*>(abc));
   HasUnionMember* has = compilets::MakeObject<HasUnionMember>();
   has->member = member;
