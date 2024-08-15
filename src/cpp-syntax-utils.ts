@@ -28,7 +28,7 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
       if (member.type.hasObject())
         traceMethod = 'TraceMember';
       else if (member.type.hasTemplate())
-        traceMethod = 'TracePossibleMember';
+        traceMethod = 'compilets::TracePossibleMember';
       if (traceMethod) {
         body.statements.push(
           new ExpressionStatement(
@@ -206,26 +206,26 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
 /**
  * Convert args to parameter types.
  */
-export function castArguments(args: Expression[], parameters: ParameterDeclaration[]) {
+export function castArguments(args: Expression[], parameters: Type[]) {
   for (let i = 0; i < args.length; ++i) {
-    let param: ParameterDeclaration;
+    let param: Type;
     if (i > parameters.length - 1) {
-      if (!parameters[parameters.length - 1].variadic)
+      if (!parameters[parameters.length - 1].isVariadic)
         throw new Error('More arguments passed than the function can take.');
       param = parameters[parameters.length - 1];
     } else {
       param = parameters[i];
     }
-    if (param.variadic && !param.type.isExternal) {
+    if (param.isVariadic && !param.isExternal) {
       // When meet a rest parameter, put remaining args in an array.
-      const callArgs = args.slice(i).map(a => castExpression(a, param.type.getElementType()));
-      args[i] = new CustomExpression(param.type, (ctx) => {
-        return `compilets::MakeArray<${param.type.getElementType().print(ctx)}>({${callArgs.map(a => a.print(ctx)).join(', ')}})`;
+      const callArgs = args.slice(i).map(a => castExpression(a, param.getElementType()));
+      args[i] = new CustomExpression(param, (ctx) => {
+        return `compilets::MakeArray<${param.getElementType().print(ctx)}>({${callArgs.map(a => a.print(ctx)).join(', ')}})`;
       });
       return args.slice(0, i + 1);
     }
-    args[i] = castExpression(args[i], param.variadic ? param.type.getElementType()
-                                                     : param.type);
+    args[i] = castExpression(args[i], param.isVariadic ? param.getElementType()
+                                                       : param);
   }
   return args;
 }

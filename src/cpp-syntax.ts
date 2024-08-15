@@ -84,8 +84,9 @@ export class PrintContext {
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
                            'external' | 'super' | 'template' | 'any';
-export type TypeModifier = 'optional' | 'external' | 'property' | 'static' |
-                           'element' | 'persistent' | 'not-function';
+export type TypeModifier = 'variadic' | 'optional' | 'property' | 'static' |
+                           'external' | 'element' | 'persistent' |
+                           'not-function';
 
 export class Type {
   name: string;
@@ -94,6 +95,7 @@ export class Type {
   base?: Type;
   namespace?: string;
   templateArguments?: Type[];
+  isVariadic = false;
   isOptional = false;
   isProperty = false;
   isStatic = false;
@@ -106,7 +108,9 @@ export class Type {
     this.category = category;
     if (modifiers) {
       for (const modifier of modifiers) {
-        if (modifier == 'optional')
+        if (modifier == 'variadic')
+          this.isVariadic = true;
+        else if (modifier == 'optional')
           this.isOptional = true;
         else if (modifier == 'external')
           this.isExternal = true;
@@ -184,7 +188,8 @@ export class Type {
       return true;
     if (this.name != other.name ||
         this.category != other.category ||
-        this.namespace != other.namespace)
+        this.namespace != other.namespace ||
+        this.isVariadic != other.isVariadic)
       return false;
     // For object types the optional modifier does not affect its C++ type.
     if (!this.isObject() && this.isOptional != other.isOptional)
@@ -220,12 +225,8 @@ export class Type {
     if (this.category == 'union' && other.category == 'union') {
       return other.types.some(t => this.assignableWith(t));
     }
-    // Optional can be assigned with its non-optional type.
-    if (this.isStdOptional() && this.noOptional().assignableWith(other)) {
-      return true;
-    }
-    // Optional object can be assigned with non-optional object.
-    if (this.isObject() && this.isOptional && this.noOptional().equal(other)) {
+    // Optional types can be assigned with non-optional object.
+    if (this.isOptional && this.noOptional().equal(other)) {
       return true;
     }
     return this.equal(other);
@@ -615,7 +616,7 @@ export class FunctionExpression extends Expression {
 export class CallArguments {
   args: Expression[];
 
-  constructor(args: Expression[], parameters: ParameterDeclaration[]) {
+  constructor(args: Expression[], parameters: Type[]) {
     this.args = castArguments(args, parameters);
   }
 

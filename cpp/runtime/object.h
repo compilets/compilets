@@ -33,7 +33,7 @@ inline void TraceMember(cppgc::Visitor* visitor,
 template<typename T>
 inline void TracePossibleMember(cppgc::Visitor* visitor, const T& value) {
   if constexpr (IsCppgcMember<T>::value)
-    TraceMember(value);
+    TraceMember(visitor, value);
 }
 
 // Convert object to string.

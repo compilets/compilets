@@ -508,48 +508,23 @@ export default class Parser {
     const resolvedSignature = this.typeChecker.getResolvedSignature(node);
     if (!resolvedSignature)
       throw new UnimplementedError(node, 'Can not get resolved signature');
-    const parameters = resolvedSignature.parameters.map(p => p.valueDeclaration as ts.ParameterDeclaration);
+    const parameters = resolvedSignature.parameters.map((parameter) => {
+      // Get the modifiers from the original declaration.
+      const modifiers = this.getTypeModifiers(parameter.valueDeclaration);
+      // Inference the type using the symbol and call site.
+      return this.parseSymbolType(parameter, node, modifiers);
+    });
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
-                                    this.parseParameters(parameters));
+                                    parameters);
   }
 
   /**
    * Parse the type of expression located at node to C++ type.
    */
   parseNodeType(node: ts.Node): syntax.Type {
-    const modifiers: syntax.TypeModifier[] = [];
-    // Get the original declaration of the node.
+    // Get modifiers of the type from original declaration.
     const decl = this.getOriginalDeclaration(node);
-    // Get property information from original declaration.
-    if (decl) {
-      if (ts.isVariableDeclaration(decl) ||
-          ts.isPropertyDeclaration(decl) ||
-          ts.isParameter(decl)) {
-        // Convert function to functor when the node is a variable.
-        modifiers.push('not-function');
-      }
-      if (ts.isPropertyDeclaration(decl)) {
-        modifiers.push('property');
-        if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
-          modifiers.push('static');
-      }
-      // For variable declaration, the comments are in the declarationList.
-      const hintNode = ts.isVariableDeclaration(decl) ? decl.parent : decl;
-      // Parse the hints in comments.
-      for (const hint of parseHint(hintNode)) {
-        if (hint == 'persistent')
-          modifiers.push('persistent');
-      }
-    }
-    // The type is optional in 2 cases:
-    // 1. The original decl has a question token.
-    // 2. The original declaration has no type specified, and the root one
-    //    has a question token.
-    const root = this.getRootDeclaration(decl);
-    if (hasQuestionToken(decl) ||
-        (hasQuestionToken(root) && !hasTypeNode(decl))) {
-      modifiers.push('optional');
-    }
+    const modifiers = this.getTypeModifiers(decl);
     // Get the node the represents the type of node, and query its type.
     const typeNode = decl ? this.getTypeNode(decl) : node;
     let type = this.typeChecker.getTypeAtLocation(typeNode);
@@ -557,9 +532,6 @@ export default class Parser {
     // resolve the type.
     if (typeNode != node && this.hasTypeParameter(type))
       type = this.typeChecker.getTypeAtLocation(node);
-    // Whether the declaration in in a d.ts file.
-    if (root?.getSourceFile().isDeclarationFile)
-      modifiers.push('external');
     // Check Node.js type.
     if (modifiers.includes('external')) {
       const nodeJsType = parseNodeJsType(node, type, modifiers);
@@ -578,6 +550,20 @@ export default class Parser {
     } catch (error: unknown) {
       if (error instanceof Error)
         throw new UnimplementedError(node, error.message);
+      else
+        throw error;
+    }
+  }
+
+  /**
+   * Parse the type of symbol at location.
+   */
+  parseSymbolType(symbol: ts.Symbol, location: ts.Node, modifiers?: syntax.TypeModifier[]) {
+    try {
+      return this.parseType(this.typeChecker.getTypeOfSymbolAtLocation(symbol, location), modifiers);
+    } catch (error: unknown) {
+      if (error instanceof Error)
+        throw new UnimplementedError(location, error.message);
       else
         throw error;
     }
@@ -618,7 +604,7 @@ export default class Parser {
       return new syntax.Type(name, 'any', modifiers);
     // Check array.
     if (this.typeChecker.isArrayType(type))
-      return this.parseArrayType(name, type, modifiers);
+      return this.parseArrayType(name, type as ts.TypeReference, modifiers);
     // Check class.
     if (isClass(type))
       return this.parseClassType(type, modifiers);
@@ -727,11 +713,55 @@ export default class Parser {
   /**
    * Parse array type.
    */
-  parseArrayType(name: string, type: ts.Type, modifiers: syntax.TypeModifier[] = []): syntax.Type {
-    const args = this.typeChecker.getTypeArguments(type as ts.TypeReference);
+  parseArrayType(name: string, type: ts.TypeReference, modifiers: syntax.TypeModifier[] = []): syntax.Type {
+    const args = this.typeChecker.getTypeArguments(type);
     const cppType = new syntax.Type(name, 'array', modifiers);
     cppType.types = args.map(t => this.parseType(t, ['element', ...modifiers]));
     return cppType;
+  }
+
+  /**
+   * Get the type modifiers from the declaration.
+   */
+  private getTypeModifiers(decl?: ts.Declaration): syntax.TypeModifier[] {
+    const modifiers: syntax.TypeModifier[] = [];
+    if (!decl)
+      return modifiers;
+    if (ts.isVariableDeclaration(decl) ||
+        ts.isPropertyDeclaration(decl) ||
+        ts.isParameter(decl)) {
+      // Convert function to functor when the node is a variable.
+      modifiers.push('not-function');
+    }
+    if (ts.isPropertyDeclaration(decl)) {
+      modifiers.push('property');
+      if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+        modifiers.push('static');
+    }
+    if (ts.isParameter(decl) && decl.dotDotDotToken) {
+      modifiers.push('variadic');
+    }
+    // For variable declaration, the comments are in the declarationList.
+    const hintNode = ts.isVariableDeclaration(decl) ? decl.parent : decl;
+    // Parse the hints in comments.
+    for (const hint of parseHint(hintNode)) {
+      if (hint == 'persistent')
+        modifiers.push('persistent');
+    }
+    // The type is optional in 2 cases:
+    // 1. The original decl has a question token.
+    // 2. The original declaration has no type specified, and the root one
+    //    has a question token.
+    const root = this.getRootDeclaration(decl);
+    if (hasQuestionToken(decl) ||
+        (hasQuestionToken(root) && !hasTypeNode(decl))) {
+      modifiers.push('optional');
+    }
+    // External type if declaration in in a d.ts file.
+    if (root?.getSourceFile().isDeclarationFile) {
+      modifiers.push('external');
+    }
+    return modifiers;
   }
 
   /**
