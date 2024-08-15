@@ -20,7 +20,7 @@ class Base : public compilets::Object {
   virtual void method(Prop* arg) {}
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceHelper(visitor, prop);
+    TraceMember(visitor, prop);
   }
 
   virtual ~Base() = default;
@@ -37,7 +37,7 @@ class Derived : public Base {
   }
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceHelper(visitor, childProp);
+    TraceMember(visitor, childProp);
     Base::Trace(visitor);
   }
 

@@ -21,11 +21,19 @@ T* MakeObject(Args&&... args) {
                                         std::forward<Args>(args)...);
 }
 
-// Helper to trace the type, this is overloaded for union.
+// Helper to trace the type, container types should overload this method.
 template<typename T>
-inline void TraceHelper(cppgc::Visitor* visitor,
+inline void TraceMember(cppgc::Visitor* visitor,
                         const cppgc::Member<T>& member) {
   visitor->Trace(member);
+}
+
+// Similar to TraceMember, but also accepts non-cppgc-member values and does
+// nothing for them, this is used for unknown types.
+template<typename T>
+inline void TracePossibleMember(cppgc::Visitor* visitor, const T& value) {
+  if constexpr (IsCppgcMember<T>::value)
+    TraceMember(value);
 }
 
 // Convert object to string.

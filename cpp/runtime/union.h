@@ -38,10 +38,10 @@ class Union : public std::variant<Ts...> {
 
 // Helper to trace the union type.
 template<typename... Ts>
-inline void TraceHelper(cppgc::Visitor* visitor, const Union<Ts...>& member) {
+inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
   std::visit([visitor](auto&& arg) {
     if constexpr (IsCppgcMember<decltype(arg)>::value) {
-      TraceHelper(visitor, arg);
+      TraceMember(visitor, arg);
     }
   }, member);
 }
@@ -55,7 +55,7 @@ inline std::u16string ValueToString(const Union<Ts...>& value) {
 // Replace T with cppgc::Member<T>.
 template<typename... Ts>
 struct CppgcMember<Union<Ts...>> {
-  using Type = Union<typename CppgcMember<Ts>::Type...>;
+  using Type = Union<CppgcMemberType<Ts>...>;
 };
 
 // Extend IsCppgcMember to check members inside a variant.

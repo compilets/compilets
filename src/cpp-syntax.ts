@@ -326,12 +326,21 @@ export class Type {
   /**
    * Whether this type or the types it contains inherit from Object.
    */
-  hasObject() {
+  hasObject(): boolean {
     if (this.isObject())
       return true;
-    if (this.category == 'union' || this.category == 'array')
-      return this.types.some(t => t.isObject());
+    if (this.category == 'union')
+      return this.types.some(t => t.hasObject());
     return false;
+  }
+
+  /**
+   * Whether this type or the types it contains has template type..
+   */
+  hasTemplate(): boolean {
+    if (this.category == 'template')
+      return true;
+    return this.types.some(t => t.hasTemplate());
   }
 
   /**

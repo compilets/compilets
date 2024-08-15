@@ -24,12 +24,17 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
   const body = new Block();
   for (const member of members) {
     if (member instanceof PropertyDeclaration) {
-      if (!member.type.hasObject())
-        continue;
-      body.statements.push(
-        new ExpressionStatement(
-          new RawExpression(new Type('void', 'void'),
-                            `TraceHelper(visitor, ${member.name})`)));
+      let traceMethod: string | undefined;
+      if (member.type.hasObject())
+        traceMethod = 'TraceMember';
+      else if (member.type.hasTemplate())
+        traceMethod = 'TracePossibleMember';
+      if (traceMethod) {
+        body.statements.push(
+          new ExpressionStatement(
+            new RawExpression(new Type('void', 'void'),
+                              `${traceMethod}(visitor, ${member.name})`)));
+      }
     }
   }
   if (body.statements.length == 0)

@@ -14,7 +14,7 @@ class HasUnionMember : public compilets::Object {
   compilets::Union<double, cppgc::Member<Member>> member;
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceHelper(visitor, member);
+    TraceMember(visitor, member);
   }
 
   virtual ~HasUnionMember() = default;

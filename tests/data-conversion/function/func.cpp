@@ -34,7 +34,7 @@ class SaveCallback : public compilets::Object {
   }
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceHelper(visitor, callback);
+    TraceMember(visitor, callback);
   }
 
   virtual ~SaveCallback() = default;

@@ -15,7 +15,6 @@ import {
   isClass,
   hasQuestionToken,
   hasTypeNode,
-  hasTypeParameter,
   filterNode,
   parseHint,
   parseNodeJsType,
@@ -556,7 +555,7 @@ export default class Parser {
     let type = this.typeChecker.getTypeAtLocation(typeNode);
     // If there is unknown type parameter in the type, rely on typeChecker to
     // resolve the type.
-    if (typeNode != node && hasTypeParameter(type))
+    if (typeNode != node && this.hasTypeParameter(type))
       type = this.typeChecker.getTypeAtLocation(node);
     // Whether the declaration in in a d.ts file.
     if (root?.getSourceFile().isDeclarationFile)
@@ -789,6 +788,19 @@ export default class Parser {
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return undefined;
     return symbol.declarations[0];
+  }
+
+  /**
+   * Whether the type or its subtypes has type parameters in it.
+   */
+  private hasTypeParameter(type: ts.Type): boolean {
+    if (type.isUnion())
+      return type.types.some(this.hasTypeParameter.bind(this));
+    if (type.isTypeParameter())
+      return true;
+    if (this.typeChecker.isArrayType(type))
+      return this.typeChecker.getTypeArguments(type).some(this.hasTypeParameter.bind(this));
+    return false;
   }
 
   /**

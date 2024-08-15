@@ -26,8 +26,8 @@ class Owner : public compilets::Object {
   }
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceHelper(visitor, prop1);
-    TraceHelper(visitor, prop2);
+    TraceMember(visitor, prop1);
+    TraceMember(visitor, prop2);
   }
 
   virtual ~Owner() = default;

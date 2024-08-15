@@ -93,17 +93,6 @@ export function hasTypeNode(decl?: ts.Declaration): boolean {
 }
 
 /**
- * Whether the type or its subtypes has type parameters in it.
- */
-export function hasTypeParameter(type: ts.Type): boolean {
-  if (type.isUnion())
-    return type.types.some(hasTypeParameter);
-  if (type.isTypeParameter())
-    return true;
-  return false;
-}
-
-/**
  * Whether the node is a function type.
  */
 export type FunctionLikeNode = ts.FunctionDeclaration |
