@@ -52,27 +52,32 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
 }
 
 /**
+ * Print the template clause.
+ */
+export function printTemplateDeclaration(type: Type): string | undefined {
+  if (type.types.length == 0)
+    return;
+  const typenames = type.types.map(t => `typename ${t.name}`);
+  return `template<${typenames.join(', ')}>`;
+}
+
+/**
  * Print the class declaration.
  */
 export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext): string {
-  // The template prefix.
-  let templateClause = '';
-  if (decl.type.types.length > 0) {
-    const typenames = decl.type.types.map(t => `typename ${t.name}`);
-    templateClause = `template<${typenames.join(', ')}>`;
-  }
+  const templateDeclaration = printTemplateDeclaration(decl.type);
   // Forward declaration.
   if (ctx.mode == 'forward') {
     let result = `class ${decl.type.name};`;
-    if (templateClause)
-      return templateClause + '\n' + result;
+    if (templateDeclaration)
+      return templateDeclaration + '\n' + result;
     return result;
   }
   // Print class name and inheritance.
   const base = decl.type.base?.getCppName() ?? 'compilets::Object';
   let result = `${ctx.prefix}class ${decl.name} : public ${base} {\n`;
-  if (templateClause)
-    result = ctx.prefix + templateClause + '\n' + result;
+  if (templateDeclaration)
+    result = ctx.prefix + templateDeclaration + '\n' + result;
   // Indent for class content.
   const halfPadding = ctx.padding + ' '.repeat(ctx.indent / 2);
   ctx.level++;

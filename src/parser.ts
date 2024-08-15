@@ -12,6 +12,7 @@ import {
   modifierToString,
   FunctionLikeNode,
   isFunctionLikeNode,
+  isFunction,
   isClass,
   hasQuestionToken,
   hasTypeNode,
@@ -174,10 +175,8 @@ export default class Parser {
       case ts.SyntaxKind.CallExpression: {
         // func(xxx)
         const callExpression = node as ts.CallExpression;
-        const {expression, typeArguments, questionDotToken} = callExpression;
+        const {expression, questionDotToken} = callExpression;
         const args = callExpression['arguments'];  // arguments is a keyword
-        if (typeArguments)
-          throw new UnimplementedError(node, 'Generic call is not supported');
         if (questionDotToken)
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         return new syntax.CallExpression(this.parseNodeType(node),
@@ -350,12 +349,11 @@ export default class Parser {
   }
 
   parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
-    const {name, dotDotDotToken, initializer} = node;
+    const {name, initializer} = node;
     if (name.kind != ts.SyntaxKind.Identifier)
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
     return new syntax.ParameterDeclaration((name as ts.Identifier).text,
                                            this.parseNodeType(name),
-                                           dotDotDotToken != undefined,
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
@@ -368,15 +366,14 @@ export default class Parser {
       throw new UnimplementedError(node, 'Question token in function is not supported');
     if (node.exclamationToken)
       throw new UnimplementedError(node, 'Exclamation token in function is not supported');
-    if (node.typeParameters)
-      throw new UnimplementedError(node, 'Generic function is not supported');
     if (node.modifiers?.find(m => m.kind == ts.SyntaxKind.AsyncKeyword))
       throw new UnimplementedError(node, 'Async function is not supported');
     if (!ts.isSourceFile(node.parent))
       throw new UnimplementedError(node, 'Local function declaration is not supported');
     const {body, name, parameters} = node;
     this.forbidClosure(node);
-    return new syntax.FunctionDeclaration(name.text,
+    return new syntax.FunctionDeclaration(this.parseNodeType(node),
+                                          name.text,
                                           this.parseFunctionReturnType(node),
                                           this.parseParameters(parameters),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
@@ -415,7 +412,7 @@ export default class Parser {
   }
 
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
-    const {name, members, typeParameters, heritageClauses} = node;
+    const {name, members} = node;
     if (!name)
       throw new UnimplementedError(node, 'Empty class name is not supported');
     const cppMembers = members.map(this.parseClassElement.bind(this, node));
@@ -528,6 +525,13 @@ export default class Parser {
     // Get the node the represents the type of node, and query its type.
     const typeNode = decl ? this.getTypeNode(decl) : node;
     let type = this.typeChecker.getTypeAtLocation(typeNode);
+    // For functions try using resolved signature to get right representation
+    // for C++.
+    if (isFunction(type) && ts.isCallExpression(node.parent) && node.parent.expression == node) {
+      const signature = this.typeChecker.getResolvedSignature(node.parent);
+      if (signature)
+        return this.parseFunctionType(signature, modifiers);
+    }
     // If there is unknown type parameter in the type, rely on typeChecker to
     // resolve the type.
     if (typeNode != node && this.hasTypeParameter(type))
@@ -579,8 +583,8 @@ export default class Parser {
     if (type.isStringLiteral())
       return new syntax.Type('string', 'string', modifiers);
     // Check function.
-    if (type.getCallSignatures().length > 0)
-      return this.parseFunctionType(type, modifiers);
+    if (isFunction(type))
+      return this.parseFunctionType(type.getCallSignatures()[0], modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
@@ -623,8 +627,7 @@ export default class Parser {
   /**
    * Parse the function type.
    */
-  parseFunctionType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
-    const signature = type.getCallSignatures()[0];
+  parseFunctionType(signature: ts.Signature, modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
     const ctx = new syntax.PrintContext('lib', 'header');
     const returnType = this.parseType(signature.getReturnType()).print(ctx);
@@ -633,11 +636,11 @@ export default class Parser {
                                            .join(', ')
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
-    const {valueDeclaration} = type.symbol;
-    if (valueDeclaration) {
-      if (ts.isFunctionExpression(valueDeclaration) ||
-          ts.isArrowFunction(valueDeclaration) ||
-          ts.isVariableDeclaration(valueDeclaration)) {
+    const {declaration} = signature;
+    if (declaration) {
+      if (ts.isFunctionExpression(declaration) ||
+          ts.isArrowFunction(declaration) ||
+          ts.isVariableDeclaration(declaration)) {
         category = 'functor';
       } else {
         category = 'function';
@@ -646,7 +649,15 @@ export default class Parser {
       // Likely a function parameter.
       category = 'functor';
     }
-    return new syntax.Type(`${returnType}(${parameters})`, category, modifiers);
+    const cppType = new syntax.Type(`${returnType}(${parameters})`, category, modifiers);
+    // Parse type parameters.
+    if (signature.typeParameters && signature.typeParameters.length > 0)
+      cppType.types = signature.typeParameters.map(p => this.parseType(p));
+    // Parse type arguments.
+    const typeArguments = this.getTypeArgumentsOfSignature(signature);
+    if (typeArguments && typeArguments.length > 0)
+      cppType.templateArguments = typeArguments.map(p => this.parseType(p));
+    return cppType;
   }
 
   /**
@@ -784,6 +795,24 @@ export default class Parser {
       }
     }
     return decl;
+  }
+
+  /**
+   * Like getTypeArguments but works for signature.
+   */
+  getTypeArgumentsOfSignature(signature: ts.Signature): readonly ts.Type[] {
+    const {mapper, target} = signature as unknown as {
+      mapper: unknown,
+      target: {typeParameters: unknown},
+    };
+    return this.typeChecker.getTypeArguments({
+      node: {kind: ts.SyntaxKind.TypeReference},
+      target: {
+        outerTypeParameters: target?.typeParameters ?? [],
+        localTypeParameters: [],
+      },
+      mapper,
+    } as unknown as ts.TypeReference);
   }
 
   /**

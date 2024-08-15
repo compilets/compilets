@@ -1,6 +1,7 @@
 import {
   createTraceMethod,
   printClassDeclaration,
+  printTemplateDeclaration,
   printExpressionValue,
   ifExpression,
   castExpression,
@@ -171,8 +172,6 @@ export class Type {
     }
     if (this.category == 'null')
       return 'std::nullptr_t';
-    if (this.category == 'string')
-      cppType = 'compilets::String';
     if (this.isOptional)
       return `std::optional<${cppType}>`;
     return cppType;
@@ -263,6 +262,8 @@ export class Type {
     let name = this.name;
     if (this.category == 'class' && this.templateArguments)
       name = `${name}<${this.templateArguments.map(a => a.getCppName()).join(', ')}>`;
+    else if (this.category == 'string')
+      name = 'compilets::String';
     if (this.namespace)
       name = `${this.namespace}::${name}`;
     return name;
@@ -409,9 +410,13 @@ export class Identifier extends RawExpression {
   }
 
   override print(ctx: PrintContext) {
+    // Add namespace prefix.
     if (this.type.namespace && this.isExternal == this.type.isExternal)
       return `${this.type.namespace}::${this.text}`;
-    return super.print(ctx);
+    // Add template arguments for function call.
+    if (this.type.category == 'function' && this.type.templateArguments)
+      return `${this.text}<${this.type.templateArguments.map(t => t.getCppName()).join(', ')}>`;
+    return this.text;
   }
 }
 
@@ -813,13 +818,11 @@ export abstract class NamedDeclaration extends Declaration {
 
 export class ParameterDeclaration extends NamedDeclaration {
   type: Type;
-  variadic: boolean;
   initializer?: Expression;
 
-  constructor(name: string, type: Type, variadic = false, initializer?: Expression) {
+  constructor(name: string, type: Type, initializer?: Expression) {
     super(name);
     this.type = type;
-    this.variadic = variadic;
     if (initializer)
       this.initializer = castExpression(initializer, type);
   }
@@ -1009,12 +1012,18 @@ export class ClassDeclaration extends DeclarationStatement {
 }
 
 export class FunctionDeclaration extends DeclarationStatement {
+  type: Type;
   returnType: Type;
   parameters: ParameterDeclaration[];
   body?: Block;
 
-  constructor(name: string, returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+  constructor(type: Type,
+              name: string,
+              returnType: Type,
+              parameters: ParameterDeclaration[],
+              body?: Block) {
     super(name);
+    this.type = type;
     this.returnType = returnType;
     this.parameters = parameters;
     this.body = body;
@@ -1023,12 +1032,19 @@ export class FunctionDeclaration extends DeclarationStatement {
   override print(ctx: PrintContext) {
     this.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
+    const templateDeclaration = printTemplateDeclaration(this.type);
     const returnType = this.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
-    if (ctx.mode == 'forward')
-      return `${returnType} ${this.name}(${parameters});`;
-    const body = this.body?.print(ctx) ?? '{}';
-    return `${returnType} ${this.name}(${parameters}) ${body}\n`;
+    let result = `${returnType} ${this.name}(${parameters})`;
+    if (ctx.mode == 'forward') {
+      result += ';';
+    } else {
+      const body = this.body?.print(ctx) ?? '{}';
+      result += ` ${body}\n`;
+    }
+    if (templateDeclaration)
+      return templateDeclaration + '\n' + result;
+    return result;
   }
 }
 

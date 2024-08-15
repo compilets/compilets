@@ -109,6 +109,13 @@ export function isFunctionLikeNode(node: ts.Node): node is FunctionLikeNode {
 }
 
 /**
+ * Return whether the type is a function.
+ */
+export function isFunction(type: ts.Type): boolean {
+  return type.getCallSignatures().length > 0;
+}
+
+/**
  * Return whether the type is a class or a generic class. The ts.isClass ignores
  * generic class.
  */
