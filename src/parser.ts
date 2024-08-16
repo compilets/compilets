@@ -135,6 +135,16 @@ export default class Parser {
         const {expression} = node as ts.ParenthesizedExpression;
         return new syntax.ParenthesizedExpression(this.parseExpression(expression));
       }
+      case ts.SyntaxKind.ExpressionWithTypeArguments: {
+        // expr<type>
+        const {expression, typeArguments} = node as ts.ExpressionWithTypeArguments;
+        if (!ts.isIdentifier(expression))
+          throw new UnimplementedError(node, 'The type arguments must be applied on an identifier');
+        const templateArguments = typeArguments?.map(a => this.parseNodeType(a));
+        return new syntax.ExpressionWithTemplateArguments(this.parseNodeType(node),
+                                                          this.parseExpression(expression),
+                                                          templateArguments);
+      }
       case ts.SyntaxKind.PostfixUnaryExpression: {
         // a++
         const {operand, operator} = node as ts.PostfixUnaryExpression;
@@ -174,14 +184,7 @@ export default class Parser {
       }
       case ts.SyntaxKind.CallExpression: {
         // func(xxx)
-        const callExpression = node as ts.CallExpression;
-        const {expression, questionDotToken} = callExpression;
-        const args = callExpression['arguments'];  // arguments is a keyword
-        if (questionDotToken)
-          throw new UnimplementedError(node, 'The ?. operator is not supported');
-        return new syntax.CallExpression(this.parseNodeType(node),
-                                         this.parseExpression(expression),
-                                         this.parseArguments(callExpression, args));
+        return this.parseCallExpression(node as ts.CallExpression);
       }
       case ts.SyntaxKind.NewExpression: {
         // new Class(xxx)
@@ -411,6 +414,26 @@ export default class Parser {
                                          cppBody);
   }
 
+  parseCallExpression(node: ts.CallExpression): syntax.Expression {
+    const {expression, questionDotToken} = node;
+    const args = node['arguments'];  // arguments is a keyword
+    if (questionDotToken)
+      throw new UnimplementedError(node, 'The ?. operator is not supported');
+    // Resolve function type with the resolved signature of call expression,
+    // required for inferring the type arguments when calling generic functions.
+    const callee = this.parseExpression(expression);
+    if (isFunction(this.typeChecker.getTypeAtLocation(expression))) {
+      const signature = this.typeChecker.getResolvedSignature(node);
+      if (signature) {
+        const {name, templateArguments} = this.parseSignatureType(signature, node);
+        Object.assign(callee.type, {name, templateArguments});
+      }
+    }
+    return new syntax.CallExpression(this.parseNodeType(node),
+                                     callee,
+                                     this.parseArguments(node, args));
+  }
+
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
     const {name, members} = node;
     if (!name)
@@ -502,17 +525,20 @@ export default class Parser {
   parseArguments(node: ts.CallLikeExpression, args?: ts.NodeArray<ts.Expression>) {
     if (!args)
       return new syntax.CallArguments([], []);
-    const resolvedSignature = this.typeChecker.getResolvedSignature(node);
-    if (!resolvedSignature)
+    const signature = this.typeChecker.getResolvedSignature(node);
+    if (!signature)
       throw new UnimplementedError(node, 'Can not get resolved signature');
-    const parameters = resolvedSignature.parameters.map((parameter) => {
+    return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
+                                    this.parseSignatureParameters(signature.parameters, node));
+  }
+
+  parseSignatureParameters(parameters: readonly ts.Symbol[], location: ts.Node): syntax.Type[] {
+    return parameters.map((parameter) => {
       // Get the modifiers from the original declaration.
       const modifiers = this.getTypeModifiers(parameter.valueDeclaration);
       // Inference the type using the symbol and call site.
-      return this.parseSymbolType(parameter, node, modifiers);
+      return this.parseSymbolType(parameter, location, modifiers);
     });
-    return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
-                                    parameters);
   }
 
   /**
@@ -525,13 +551,6 @@ export default class Parser {
     // Get the node the represents the type of node, and query its type.
     const typeNode = decl ? this.getTypeNode(decl) : node;
     let type = this.typeChecker.getTypeAtLocation(typeNode);
-    // For functions try using resolved signature to get right representation
-    // for C++.
-    if (isFunction(type) && ts.isCallExpression(node.parent) && node.parent.expression == node) {
-      const signature = this.typeChecker.getResolvedSignature(node.parent);
-      if (signature)
-        return this.parseFunctionType(signature, modifiers);
-    }
     // If there is unknown type parameter in the type, rely on typeChecker to
     // resolve the type.
     if (typeNode != node && this.hasTypeParameter(type))
@@ -550,7 +569,7 @@ export default class Parser {
    */
   parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
     try {
-      return this.parseType(type, modifiers);
+      return this.parseType(type, node, modifiers);
     } catch (error: unknown) {
       if (error instanceof Error)
         throw new UnimplementedError(node, error.message);
@@ -564,7 +583,8 @@ export default class Parser {
    */
   parseSymbolType(symbol: ts.Symbol, location: ts.Node, modifiers?: syntax.TypeModifier[]) {
     try {
-      return this.parseType(this.typeChecker.getTypeOfSymbolAtLocation(symbol, location), modifiers);
+      const type = this.typeChecker.getTypeOfSymbolAtLocation(symbol, location);
+      return this.parseType(type, location, modifiers);
     } catch (error: unknown) {
       if (error instanceof Error)
         throw new UnimplementedError(location, error.message);
@@ -576,19 +596,16 @@ export default class Parser {
   /**
    * Parse TypeScript type to C++ type.
    */
-  parseType(type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseType(type: ts.Type, location?: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Check literals.
     if (type.isNumberLiteral())
       return new syntax.Type('double', 'primitive', modifiers);
     if (type.isStringLiteral())
       return new syntax.Type('string', 'string', modifiers);
-    // Check function.
-    if (isFunction(type))
-      return this.parseFunctionType(type.getCallSignatures()[0], modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
-      return this.parseUnionType(name, type as ts.UnionType, modifiers);
+      return this.parseUnionType(name, type as ts.UnionType, location, modifiers);
     // Check type parameter.
     const flags = type.getFlags();
     if (flags & ts.TypeFlags.TypeParameter)
@@ -608,10 +625,17 @@ export default class Parser {
       return new syntax.Type(name, 'any', modifiers);
     // Check array.
     if (this.typeChecker.isArrayType(type))
-      return this.parseArrayType(name, type as ts.TypeReference, modifiers);
+      return this.parseArrayType(name, type as ts.TypeReference, location, modifiers);
     // Check class.
     if (isClass(type))
-      return this.parseClassType(type, modifiers);
+      return this.parseClassType(type, location, modifiers);
+    // Check function.
+    if (isFunction(type)) {
+      if (!location)
+        throw new Error('Functions can only be parsed knowing its location');
+      const signature = type.getCallSignatures()[0];
+      return this.parseSignatureType(signature, location, modifiers);
+    }
     throw new Error(`Unsupported type "${name}"`);
   }
 
@@ -627,13 +651,14 @@ export default class Parser {
   /**
    * Parse the function type.
    */
-  parseFunctionType(signature: ts.Signature, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseSignatureType(signature: ts.Signature,
+                     location: ts.Node,
+                     modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Receive the C++ representations of returnType and parameters.
+    const returnType = this.parseType(signature.getReturnType(), location);
+    const parameters = this.parseSignatureParameters(signature.parameters, location);
     const ctx = new syntax.PrintContext('lib', 'header');
-    const returnType = this.parseType(signature.getReturnType()).print(ctx);
-    const parameters = signature.parameters.map(p => this.parseParameterDeclaration(p.valueDeclaration as ts.ParameterDeclaration))
-                                           .map(p => p.type.print(ctx))
-                                           .join(', ')
+    const cppSignature = `${returnType.print(ctx)}(${parameters.map(p => p.print(ctx)).join(', ')})`;
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
     const {declaration} = signature;
@@ -649,32 +674,25 @@ export default class Parser {
       // Likely a function parameter.
       category = 'functor';
     }
-    const cppType = new syntax.Type(`${returnType}(${parameters})`, category, modifiers);
-    // Parse type parameters.
-    if (signature.typeParameters && signature.typeParameters.length > 0)
+    const cppType = new syntax.Type(cppSignature, category, modifiers);
+    if (signature.typeParameters)
       cppType.types = signature.typeParameters.map(p => this.parseType(p));
-    // Parse type arguments.
-    const typeArguments = this.getTypeArgumentsOfSignature(signature);
-    if (typeArguments && typeArguments.length > 0)
-      cppType.templateArguments = typeArguments.map(p => this.parseType(p));
+    cppType.templateArguments = this.getTypeArgumentsOfSignature(signature)?.map(p => this.parseType(p));
     return cppType;
   }
 
   /**
    * Parse the class type.
    */
-  parseClassType(type: ts.GenericType, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseClassType(type: ts.GenericType, location?: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
     // Parse base classes.
     const base = type.getBaseTypes()?.find(isClass);
     if (base)
       cppType.base = this.parseType(base);
-    // Parse type parameters.
-    if (type.typeParameters && type.typeParameters.length > 0)
-      cppType.types = type.typeParameters.map(p => this.parseType(p));
-    // Parse type arguments.
-    if (type.typeArguments && type.typeArguments.length > 0)
-      cppType.templateArguments = type.typeArguments.map(a => this.parseType(a));
+    if (type.typeParameters)
+      cppType.types = type.typeParameters.map(p => this.parseType(p, location));
+    cppType.templateArguments = type.typeArguments?.map(a => this.parseType(a, location));
     return cppType;
   }
 
@@ -683,6 +701,7 @@ export default class Parser {
    */
   parseUnionType(name: string,
                  union: ts.UnionType,
+                 location?: ts.Node,
                  modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Literal unions are treated as a single type.
     if (union.types.every(t => t.isNumberLiteral()))
@@ -696,7 +715,7 @@ export default class Parser {
     let hasUndefined = false;
     let cppType = new syntax.Type(name, 'union', modifiers);
     for (const t of union.types) {
-      const subtype = this.parseType(t, modifiers?.filter(m => m == 'property' || m == 'element'));
+      const subtype = this.parseType(t, location, modifiers?.filter(m => m == 'property' || m == 'element'));
       if (subtype.category == 'null') {
         if (subtype.name == 'null')
           hasNull = true;
@@ -724,10 +743,13 @@ export default class Parser {
   /**
    * Parse array type.
    */
-  parseArrayType(name: string, type: ts.TypeReference, modifiers: syntax.TypeModifier[] = []): syntax.Type {
+  parseArrayType(name: string,
+                 type: ts.TypeReference,
+                 location?: ts.Node,
+                 modifiers: syntax.TypeModifier[] = []): syntax.Type {
     const args = this.typeChecker.getTypeArguments(type);
     const cppType = new syntax.Type(name, 'array', modifiers);
-    cppType.types = args.map(t => this.parseType(t, ['element', ...modifiers]));
+    cppType.types = args.map(t => this.parseType(t, location, ['element', ...modifiers]));
     return cppType;
   }
 

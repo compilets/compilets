@@ -1,6 +1,7 @@
 import {
   createTraceMethod,
   printClassDeclaration,
+  printTemplateArguments,
   printTemplateDeclaration,
   printExpressionValue,
   ifExpression,
@@ -261,7 +262,7 @@ export class Type {
   getCppName() {
     let name = this.name;
     if (this.category == 'class' && this.templateArguments)
-      name = `${name}<${this.templateArguments.map(a => a.getCppName()).join(', ')}>`;
+      name += printTemplateArguments(this.templateArguments);
     else if (this.category == 'string')
       name = 'compilets::String';
     if (this.namespace)
@@ -415,7 +416,7 @@ export class Identifier extends RawExpression {
       return `${this.type.namespace}::${this.text}`;
     // Add template arguments for function call.
     if (this.type.category == 'function' && this.type.templateArguments)
-      return `${this.text}<${this.type.templateArguments.map(t => t.getCppName()).join(', ')}>`;
+      return this.text + printTemplateArguments(this.type.templateArguments);
     return this.text;
   }
 }
@@ -480,6 +481,21 @@ export class ParenthesizedExpression extends Expression {
 
   override print(ctx: PrintContext) {
     return `(${this.expression.print(ctx)})`;
+  }
+}
+
+export class ExpressionWithTemplateArguments extends Expression {
+  expression: Expression;
+  templateArguments?: Type[];
+
+  constructor(type: Type, expression: Expression, templateArguments?: Type[]) {
+    super(type);
+    this.expression = expression;
+    this.templateArguments = templateArguments;
+  }
+
+  override print(ctx: PrintContext) {
+    return this.expression.print(ctx) + printTemplateArguments(this.templateArguments);
   }
 }
 

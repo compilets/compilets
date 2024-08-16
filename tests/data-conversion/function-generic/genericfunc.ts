@@ -4,4 +4,6 @@ function Passthrough<T>(value: T) {
 
 function TestGenericFunction() {
   const str = Passthrough('text');
+  const passStr = Passthrough<string>;
+  str = passStr(str);
 }

@@ -52,6 +52,15 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
 }
 
 /**
+ * Print the template arguments..
+ */
+export function printTemplateArguments(args?: Type[]): string {
+  if (!args || args.length == 0)
+    return '';
+  return `<${args.map(a => a.getCppName()).join(', ')}>`;
+}
+
+/**
  * Print the template clause.
  */
 export function printTemplateDeclaration(type: Type): string | undefined {
@@ -187,6 +196,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   // Convert function pointer to functor object.
   if (source.category == 'function' && target.category == 'functor') {
     return new CustomExpression(target, (ctx) => {
+      ctx.features.add('function');
       return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
     });
   }
