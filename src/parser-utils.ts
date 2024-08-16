@@ -116,6 +116,14 @@ export function isFunction(type: ts.Type): boolean {
 }
 
 /**
+ * Return whether a parsed type is a template functor.
+ */
+export function isTemplateFunctor(type: syntax.Type): boolean {
+  return type.category == 'functor' &&
+         type.types.some(t => t.category == 'template');
+}
+
+/**
  * Return whether the type is a class or a generic class. The ts.isClass ignores
  * generic class.
  */

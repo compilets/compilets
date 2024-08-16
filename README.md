@@ -194,10 +194,10 @@ StringBuilder pattern:
 StringBuilder().Append("a").Append("b").Append("c")
 ```
 
-### Generic class
+### Generics
 
-The type parameters of TypeScript classes can be directly translated to C++
-without much efforts:
+The type parameters of TypeScript can be directly translated to C++ template
+without much efforts for most cases:
 
 ```typescript
 class Generic<U> {
@@ -212,8 +212,40 @@ class Wrapper : public compilets::Object {
 };
 ```
 
-For generic constrains like `Generic<Type extends Interface>`, the constrains
-part is simply ignored.
+For generic constraints like `Generic<Type extends Interface>`, the constraints
+part can be ignored as we do not need to check the constraints in the translated
+code.
+
+One pitfall is that TypeScript allows declaring a generic function object:
+
+```typescript
+let func = function<T>(value: T) {}
+```
+
+There is no way that we could translate it to C++, because allocated variable's
+type must be known at compile time in languages with static type. This kind of
+function object declaration throws errors in Compilets.
+
+And of course top-level generic function declarations works fine:
+
+```typescript
+function Passthrough<T>(value: T) {
+  return value;
+}
+```
+
+```c++
+template<typename T>
+compilets::ValueType<T> Passthrough(compilets::ValueType<T> value) {
+  return value;
+}
+```
+
+You may notice that we are using type traits instead of template parameter `T`
+directly, that's because the same type in TypeScript may be different types
+in C++ depending on the context (for example `cppgc::Member<Object>` vs
+`Object*`), and since we do not know the actual type of generics, we rely on
+C++ type traits to ensure correct type is deduced.
 
 ## Developement
 

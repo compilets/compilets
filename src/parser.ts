@@ -13,6 +13,7 @@ import {
   FunctionLikeNode,
   isFunctionLikeNode,
   isFunction,
+  isTemplateFunctor,
   isClass,
   hasQuestionToken,
   hasTypeNode,
@@ -334,11 +335,14 @@ export default class Parser {
         // let a = xxx;
         const {name, type} = node;
         const cppType = this.parseNodeType(type ?? name);
+        if (isTemplateFunctor(cppType))
+          throw new UnsupportedError(node, 'Can not declare a variable with type of generic function');
         if (node.initializer) {
           // let a = 123;
-          return new syntax.VariableDeclaration(name.text,
-                                                cppType,
-                                                this.parseExpression(node.initializer));
+          const initializer = this.parseExpression(node.initializer);
+          if (isTemplateFunctor(initializer.type))
+            throw new UnsupportedError(node, 'Can not assign a generic function to a variable');
+          return new syntax.VariableDeclaration(name.text, cppType, initializer);
         } else {
           // let a;
           return new syntax.VariableDeclaration(name.text, cppType);
@@ -665,7 +669,7 @@ export default class Parser {
     if (declaration) {
       if (ts.isFunctionExpression(declaration) ||
           ts.isArrowFunction(declaration) ||
-          ts.isVariableDeclaration(declaration)) {
+          ts.isFunctionTypeNode(declaration)) {
         category = 'functor';
       } else {
         category = 'function';
@@ -821,6 +825,9 @@ export default class Parser {
 
   /**
    * Like getTypeArguments but works for signature.
+   *
+   * We are abusing internals of TypeScript before there is an official API:
+   * https://github.com/microsoft/TypeScript/issues/59637
    */
   getTypeArgumentsOfSignature(signature: ts.Signature): readonly ts.Type[] {
     const {mapper, target} = signature as unknown as {
