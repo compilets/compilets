@@ -599,9 +599,9 @@ export default class Parser {
   parseType(type: ts.Type, location?: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Check literals.
     if (type.isNumberLiteral())
-      return new syntax.Type('double', 'primitive', modifiers);
+      return syntax.Type.createNumberType(modifiers);
     if (type.isStringLiteral())
-      return new syntax.Type('string', 'string', modifiers);
+      return syntax.Type.createStringType(modifiers);
     // Check union.
     const name = this.typeChecker.typeToString(type);
     if (type.isUnion())
@@ -618,9 +618,9 @@ export default class Parser {
     if (flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
       return new syntax.Type('bool', 'primitive', modifiers);
     if (flags & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral))
-      return new syntax.Type('double', 'primitive', modifiers);
+      return syntax.Type.createNumberType(modifiers);
     if (flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))
-      return new syntax.Type('string', 'string', modifiers);
+      return syntax.Type.createStringType(modifiers);
     if (flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown))
       return new syntax.Type(name, 'any', modifiers);
     // Check array.
@@ -705,9 +705,9 @@ export default class Parser {
                  modifiers?: syntax.TypeModifier[]): syntax.Type {
     // Literal unions are treated as a single type.
     if (union.types.every(t => t.isNumberLiteral()))
-      return new syntax.Type('double', 'primitive', modifiers);
+      return syntax.Type.createNumberType(modifiers);
     if (union.types.every(t => t.isStringLiteral()))
-      return new syntax.Type('string', 'string', modifiers);
+      return syntax.Type.createStringType(modifiers);
     if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
       return new syntax.Type('bool', 'primitive', modifiers);
     // Iterate all subtypes and add unique ones to cppType.

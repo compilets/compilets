@@ -1,9 +1,11 @@
 import {
   createTraceMethod,
   printClassDeclaration,
+  printExpressionValue,
   printTemplateArguments,
   printTemplateDeclaration,
-  printExpressionValue,
+  printTypeName,
+  printTypeNameForDeclaration,
   ifExpression,
   castExpression,
   castArguments,
@@ -105,6 +107,16 @@ export class Type {
   isElement = false;
   isPersistent = false;
 
+  static createStringType(modifiers?: TypeModifier[]) {
+    const type = new Type('String', 'string', modifiers);
+    type.namespace = 'compilets';
+    return type;
+  }
+
+  static createNumberType(modifiers?: TypeModifier[]) {
+    return new Type('double', 'primitive', modifiers);
+  }
+
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
     this.category = category;
@@ -133,49 +145,7 @@ export class Type {
   }
 
   print(ctx: PrintContext): string {
-    if (this.category == 'function')
-      throw new Error('Raw function type should never be printed out');
-    if (this.category == 'any')  // could be printed as part of signature name
-      return '_Any';
-    let cppType = this.getCppName();
-    if (this.category == 'template') {
-      if (this.isCppgcMember()) {
-        if (this.isOptional)
-          return `compilets::OptionalCppgcMemberType<${cppType}>`;
-        else
-          return `compilets::CppgcMemberType<${cppType}>`;
-      } else {
-        if (this.isOptional)
-          return `compilets::OptionalValueType<${cppType}>`;
-        else
-          return `compilets::ValueType<${cppType}>`;
-      }
-    }
-    if (this.isObject()) {
-      if (this.category == 'array')
-        cppType = `compilets::Array<${this.getElementType().print(ctx)}>`;
-      else if (this.category == 'functor')
-        cppType = `compilets::Function<${cppType}>`;
-      else if (this.category == 'class')
-        cppType = `${cppType}`;
-      if (this.isPersistent)
-        return `cppgc::Persistent<${cppType}>`;
-      else if (this.isCppgcMember())
-        return `cppgc::Member<${cppType}>`;
-      else
-        return `${cppType}*`;
-    }
-    if (this.category == 'union') {
-      const types = this.types!.map(t => t.print(ctx));
-      if (this.isOptional)
-        types.push('std::monostate');
-      return `compilets::Union<${types.join(', ')}>`;
-    }
-    if (this.category == 'null')
-      return 'std::nullptr_t';
-    if (this.isOptional)
-      return `std::optional<${cppType}>`;
-    return cppType;
+    return printTypeNameForDeclaration(this, ctx);
   }
 
   /**
@@ -238,12 +208,16 @@ export class Type {
   clone(): Type {
     const newType = new Type(this.name, this.category);
     newType.types = this.types?.map(t => t.clone());
+    newType.base = this.base?.clone();
     newType.namespace = this.namespace;
+    newType.templateArguments = this.templateArguments?.map(a => a.clone());
+    newType.isVariadic = this.isVariadic;
     newType.isOptional = this.isOptional;
     newType.isProperty = this.isProperty;
     newType.isStatic = this.isStatic;
     newType.isExternal = this.isExternal;
     newType.isElement = this.isElement;
+    newType.isPersistent = this.isPersistent;
     return newType;
   }
 
@@ -257,17 +231,12 @@ export class Type {
   }
 
   /**
-   * Return the C++ type name for the type.
+   * Create a new instance of Type that removes the `property` modifier.
    */
-  getCppName() {
-    let name = this.name;
-    if (this.category == 'class' && this.templateArguments)
-      name += printTemplateArguments(this.templateArguments);
-    else if (this.category == 'string')
-      name = 'compilets::String';
-    if (this.namespace)
-      name = `${this.namespace}::${name}`;
-    return name;
+  noProperty() {
+    const result = this.clone();
+    result.isProperty = false;
+    return result;
   }
 
   /**
@@ -293,7 +262,8 @@ export class Type {
       ctx.features.add('array');
     }
     if (this.namespace == 'compilets') {
-      ctx.features.add('runtime');
+      if (this.category != 'string')
+        ctx.features.add('runtime');
       if (this.name == 'Console')
         ctx.features.add('console');
       else if (this.name == 'Process')
@@ -392,13 +362,13 @@ export class RawExpression extends Expression {
 
 export class NumericLiteral extends RawExpression {
   constructor(text: string) {
-    super(new Type('double', 'primitive'), text);
+    super(Type.createNumberType(), text);
   }
 }
 
 export class StringLiteral extends RawExpression {
   constructor(text: string) {
-    super(new Type('string', 'string'), 'u' + JSON.stringify(text));
+    super(Type.createStringType(), 'u' + JSON.stringify(text));
   }
 }
 
@@ -412,7 +382,7 @@ export class Identifier extends RawExpression {
 
   override print(ctx: PrintContext) {
     // Add namespace prefix.
-    if (this.type.namespace && this.isExternal == this.type.isExternal)
+    if (this.type.namespace && this.isExternal && this.type.isExternal)
       return `${this.type.namespace}::${this.text}`;
     // Add template arguments for function call.
     if (this.type.category == 'function' && this.type.templateArguments)
@@ -425,7 +395,7 @@ export class StringConcatenation extends Expression {
   spans: Expression[];
 
   constructor(spans: Expression[]) {
-    super(new Type('string', 'string'));
+    super(Type.createStringType());
     this.spans = spans;
   }
 
@@ -676,9 +646,9 @@ export class NewExpression extends Expression {
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
     if (this.type.isObject())
-      return `compilets::MakeObject<${this.type.getCppName()}>(${args})`;
+      return `compilets::MakeObject<${printTypeName(this.type)}>(${args})`;
     else
-      return `new ${this.type.getCppName()}(${args})`;
+      return `new ${printTypeName(this.type)}(${args})`;
   }
 }
 
@@ -687,7 +657,7 @@ export class ToStringExpression extends Expression {
   expression: Expression;
 
   constructor(expression: Expression) {
-    super(new Type('string', 'string'));
+    super(Type.createStringType());
     this.expression = expression;
   }
 
