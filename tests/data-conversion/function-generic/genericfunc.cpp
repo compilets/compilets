@@ -33,5 +33,5 @@ void TestGenericFunction() {
   compilets::Union<double, bool, std::monostate> union;
   union = Passthrough<compilets::Union<double, bool, std::monostate>>(union);
   std::optional<double> optional;
-  optional = Passthrough<double>(optional);
+  optional = Passthrough<std::optional<double>>(optional);
 }

@@ -145,39 +145,54 @@ export function printTemplateDeclaration(type: Type): string | undefined {
  * It is also used for class inheritance.
  */
 export function printTypeName(type: Type): string {
-  if (type.category == 'function')
+  if (type.category == 'function') {
     throw new Error('Raw function type should never be printed out');
+  }
   // Add wrapper for array.
-  if (type.category == 'array')
+  if (type.category == 'array') {
     return `compilets::Array<${printTypeNameForDeclaration(type.getElementType().noProperty())}>`;
+  }
   // Add wrapper for functor.
-  if (type.category == 'functor')
+  if (type.category == 'functor') {
     return `compilets::Function<${type.name}>`;
+  }
   // Add wrapper for union.
-  if (type.category == 'union')
-    return `compilets::Union<${type.types!.map(t => printTypeNameForDeclaration(t.noProperty())).join(', ')}>`;
+  if (type.category == 'union') {
+    const types = type.types!.map(t => printTypeNameForDeclaration(t.noProperty()));
+    if (type.isOptional)
+      types.push('std::monostate');
+    return `compilets::Union<${types.join(', ')}>`;
+  }
   // The null means many types in C++, in the occasional cases where it needs
   // to be printed, use std::nullptr_t.
-  if (type.category == 'null')
+  if (type.category == 'null') {
     return 'std::nullptr_t';
+  }
   // The any type is not supported yet but it shows in signatures.
-  if (type.category == 'any')
+  if (type.category == 'any') {
     return '_Any';
+  }
   // The remainings are class and primitive types.
   let name = type.name;
   // Add type arguments.
-  if (type.category == 'class' && type.templateArguments)
+  if (type.category == 'class' && type.templateArguments) {
     name += printTemplateArguments(type.templateArguments);
+  }
   // Add namespace.
-  if (type.namespace)
+  if (type.namespace) {
     name = `${type.namespace}::${name}`;
+  }
+  // Add optional when needed.
+  if (type.isStdOptional()) {
+    return `std::optional<${name}>`;
+  }
   return name;
 }
 
 /**
  * Print the type name used for declaration of values.
  */
-export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): string {
+export function printTypeNameForDeclaration(type: Type): string {
   // Template's type name is alway wrapped with type traits.
   if (type.category == 'template') {
     if (type.isCppgcMember()) {
@@ -197,7 +212,7 @@ export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): str
     let name: string;
     // The type of array used for declaration is different from the formal type.
     if (type.category == 'array')
-      name = `compilets::Array<${printTypeNameForDeclaration(type.getElementType(), ctx)}>`;
+      name = `compilets::Array<${printTypeNameForDeclaration(type.getElementType())}>`;
     else
       name = printTypeName(type);
     // Use smart pointer or raw pointer.
@@ -208,19 +223,15 @@ export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): str
     else
       return `${name}*`;
   }
-  // The type of union used for declaration is different from the formal type..
+  // The type of union used for declaration is different from the formal type.
   if (type.category == 'union') {
-    const types = type.types!.map(t => printTypeNameForDeclaration(t, ctx));
+    const types = type.types!.map(t => printTypeNameForDeclaration(t));
     if (type.isOptional)
       types.push('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;
   }
   // Other types are the same with their formal C++ type name.
-  const name = printTypeName(type);
-  // Add optional when needed.
-  if (type.isStdOptional())
-    return `std::optional<${name}>`;
-  return name;
+  return printTypeName(type);
 }
 
 /**

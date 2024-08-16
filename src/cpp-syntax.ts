@@ -145,7 +145,7 @@ export class Type {
   }
 
   print(ctx: PrintContext): string {
-    return printTypeNameForDeclaration(this, ctx);
+    return printTypeNameForDeclaration(this);
   }
 
   /**
