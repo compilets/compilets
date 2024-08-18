@@ -41,44 +41,66 @@ export default class CppFile {
    * Print the file to C++ source code.
    */
   print(options: PrintOptions): string {
+    // Print all parts.
     const ctx = new syntax.PrintContext(options.generationMode, 'impl', 2);
-    // Print forward declarations.
+    const forwardDeclarations = this.printForwardDeclarations(ctx);
+    const declarations = this.declarations.print(ctx);
+    const mainFunction = this.printMainFunction(ctx);
+    // Collect used headers after printing.
+    const headers = this.printHeaders(ctx);
+    // Concatenate parts together.
     let result = '';
-    if (this.declarations.statements.length > 1) {
-      result += this.declarations.print(new syntax.PrintContext(options.generationMode, 'forward', 2));
-      if (this.declarations.statements.length > 0)
-        result += '\n\n';
-    }
-    // Then declarations.
-    result += this.declarations.print(ctx);
-    // Add empty line between declarations and main.
-    if (this.declarations.statements.length > 0 && !this.body.isEmpty())
+    if (headers)
+      result += headers + '\n';
+    if (forwardDeclarations)
+      result += forwardDeclarations + '\n\n';
+    if (declarations)
+      result += declarations;
+    if (declarations && mainFunction)
       result += '\n';
-    // Print main function if:
-    // 1) we are generating the exe main file;
-    // 2) or there are statements in body.
-    if ((options.generationMode == 'exe' && this.isMain) || !this.body.isEmpty())
-      result += this.body.print(ctx);
-    // After printing the body, print headers and put it at first.
-    result = this.getHeaders(ctx).print(ctx) + result;
+    if (mainFunction)
+      result += mainFunction;
     // Make sure file has a new line in the end.
-    if (result.endsWith('\n'))
-      return result;
-    else
-      return result + '\n';
+    if (!result.endsWith('\n'))
+      result += '\n';
+    return result;
   }
 
   /**
-   * Get required headers for this file.
+   * Print forward declarations for all the function and class declarations.
    */
-  private getHeaders(ctx: syntax.PrintContext): syntax.Headers {
-    let features = ctx.features;
+  private printForwardDeclarations(ctx: syntax.PrintContext): string | undefined {
+    if (this.declarations.statements.length > 1) {
+      const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
+      return this.declarations.print(forward);
+    }
+  }
+
+  /**
+   * Print main function.
+   */
+  private printMainFunction(ctx: syntax.PrintContext): string | undefined {
+    // It is only printed when:
+    // 1) we are generating the exe main file;
+    // 2) or there are statements in body.
+    if ((ctx.generationMode == 'exe' && this.isMain) ||
+        !this.body.isEmpty()) {
+      return this.body.print(ctx);
+    }
+  }
+
+  /**
+   * Print required headers for this file.
+   */
+  private printHeaders(ctx: syntax.PrintContext): string | undefined {
     // If this is the main file of an exe, it requires runtime headers.
     if (this.isMain && ctx.generationMode == 'exe')
-      features = features.union(new Set([ 'runtime' ]));
+      ctx.features.add('runtime');
+    if (ctx.features.size == 0)
+      return;
     // Add headers according to used features.
     const headers = new syntax.Headers();
-    for (const feature of features) {
+    for (const feature of ctx.features) {
       switch (feature) {
         case 'string':
         case 'union':
@@ -92,6 +114,6 @@ export default class CppFile {
           break;
       }
     }
-    return headers;
+    return headers.print(ctx);
   }
 }

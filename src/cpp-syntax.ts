@@ -924,6 +924,6 @@ export class Headers extends Statement {
       results.push(this.stl.map(h => h.print(ctx)).sort().join(''));
     if (this.files.length > 0)
       results.push(this.files.map(h => h.print(ctx)).sort().join(''));
-    return results.map(h => h + '\n').join('');
+    return results.join('\n');
   }
 }
