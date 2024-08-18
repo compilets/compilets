@@ -18,9 +18,9 @@ struct Interface2 : public compilets::Object {
 };
 
 struct Interface3 : public compilets::Object {
-  cppgc::Member<compilets::Function<compilets::generated::Interface1*()>> method;
+  cppgc::Member<compilets::Function<Interface1*()>> method;
 
-  cppgc::Member<compilets::Function<double(compilets::generated::Interface1*)>> func;
+  cppgc::Member<compilets::Function<double(Interface1*)>> func;
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceMember(visitor, method);

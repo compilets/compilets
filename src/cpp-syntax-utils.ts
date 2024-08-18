@@ -1,6 +1,7 @@
 import {
   PrintContext,
   Type,
+  FunctionType,
   Expression,
   RawExpression,
   NumericLiteral,
@@ -162,7 +163,7 @@ export function printTypeName(type: Type, ctx?: PrintContext): string {
   }
   // Add wrapper for functor.
   if (type.category == 'functor') {
-    return `compilets::Function<${type.name}>`;
+    return `compilets::Function<${(type as FunctionType).getSignature(ctx)}>`;
   }
   // Add wrapper for union.
   if (type.category == 'union') {

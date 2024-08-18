@@ -278,8 +278,6 @@ export class Type {
   addFeatures(ctx: PrintContext) {
     if (this.category == 'string') {
       ctx.features.add('string');
-    } else if (this.category == 'functor') {
-      ctx.features.add('function');
     } else if (this.category == 'union') {
       ctx.features.add('union');
     } else if (this.category == 'array') {
@@ -367,6 +365,55 @@ export class Type {
   isCppgcMember() {
     return (this.isObject() || this.category == 'template') &&
            (this.isProperty || this.isElement);
+  }
+}
+
+/**
+ * Representing the type of functions and functors.
+ */
+export class FunctionType extends Type {
+  returnType: Type;
+  parameters: Type[];
+
+  constructor(category: TypeCategory,
+              returnType: Type,
+              parameters: Type[],
+              modifiers?: TypeModifier[]) {
+    super('__nameIsSetBelow', category, modifiers);
+    this.returnType = returnType;
+    this.parameters = parameters;
+    // Use full C++ signature as type name, which will also be used to test the
+    // equality between two functions.
+    this.name = this.getSignature();
+  }
+
+  override print(ctx: PrintContext): string {
+    if (!this.isExternal)
+      ctx.features.add('function');
+    return super.print(ctx);
+  }
+
+  override overwriteWith(other: FunctionType): this {
+    super.overwriteWith(other);
+    this.returnType = other.returnType.clone();
+    this.parameters = other.parameters.map(p => p.clone());
+    return this;
+  }
+
+  override clone(): FunctionType {
+    const newType = new FunctionType(this.category, this.returnType, this.parameters);
+    newType.overwriteWith(this);
+    return newType;
+  }
+
+  /**
+   * Get the C++ signature, note that this is different from the function name
+   * as the returned value may strip namespace depending on the print context.
+   */
+  getSignature(ctx?: PrintContext): string {
+    if (!ctx)
+      ctx = new PrintContext('lib', 'header');
+    return `${this.returnType.print(ctx)}(${this.parameters.map(p => p.print(ctx)).join(', ')})`;
   }
 }
 

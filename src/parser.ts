@@ -657,12 +657,7 @@ export default class Parser {
    */
   parseSignatureType(signature: ts.Signature,
                      location: ts.Node,
-                     modifiers?: syntax.TypeModifier[]): syntax.Type {
-    // Receive the C++ representations of returnType and parameters.
-    const returnType = this.parseType(signature.getReturnType(), location);
-    const parameters = this.parseSignatureParameters(signature.parameters, location);
-    const ctx = new syntax.PrintContext('lib', 'header');
-    const cppSignature = `${returnType.print(ctx)}(${parameters.map(p => p.print(ctx)).join(', ')})`;
+                     modifiers?: syntax.TypeModifier[]): syntax.FunctionType {
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
     const {declaration} = signature;
@@ -679,7 +674,11 @@ export default class Parser {
       // Likely a function parameter.
       category = 'functor';
     }
-    const cppType = new syntax.Type(cppSignature, category, modifiers);
+    // Receive the C++ representations of returnType and parameters.
+    const returnType = this.parseType(signature.getReturnType(), location);
+    const parameters = this.parseSignatureParameters(signature.parameters, location);
+    // Create the FunctionType.
+    const cppType = new syntax.FunctionType(category, returnType, parameters, modifiers);
     if (signature.typeParameters)
       cppType.types = signature.typeParameters.map(p => this.parseType(p));
     cppType.templateArguments = this.getTypeArgumentsOfSignature(signature)?.map(p => this.parseType(p));
