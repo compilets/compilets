@@ -15,8 +15,6 @@ class MethodClosure : public compilets::Object {
       return this->prop;
     }, this);
   }
-
-  virtual ~MethodClosure() = default;
 };
 
 void TestFunctionClosure() {

@@ -1,5 +1,6 @@
 import {PrintContext, Type} from './cpp-syntax-type';
 import {
+  notTriviallyDestructible,
   createTraceMethod,
   printClassDeclaration,
   printExpressionValue,
@@ -653,17 +654,16 @@ export class ClassDeclaration extends DeclarationStatement {
       else
         this.publicMembers.push(member);
     }
-    if (this.type.hasObject()) {
-      // Add Trace method if it includes cppgc::Member.
+    if (notTriviallyDestructible(members)) {
+      // Add Trace method.
       const trace = createTraceMethod(this.type, members);
       if (trace)
         this.publicMembers.push(trace);
-      // Add a virtual destructor if the class is not trivially destrutible.
-      if (members.find(m => m instanceof PropertyDeclaration))
-        this.publicMembers.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
-      // Add pre finalizer if a method is marked as destructor.
-      this.destructor = members.find(m => m instanceof MethodDeclaration && m.modifiers.includes('destructor'));
+      // Add a virtual destructor.
+      this.publicMembers.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
     }
+    // Add pre finalizer if a method is marked as destructor.
+    this.destructor = members.find(m => m instanceof MethodDeclaration && m.modifiers.includes('destructor'));
   }
 
   override print(ctx: PrintContext) {

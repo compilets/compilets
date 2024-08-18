@@ -9,11 +9,13 @@ interface PrintOptions {
  */
 export default class CppFile {
   isMain: boolean;
+  interfaceRegistry: syntax.InterfaceRegistry;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   body = new syntax.MainFunction();
 
-  constructor(isMain: boolean) {
+  constructor(isMain: boolean, interfaceRegistry: syntax.InterfaceRegistry) {
     this.isMain = isMain;
+    this.interfaceRegistry = interfaceRegistry;
   }
 
   /**
@@ -46,7 +48,9 @@ export default class CppFile {
     const forwardDeclarations = this.printForwardDeclarations(ctx);
     const declarations = this.declarations.print(ctx);
     const mainFunction = this.printMainFunction(ctx);
-    // Collect used headers after printing.
+    // Collect used interfaces after printing code.
+    const interfaces = this.printInterfaces(ctx);
+    // Collect used headers after printing everything.
     const headers = this.printHeaders(ctx);
     // Concatenate parts together.
     let result = '';
@@ -54,9 +58,13 @@ export default class CppFile {
       result += headers + '\n';
     if (forwardDeclarations)
       result += forwardDeclarations + '\n\n';
+    if (interfaces)
+      result += interfaces;
+    if (interfaces && declarations)
+      result += '\n\n';
     if (declarations)
       result += declarations;
-    if (declarations && mainFunction)
+    if ((declarations || interfaces) && mainFunction)
       result += '\n';
     if (mainFunction)
       result += mainFunction;
@@ -87,6 +95,18 @@ export default class CppFile {
         !this.body.isEmpty()) {
       return this.body.print(ctx);
     }
+  }
+
+  /**
+   * Print used interfaces.
+   */
+  private printInterfaces(ctx: syntax.PrintContext): string | undefined {
+    if (ctx.interfaces.size == 0)
+      return;
+    const interfaces: syntax.InterfaceType[] = [];
+    for (const name of ctx.interfaces)
+      interfaces.push(this.interfaceRegistry.get(name));
+    return interfaces.map(i => i.printDeclaration(ctx)).join('\n\n');
   }
 
   /**

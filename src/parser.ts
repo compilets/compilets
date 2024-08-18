@@ -21,8 +21,11 @@ import {
   filterNode,
   parseHint,
   parseNodeJsType,
-  uniqueArray,
 } from './parser-utils';
+import {
+  uniqueArray,
+  createMapFromArray,
+} from './js-utils';
 
 /**
  * Convert TypeScript AST to C++ source code.
@@ -52,7 +55,7 @@ export default class Parser {
   }
 
   parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(isMain);
+    const cppFile = new CppFile(isMain, this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.InterfaceDeclaration:
@@ -716,14 +719,14 @@ export default class Parser {
    */
   parseInterfaceType(type: ts.InterfaceType,
                      location?: ts.Node,
-                     modifiers?: syntax.TypeModifier[]): syntax.InterfaceType {
+                     modifiers: syntax.TypeModifier[] = []): syntax.InterfaceType {
     if (!location)
       throw new Error('Can not parse interface type without location');
     const cppType = new syntax.InterfaceType(type.symbol.name, modifiers);
-    cppType.properties = new Map<string, syntax.Type>(type.getProperties().map(p => {
-      const type = this.parseSymbolType(p, location);
+    cppType.properties = createMapFromArray(type.getProperties(), (p) => {
+      const type = this.parseSymbolType(p, location, [ 'property', ...modifiers ]);
       return [ p.name, type ];
-    }));
+    });
     return this.interfaceRegistry.register(cppType);
   }
 

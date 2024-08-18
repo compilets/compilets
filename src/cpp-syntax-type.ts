@@ -1,4 +1,16 @@
-import {printTypeNameForDeclaration} from './cpp-syntax-utils';
+import {
+  ClassElement,
+  PropertyDeclaration,
+  DestructorDeclaration,
+} from './cpp-syntax';
+import {
+  notTriviallyDestructible,
+  createTraceMethod,
+  printTypeNameForDeclaration,
+} from './cpp-syntax-utils';
+import {
+  cloneMap,
+} from './js-utils';
 
 /**
  * Possible modes for generating the project.
@@ -201,21 +213,29 @@ export class Type {
   }
 
   /**
+   * Overwrite this type with the other.
+   */
+  overwriteWith(other: Type): this {
+    this.types = other.types?.map(t => t.clone());
+    this.base = other.base?.clone();
+    this.namespace = other.namespace;
+    this.templateArguments = other.templateArguments?.map(a => a.clone());
+    this.isVariadic = other.isVariadic;
+    this.isOptional = other.isOptional;
+    this.isProperty = other.isProperty;
+    this.isStatic = other.isStatic;
+    this.isExternal = other.isExternal;
+    this.isElement = other.isElement;
+    this.isPersistent = other.isPersistent;
+    return this;
+  }
+
+  /**
    * Create a new instance of Type that is completely the same with this one.
    */
   clone(): Type {
     const newType = new Type(this.name, this.category);
-    newType.types = this.types?.map(t => t.clone());
-    newType.base = this.base?.clone();
-    newType.namespace = this.namespace;
-    newType.templateArguments = this.templateArguments?.map(a => a.clone());
-    newType.isVariadic = this.isVariadic;
-    newType.isOptional = this.isOptional;
-    newType.isProperty = this.isProperty;
-    newType.isStatic = this.isStatic;
-    newType.isExternal = this.isExternal;
-    newType.isElement = this.isElement;
-    newType.isPersistent = this.isPersistent;
+    newType.overwriteWith(this);
     return newType;
   }
 
@@ -286,6 +306,15 @@ export class Type {
   }
 
   /**
+   * Whether this type can be trivially destructed.
+   */
+  isTriviallyDestructible(): boolean {
+    return this.category == 'void' ||
+           this.category == 'null' ||
+           this.category == 'primitive';
+  }
+
+  /**
    * Whether this type inherits from Object.
    */
   isObject() {
@@ -346,7 +375,13 @@ export class InterfaceType extends Type {
     this.namespace = 'compilets::generated';
   }
 
-  equal(other?: InterfaceType) {
+  override print(ctx: PrintContext): string {
+    ctx.features.add('object');
+    ctx.interfaces.add(this.name);
+    return super.print(ctx);
+  }
+
+  override equal(other?: InterfaceType): boolean {
     if (!other)
       return false;
     if (this === other)
@@ -359,6 +394,44 @@ export class InterfaceType extends Type {
     }
     return true;
   }
+
+  override overwriteWith(other: InterfaceType): this {
+    super.overwriteWith(other);
+    this.properties = cloneMap(other.properties, (p) => p.clone());
+    return this;
+  }
+
+  override clone(): InterfaceType {
+    const newType = new InterfaceType(this.name);
+    newType.overwriteWith(this);
+    return newType;
+  }
+
+  /**
+   * Print the C++ declaration of an interface.
+   *
+   * It is similar to printClassDeclaration but without class specific things.
+   */
+  printDeclaration(ctx: PrintContext): string {
+    const members: ClassElement[] = [];
+    for (const [name, type] of this.properties) {
+      members.push(new PropertyDeclaration(name, [ 'abstract' ], type));
+    }
+    if (notTriviallyDestructible(members)) {
+      const trace = createTraceMethod(this, members);
+      if (trace)
+        members.push(trace);
+      members.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
+    }
+    let result = `${ctx.prefix}struct ${this.name} : public compilets::Object {\n`;
+    ctx.level++;
+    result += members.map(m => m.print(ctx)).join('\n\n');
+    ctx.level--;
+    if (members.length > 0)
+      result += '\n';
+    result += ctx.padding + '};';
+    return result;
+  }
 }
 
 /**
@@ -369,11 +442,29 @@ export class InterfaceRegistry {
   types: InterfaceType[] = [];
 
   register(type: InterfaceType): InterfaceType {
-    const existing = this.types.find(t => t.equal(type));
-    if (existing)
-      return existing;
-    const len = this.types.push(type);
-    type.name = `Interface${len}`;
+    // Find the same interface or save it.
+    let existing = this.types.find(t => t.equal(type));
+    if (!existing) {
+      const len = this.types.push(type);
+      // Rename to unique name.
+      existing = type;
+      existing.name = `Interface${len}`;
+    }
+    // Return a clone as caller may modify type.
+    const result = existing.clone();
+    // Retain the modifiers of the passed type.
+    result.isProperty = type.isProperty;
+    result.isStatic = type.isStatic;
+    result.isExternal = type.isExternal;
+    result.isElement = type.isElement;
+    result.isPersistent = type.isPersistent;
+    return result;
+  }
+
+  get(name: string): InterfaceType {
+    const type = this.types.find(t => t.name == name);
+    if (!type)
+      throw new Error(`Can not find an interface with name of "${name}"`);
     return type;
   }
 }

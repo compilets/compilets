@@ -17,9 +17,17 @@ import {
 } from './cpp-syntax';
 
 /**
+ * Return whether the members are trivially destrutible.
+ */
+export function notTriviallyDestructible(members: ClassElement[]): boolean {
+  return members.filter(m => m instanceof PropertyDeclaration)
+                .some(m => !m.type.isTriviallyDestructible());
+}
+
+/**
  * Create the Trace method required by cppgc::GarbageCollected.
  */
-export function createTraceMethod(type: Type, members: ClassElement[]): MethodDeclaration | null {
+export function createTraceMethod(type: Type, members: ClassElement[]): MethodDeclaration | undefined {
   // Collect all the GCed members from the class.
   const body = new Block();
   for (const member of members) {
@@ -38,7 +46,7 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
     }
   }
   if (body.statements.length == 0)
-    return null;
+    return;
   if (type.base) {
     body.statements.push(
       new ExpressionStatement(
