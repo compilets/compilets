@@ -15,6 +15,7 @@ import {
   isFunction,
   isTemplateFunctor,
   isClass,
+  isInterface,
   hasQuestionToken,
   hasTypeNode,
   filterNode,
@@ -30,6 +31,7 @@ export default class Parser {
   project: CppProject;
   program: ts.Program;
   typeChecker: ts.TypeChecker;
+  interfaceRegistry = new syntax.InterfaceRegistry();
 
   constructor(project: CppProject) {
     if (project.files.size > 0)
@@ -53,6 +55,9 @@ export default class Parser {
     const cppFile = new CppFile(isMain);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
+        case ts.SyntaxKind.InterfaceDeclaration:
+          this.parseNodeType(node);
+          return;
         case ts.SyntaxKind.ClassDeclaration:
           if (!cppFile.canAddDeclaration())
             throw new UnsupportedError(node, 'Can not add class declaration after statements');
@@ -204,11 +209,8 @@ export default class Parser {
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         const obj = this.parseExpression(expression);
-        if (obj.type.category != 'class' &&
-            obj.type.category != 'string' &&
-            obj.type.category != 'super') {
+        if (!obj.type.isObject() && obj.type.category != 'string')
           throw new UnimplementedError(name, 'Only support accessing properties of class');
-        }
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
                                                    (name as ts.Identifier).text);
@@ -302,24 +304,6 @@ export default class Parser {
     throw new UnimplementedError(node, 'Unsupported statement');
   }
 
-  parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
-    const {left, right, operatorToken} = node;
-    const cppLeft = this.parseExpression(left);
-    const cppRight = this.parseExpression(right);
-    if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
-      // Concatenate 2 string literals.
-      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
-        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
-      // Left hand is a string concatenation.
-      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
-        return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
-    }
-    return new syntax.BinaryExpression(this.parseNodeType(node),
-                                       cppLeft,
-                                       cppRight,
-                                       operatorToken.getText());
-  }
-
   parseVariableDeclarationList(node: ts.VariableDeclarationList): syntax.VariableDeclarationList {
     const decls = node.declarations.map(this.parseVariableDeclaration.bind(this));
     // In C++ all variables in one declaration use the same type.
@@ -349,19 +333,6 @@ export default class Parser {
         }
     }
     throw new UnimplementedError(node, 'Unsupported variable declaration');
-  }
-
-  parseParameters(parameters: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[]): syntax.ParameterDeclaration[] {
-    return parameters.map(this.parseParameterDeclaration.bind(this));
-  }
-
-  parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
-    const {name, initializer} = node;
-    if (name.kind != ts.SyntaxKind.Identifier)
-      throw new UnimplementedError(node, 'Binding in parameter is not supported');
-    return new syntax.ParameterDeclaration((name as ts.Identifier).text,
-                                           this.parseNodeType(name),
-                                           initializer ? this.parseExpression(initializer) : undefined);
   }
 
   parseFunctionDeclaration(node: ts.FunctionDeclaration): syntax.FunctionDeclaration {
@@ -418,24 +389,17 @@ export default class Parser {
                                          cppBody);
   }
 
-  parseCallExpression(node: ts.CallExpression): syntax.Expression {
-    const {expression, questionDotToken} = node;
-    const args = node['arguments'];  // arguments is a keyword
-    if (questionDotToken)
-      throw new UnimplementedError(node, 'The ?. operator is not supported');
-    // Resolve function type with the resolved signature of call expression,
-    // required for inferring the type arguments when calling generic functions.
-    const callee = this.parseExpression(expression);
-    if (isFunction(this.typeChecker.getTypeAtLocation(expression))) {
-      const signature = this.typeChecker.getResolvedSignature(node);
-      if (signature) {
-        const {name, templateArguments} = this.parseSignatureType(signature, node);
-        Object.assign(callee.type, {name, templateArguments});
-      }
-    }
-    return new syntax.CallExpression(this.parseNodeType(node),
-                                     callee,
-                                     this.parseArguments(node, args));
+  parseParameters(parameters: ts.NodeArray<ts.ParameterDeclaration> | ts.ParameterDeclaration[]): syntax.ParameterDeclaration[] {
+    return parameters.map(this.parseParameterDeclaration.bind(this));
+  }
+
+  parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
+    const {name, initializer} = node;
+    if (name.kind != ts.SyntaxKind.Identifier)
+      throw new UnimplementedError(node, 'Binding in parameter is not supported');
+    return new syntax.ParameterDeclaration((name as ts.Identifier).text,
+                                           this.parseNodeType(name),
+                                           initializer ? this.parseExpression(initializer) : undefined);
   }
 
   parseClassDeclaration(node: ts.ClassDeclaration): syntax.ClassDeclaration {
@@ -526,7 +490,46 @@ export default class Parser {
                                              baseCall);
   }
 
-  parseArguments(node: ts.CallLikeExpression, args?: ts.NodeArray<ts.Expression>) {
+  parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
+    const {left, right, operatorToken} = node;
+    const cppLeft = this.parseExpression(left);
+    const cppRight = this.parseExpression(right);
+    if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
+      // Concatenate 2 string literals.
+      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
+        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
+      // Left hand is a string concatenation.
+      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
+        return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
+    }
+    return new syntax.BinaryExpression(this.parseNodeType(node),
+                                       cppLeft,
+                                       cppRight,
+                                       operatorToken.getText());
+  }
+
+  parseCallExpression(node: ts.CallExpression): syntax.Expression {
+    const {expression, questionDotToken} = node;
+    const args = node['arguments'];  // arguments is a keyword
+    if (questionDotToken)
+      throw new UnimplementedError(node, 'The ?. operator is not supported');
+    // Resolve function type with the resolved signature of call expression,
+    // required for inferring the type arguments when calling generic functions.
+    const callee = this.parseExpression(expression);
+    if (isFunction(this.typeChecker.getTypeAtLocation(expression))) {
+      const signature = this.typeChecker.getResolvedSignature(node);
+      if (signature) {
+        const {name, templateArguments} = this.parseSignatureType(signature, node);
+        Object.assign(callee.type, {name, templateArguments});
+      }
+    }
+    return new syntax.CallExpression(this.parseNodeType(node),
+                                     callee,
+                                     this.parseArguments(node, args));
+  }
+
+  parseArguments(node: ts.CallLikeExpression,
+                 args?: ts.NodeArray<ts.Expression>): syntax.CallArguments {
     if (!args)
       return new syntax.CallArguments([], []);
     const signature = this.typeChecker.getResolvedSignature(node);
@@ -534,15 +537,6 @@ export default class Parser {
       throw new UnimplementedError(node, 'Can not get resolved signature');
     return new syntax.CallArguments(args.map(this.parseExpression.bind(this)),
                                     this.parseSignatureParameters(signature.parameters, node));
-  }
-
-  parseSignatureParameters(parameters: readonly ts.Symbol[], location: ts.Node): syntax.Type[] {
-    return parameters.map((parameter) => {
-      // Get the modifiers from the original declaration.
-      const modifiers = this.getTypeModifiers(parameter.valueDeclaration);
-      // Inference the type using the symbol and call site.
-      return this.parseSymbolType(parameter, location, modifiers);
-    });
   }
 
   /**
@@ -633,6 +627,9 @@ export default class Parser {
     // Check class.
     if (isClass(type))
       return this.parseClassType(type, location, modifiers);
+    // Check interface.
+    if (isInterface(type))
+      return this.parseInterfaceType(type, location, modifiers);
     // Check function.
     if (isFunction(type)) {
       if (!location)
@@ -686,9 +683,23 @@ export default class Parser {
   }
 
   /**
+   * Parse the types of signature parameters at the location.
+   */
+  parseSignatureParameters(parameters: readonly ts.Symbol[], location: ts.Node): syntax.Type[] {
+    return parameters.map((parameter) => {
+      // Get the modifiers from the original declaration.
+      const modifiers = this.getTypeModifiers(parameter.valueDeclaration);
+      // Inference the type using the symbol and call site.
+      return this.parseSymbolType(parameter, location, modifiers);
+    });
+  }
+
+  /**
    * Parse the class type.
    */
-  parseClassType(type: ts.GenericType, location?: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
+  parseClassType(type: ts.GenericType,
+                 location?: ts.Node,
+                 modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
     // Parse base classes.
     const base = type.getBaseTypes()?.find(isClass);
@@ -698,6 +709,22 @@ export default class Parser {
       cppType.types = type.typeParameters.map(p => this.parseType(p, location));
     cppType.templateArguments = type.typeArguments?.map(a => this.parseType(a, location));
     return cppType;
+  }
+
+  /**
+   * Parse the interface type.
+   */
+  parseInterfaceType(type: ts.InterfaceType,
+                     location?: ts.Node,
+                     modifiers?: syntax.TypeModifier[]): syntax.InterfaceType {
+    if (!location)
+      throw new Error('Can not parse interface type without location');
+    const cppType = new syntax.InterfaceType(type.symbol.name, modifiers);
+    cppType.properties = new Map<string, syntax.Type>(type.getProperties().map(p => {
+      const type = this.parseSymbolType(p, location);
+      return [ p.name, type ];
+    }));
+    return this.interfaceRegistry.register(cppType);
   }
 
   /**

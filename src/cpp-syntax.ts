@@ -378,13 +378,13 @@ export class PropertyAccessExpression extends Expression {
     const {type} = this.expression;
     type.addFeatures(ctx);
     let dot: string;
-    if (type.isObject()) {
+    if (type.category == 'super') {
+      dot = '';
+    } else if (type.isObject()) {
       if (this.type.isStatic)
         dot = '::';
       else
         dot = '->';
-    } else if (type.category == 'super') {
-      dot = '';
     } else {
       dot = '.';
     }

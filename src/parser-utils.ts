@@ -134,6 +134,15 @@ export function isClass(type: ts.Type): type is ts.GenericType {
 }
 
 /**
+ * Return whether the type is a interface.
+ */
+export function isInterface(type: ts.Type): type is ts.InterfaceType {
+  if (!(type.flags & ts.TypeFlags.Object))
+    return false;
+  return ((type as ts.ObjectType).objectFlags & (ts.ObjectFlags.Interface)) != 0;
+}
+
+/**
  * Helper to get all the child nodes.
  */
 export function filterNode(node?: ts.Node,

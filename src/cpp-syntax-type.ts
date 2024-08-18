@@ -41,6 +41,10 @@ export class PrintContext {
    */
   features = new Set<Feature>();
   /**
+   * The generated interfaces when printing.
+   */
+  interfaces = new Set<string>();
+  /**
    * Whether the node should put padding in the beginning.
    * TODO(zcbenz): This was introduced to handle the formatting of if statement,
    * consider using a better approach.
@@ -73,11 +77,15 @@ export class PrintContext {
 
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'class' |
-                           'external' | 'super' | 'template' | 'any';
+                           'interface' | 'external' | 'super' | 'template' |
+                           'any';
 export type TypeModifier = 'variadic' | 'optional' | 'property' | 'static' |
                            'external' | 'element' | 'persistent' |
                            'not-function';
 
+/**
+ * Representing a C++ type.
+ */
 export class Type {
   name: string;
   category: TypeCategory;
@@ -131,6 +139,8 @@ export class Type {
   }
 
   print(ctx: PrintContext): string {
+    if (this.category == 'interface')
+      ctx.interfaces.add(this.name);
     return printTypeNameForDeclaration(this);
   }
 
@@ -139,7 +149,9 @@ export class Type {
    *
    * Modifiers static/property/external/element/persistent are ignored.
    */
-  equal(other: Type): boolean {
+  equal(other?: Type): boolean {
+    if (!other)
+      return false;
     if (this === other)
       return true;
     if (this.name != other.name ||
@@ -279,7 +291,9 @@ export class Type {
   isObject() {
     return this.category == 'array' ||
            this.category == 'functor' ||
-           this.category == 'class';
+           this.category == 'class' ||
+           this.category == 'interface' ||
+           this.category == 'super';
   }
 
   /**
@@ -318,5 +332,48 @@ export class Type {
   isCppgcMember() {
     return (this.isObject() || this.category == 'template') &&
            (this.isProperty || this.isElement);
+  }
+}
+
+/**
+ * Representing the type of interface and object literals.
+ */
+export class InterfaceType extends Type {
+  properties = new Map<string, Type>;
+
+  constructor(name: string, modifiers?: TypeModifier[]) {
+    super(name, 'interface', modifiers);
+    this.namespace = 'compilets::generated';
+  }
+
+  equal(other?: InterfaceType) {
+    if (!other)
+      return false;
+    if (this === other)
+      return true;
+    if (this.properties.size != other.properties.size)
+      return false;
+    for (const [name, type] of this.properties) {
+      if (!type.equal(other.properties.get(name)))
+        return false;
+    }
+    return true;
+  }
+}
+
+/**
+ * Stores all interfaces and object literals found in the TypeScript, and make
+ * sure same types return same names.
+ */
+export class InterfaceRegistry {
+  types: InterfaceType[] = [];
+
+  register(type: InterfaceType): InterfaceType {
+    const existing = this.types.find(t => t.equal(type));
+    if (existing)
+      return existing;
+    const len = this.types.push(type);
+    type.name = `Interface${len}`;
+    return type;
   }
 }
