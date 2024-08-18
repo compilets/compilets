@@ -72,7 +72,7 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
     return result;
   }
   // Print class name and inheritance.
-  const base = decl.type.base ? printTypeName(decl.type.base) : 'compilets::Object';
+  const base = decl.type.base ? printTypeName(decl.type.base, ctx) : 'compilets::Object';
   let result = `${ctx.prefix}class ${decl.name} : public ${base} {\n`;
   if (templateDeclaration)
     result = ctx.prefix + templateDeclaration + '\n' + result;
@@ -134,7 +134,7 @@ export function printExpressionValue(expr: Expression, ctx: PrintContext) {
 export function printTemplateArguments(args?: Type[]): string {
   if (!args || args.length == 0)
     return '';
-  return `<${args.map(printTypeName).join(', ')}>`;
+  return `<${args.map(a => printTypeName(a)).join(', ')}>`;
 }
 
 /**
@@ -152,7 +152,7 @@ export function printTemplateDeclaration(type: Type): string | undefined {
  *
  * It is also used for class inheritance.
  */
-export function printTypeName(type: Type): string {
+export function printTypeName(type: Type, ctx?: PrintContext): string {
   if (type.category == 'function') {
     throw new Error('Raw function type should never be printed out');
   }
@@ -187,7 +187,7 @@ export function printTypeName(type: Type): string {
     name += printTemplateArguments(type.templateArguments);
   }
   // Add namespace.
-  if (type.namespace) {
+  if (type.namespace && !(ctx?.namespace == type.namespace)) {
     name = `${type.namespace}::${name}`;
   }
   // Add optional when needed.
@@ -200,7 +200,7 @@ export function printTypeName(type: Type): string {
 /**
  * Print the type name used for declaration of values.
  */
-export function printTypeNameForDeclaration(type: Type): string {
+export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): string {
   // Template's type name is alway wrapped with type traits.
   if (type.category == 'template') {
     if (type.isCppgcMember()) {
@@ -222,7 +222,7 @@ export function printTypeNameForDeclaration(type: Type): string {
     if (type.category == 'array')
       name = `compilets::Array<${printTypeNameForDeclaration(type.getElementType())}>`;
     else
-      name = printTypeName(type);
+      name = printTypeName(type, ctx);
     // Use smart pointer or raw pointer.
     if (type.isPersistent)
       return `cppgc::Persistent<${name}>`;
@@ -239,7 +239,7 @@ export function printTypeNameForDeclaration(type: Type): string {
     return `compilets::Union<${types.join(', ')}>`;
   }
   // Other types are the same with their formal C++ type name.
-  return printTypeName(type);
+  return printTypeName(type, ctx);
 }
 
 /**

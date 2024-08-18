@@ -58,11 +58,8 @@ export default class CppFile {
       result += headers + '\n';
     if (forwardDeclarations)
       result += forwardDeclarations + '\n\n';
-    if (interfaces) {
-      result += 'namespace compilets::generated {\n\n';
+    if (interfaces)
       result += interfaces;
-      result += '\n\n}  // namespace compilets::generated'
-    }
     if (interfaces && declarations)
       result += '\n\n';
     if (declarations)
@@ -106,10 +103,17 @@ export default class CppFile {
   private printInterfaces(ctx: syntax.PrintContext): string | undefined {
     if (ctx.interfaces.size == 0)
       return;
+    // Collect used interfaces.
     const interfaces: syntax.InterfaceType[] = [];
     for (const name of ctx.interfaces)
       interfaces.push(this.interfaceRegistry.get(name));
-    return interfaces.map(i => i.printDeclaration(ctx)).join('\n\n');
+    // Print them in a namespace.
+    ctx.namespace = 'compilets::generated';
+    let result = 'namespace compilets::generated {\n\n';
+    result += interfaces.map(i => i.printDeclaration(ctx)).join('\n\n');
+    result += '\n\n}  // namespace compilets::generated'
+    ctx.namespace = undefined;
+    return result;
   }
 
   /**

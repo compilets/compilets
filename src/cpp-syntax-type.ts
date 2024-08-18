@@ -45,6 +45,10 @@ export class PrintContext {
    */
   indent: number;
   /**
+   * Current namespace.
+   */
+  namespace: string | undefined;
+  /**
    * The depth of indentation.
    */
   level = 0;
@@ -153,7 +157,7 @@ export class Type {
   print(ctx: PrintContext): string {
     if (this.category == 'interface')
       ctx.interfaces.add(this.name);
-    return printTypeNameForDeclaration(this);
+    return printTypeNameForDeclaration(this, ctx);
   }
 
   /**
@@ -274,6 +278,8 @@ export class Type {
   addFeatures(ctx: PrintContext) {
     if (this.category == 'string') {
       ctx.features.add('string');
+    } else if (this.category == 'functor') {
+      ctx.features.add('function');
     } else if (this.category == 'union') {
       ctx.features.add('union');
     } else if (this.category == 'array') {

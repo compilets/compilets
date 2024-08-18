@@ -1,3 +1,4 @@
+#include "runtime/function.h"
 #include "runtime/object.h"
 
 namespace compilets::generated {
@@ -7,7 +8,7 @@ struct Interface1 : public compilets::Object {
 };
 
 struct Interface2 : public compilets::Object {
-  cppgc::Member<compilets::generated::Interface1> i;
+  cppgc::Member<Interface1> i;
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceMember(visitor, i);
