@@ -58,8 +58,11 @@ export default class CppFile {
       result += headers + '\n';
     if (forwardDeclarations)
       result += forwardDeclarations + '\n\n';
-    if (interfaces)
+    if (interfaces) {
+      result += 'namespace compilets::generated {\n\n';
       result += interfaces;
+      result += '\n\n}  // namespace compilets::generated'
+    }
     if (interfaces && declarations)
       result += '\n\n';
     if (declarations)

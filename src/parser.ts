@@ -669,7 +669,8 @@ export default class Parser {
     if (declaration) {
       if (ts.isFunctionExpression(declaration) ||
           ts.isArrowFunction(declaration) ||
-          ts.isFunctionTypeNode(declaration)) {
+          ts.isFunctionTypeNode(declaration) ||
+          ts.isMethodSignature(declaration)) {
         category = 'functor';
       } else {
         category = 'function';
