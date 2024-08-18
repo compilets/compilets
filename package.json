@@ -27,8 +27,7 @@
     "@types/mocha": "10.0.7",
     "@types/node": "20.12.8",
     "mocha": "10.7.3",
-    "tsx": "4.16.2",
-    "yargs": "17.7.2"
+    "tsx": "4.16.2"
   },
   "dependencies": {
     "@compilets/unzip-url": "1.0.3",
