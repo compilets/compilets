@@ -217,7 +217,7 @@ export default class Parser {
           throw new UnimplementedError(name, 'Only support accessing properties of class');
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
-                                                   (name as ts.Identifier).text);
+                                                   name.text);
       }
       case ts.SyntaxKind.ElementAccessExpression: {
         // arr[0]
@@ -291,7 +291,7 @@ export default class Parser {
           const func = ts.findAncestor(node.parent, isFunctionLikeNode);
           if (!func)
             throw new UnsupportedError(node, 'Can not find the function return type of return statement');
-          returnType = this.parseFunctionReturnType(func);
+          returnType = (this.parseNodeType(func) as syntax.FunctionType).returnType;
         }
         return new syntax.ReturnStatement(expression ? this.parseExpression(expression) : undefined,
                                           returnType);
@@ -354,9 +354,8 @@ export default class Parser {
       throw new UnimplementedError(node, 'Local function declaration is not supported');
     const {body, name, parameters} = node;
     this.forbidClosure(node);
-    return new syntax.FunctionDeclaration(this.parseNodeType(node),
+    return new syntax.FunctionDeclaration(this.parseNodeType(node) as syntax.FunctionType,
                                           name.text,
-                                          this.parseFunctionReturnType(node),
                                           this.parseParameters(parameters),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
   }
@@ -386,8 +385,7 @@ export default class Parser {
     }
     const closure = this.getCapturedIdentifiers(node).map(n => this.parseExpression(n))
                                                      .filter(e => e.type.hasObject());
-    return new syntax.FunctionExpression(this.parseNodeType(node),
-                                         this.parseFunctionReturnType(node),
+    return new syntax.FunctionExpression(this.parseNodeType(node) as syntax.FunctionType,
                                          parameters.map(this.parseParameterDeclaration.bind(this)),
                                          closure,
                                          cppBody);
@@ -399,9 +397,9 @@ export default class Parser {
 
   parseParameterDeclaration(node: ts.ParameterDeclaration): syntax.ParameterDeclaration {
     const {name, initializer} = node;
-    if (name.kind != ts.SyntaxKind.Identifier)
+    if (!ts.isIdentifier(name))
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
-    return new syntax.ParameterDeclaration((name as ts.Identifier).text,
+    return new syntax.ParameterDeclaration(name.text,
                                            this.parseNodeType(name),
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
@@ -426,9 +424,9 @@ export default class Parser {
       case ts.SyntaxKind.PropertyDeclaration: {
         // prop: type = xxx;
         const {modifiers, name, initializer} = node as ts.PropertyDeclaration;
-        if (name.kind != ts.SyntaxKind.Identifier)
+        if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as property name');
-        return new syntax.PropertyDeclaration((name as ts.Identifier).text,
+        return new syntax.PropertyDeclaration(name.text,
                                               modifiers?.map(modifierToString) ?? [],
                                               this.parseNodeType(name),
                                               initializer ? this.parseExpression(initializer) : undefined);
@@ -436,7 +434,7 @@ export default class Parser {
       case ts.SyntaxKind.MethodDeclaration: {
         // method() { xxx }
         const {modifiers, name, body, parameters, questionToken, typeParameters} = node as ts.MethodDeclaration;
-        if (name.kind != ts.SyntaxKind.Identifier)
+        if (!ts.isIdentifier(name))
           throw new UnsupportedError(name, 'Only identifier can be used as method name');
         if (questionToken)
           throw new UnsupportedError(name, 'Can not use question token in method');
@@ -454,9 +452,9 @@ export default class Parser {
             !cppModifiers.includes('destructor')) {
           cppModifiers.push('virtual');
         }
-        return new syntax.MethodDeclaration((name as ts.Identifier).text,
+        return new syntax.MethodDeclaration(this.parseNodeType(node) as syntax.FunctionType,
+                                            name.text,
                                             cppModifiers,
-                                            this.parseFunctionReturnType(node),
                                             this.parseParameters(parameters),
                                             body ? this.parseStatement(body) as syntax.Block : undefined);
       }
@@ -636,15 +634,6 @@ export default class Parser {
       return this.parseSignatureType(signature, location, modifiers);
     }
     throw new Error(`Unsupported type "${name}"`);
-  }
-
-  /**
-   * Parse the type of function node's return value.
-   */
-  parseFunctionReturnType(node: ts.Node) {
-    const type = this.typeChecker.getTypeAtLocation(node);
-    const signature = type.getCallSignatures()[0];
-    return this.parseTypeWithNode(signature.getReturnType(), node);
   }
 
   /**

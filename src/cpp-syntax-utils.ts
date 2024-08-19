@@ -55,9 +55,12 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
                           `${type.base.name}::Trace(visitor)`)));
   }
   // Create the visitor parameter.
-  const visitor = new ParameterDeclaration('visitor', new Type('cppgc::Visitor*', 'external'));
+  const visitorType = new Type('cppgc::Visitor*', 'external');
+  const visitor = new ParameterDeclaration('visitor', visitorType);
   // Create the method.
-  return new MethodDeclaration('Trace', [ 'public', 'override', 'const' ], new Type('void', 'void'), [ visitor ], body);
+  const returnType = new Type('void', 'void');
+  const methodType = new FunctionType('function', returnType, [ visitorType ]);
+  return new MethodDeclaration(methodType, 'Trace', [ 'public', 'override', 'const' ], [ visitor ], body);
 }
 
 /**

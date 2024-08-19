@@ -1,4 +1,4 @@
-import {PrintContext, Type} from './cpp-syntax-type';
+import {PrintContext, Type, FunctionType} from './cpp-syntax-type';
 import {
   notTriviallyDestructible,
   createTraceMethod,
@@ -246,13 +246,12 @@ export class FunctionExpression extends Expression {
   closure: Expression[];
   body?: Block;
 
-  constructor(type: Type,
-              returnType: Type,
+  constructor(type: FunctionType,
               parameters: ParameterDeclaration[],
               closure: Expression[],
               body?: Block) {
     super(type);
-    this.returnType = returnType;
+    this.returnType = type.returnType;
     this.parameters = parameters;
     this.closure = closure.map(expr => {
       if (expr.type.isObject())
@@ -594,24 +593,24 @@ export class PropertyDeclaration extends ClassElement {
 }
 
 export class MethodDeclaration extends ClassElement {
-  returnType: Type;
+  type: FunctionType;
   parameters: ParameterDeclaration[];
   body?: Block;
 
-  constructor(name: string, modifiers: string[], returnType: Type, parameters: ParameterDeclaration[], body?: Block) {
+  constructor(type: FunctionType, name: string, modifiers: string[], parameters: ParameterDeclaration[], body?: Block) {
     super(name, modifiers);
-    this.returnType = returnType;
+    this.type = type;
     this.parameters = parameters;
     this.body = body;
   }
 
   override print(ctx: PrintContext) {
-    this.returnType.addFeatures(ctx);
+    this.type.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
     let result = ctx.prefix;
     if (this.modifiers.includes('virtual'))
       result += 'virtual ';
-    result += `${this.returnType.print(ctx)} ${this.name}(`;
+    result += `${this.type.returnType.print(ctx)} ${this.name}(`;
     result += ParameterDeclaration.printParameters(ctx, this.parameters);
     result += ') ';
     if (this.modifiers.includes('const'))
@@ -677,28 +676,25 @@ export class ClassDeclaration extends DeclarationStatement {
 }
 
 export class FunctionDeclaration extends DeclarationStatement {
-  type: Type;
-  returnType: Type;
+  type: FunctionType;
   parameters: ParameterDeclaration[];
   body?: Block;
 
-  constructor(type: Type,
+  constructor(type: FunctionType,
               name: string,
-              returnType: Type,
               parameters: ParameterDeclaration[],
               body?: Block) {
     super(name);
     this.type = type;
-    this.returnType = returnType;
     this.parameters = parameters;
     this.body = body;
   }
 
   override print(ctx: PrintContext) {
-    this.returnType.addFeatures(ctx);
+    this.type.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
     const templateDeclaration = printTemplateDeclaration(this.type);
-    const returnType = this.returnType.print(ctx);
+    const returnType = this.type.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     let result = `${returnType} ${this.name}(${parameters})`;
     if (ctx.mode == 'forward') {
