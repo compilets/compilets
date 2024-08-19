@@ -17,11 +17,16 @@ interface FunctionMember {
 
 interface TwoNumber extends NumberMember {
   m: number;
-};
+}
+
+interface ObjectMember {
+  obj: {name: string};
+}
 
 function TestInterface() {
   let hasNumber: NumberMember | undefined;
   let hasObject: InterfaceMember | undefined;
   let hasFunction: FunctionMember | undefined;
   let twoNumber: TwoNumber | undefined;
+  let hasObject: ObjectMember | undefined;
 }

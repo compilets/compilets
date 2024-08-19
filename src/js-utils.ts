@@ -15,6 +15,9 @@ export function createMapFromArray<K, V, A>(source: A[], transform: (element: A)
 /**
  * Clone a map with a transformer for values.
  */
-export function cloneMap<K, V>(source: Map<K, V>, transform: (value: V) => V) {
-  return new Map<K, V>(Array.from(source.entries()).map(([ key, value ]) => [ key, transform(value) ]));
+export function cloneMap<K, V>(source: Map<K, V>, transform?: (value: V) => V) {
+  let entries = Array.from(source.entries());
+  if (transform)
+    entries = entries.map(([ key, value ]) => [ key, transform(value) ]);
+  return new Map<K, V>(entries);
 }

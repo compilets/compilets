@@ -1,4 +1,5 @@
 import * as syntax from './cpp-syntax';
+import {cloneMap} from './js-utils';
 
 interface PrintOptions {
   generationMode: syntax.GenerationMode;
@@ -103,14 +104,26 @@ export default class CppFile {
   private printInterfaces(ctx: syntax.PrintContext): string | undefined {
     if (ctx.interfaces.size == 0)
       return;
-    // Collect used interfaces.
-    const interfaces: syntax.InterfaceType[] = [];
-    for (const name of ctx.interfaces)
-      interfaces.push(this.interfaceRegistry.get(name));
-    // Print them in a namespace.
+    // Put results in a namespace.
     ctx.namespace = 'compilets::generated';
     let result = 'namespace compilets::generated {\n\n';
-    result += interfaces.map(i => i.printDeclaration(ctx)).join('\n\n');
+    // As interfaces are being generated while printing, keep printing until
+    // there is no more generated.
+    const declarations: string[] = [];
+    const printed = new Set<string>();
+    while (ctx.interfaces.size > printed.size) {
+      for (const name of ctx.interfaces.difference(printed)) {
+        const type = this.interfaceRegistry.get(name);
+        declarations.push(type.printDeclaration(ctx));
+        printed.add(name);
+      }
+    }
+    // Add forward declarations to result.
+    result += Array.from(printed).map(name => `struct ${name};`).join('\n');
+    // Add declarations to result.
+    result += '\n\n';
+    result += declarations.join('\n\n');
+    // End of namespace.
     result += '\n\n}  // namespace compilets::generated'
     ctx.namespace = undefined;
     return result;

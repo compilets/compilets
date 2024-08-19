@@ -623,9 +623,6 @@ export default class Parser {
     // Check class.
     if (isClass(type))
       return this.parseClassType(type, location, modifiers);
-    // Check interface.
-    if (isInterface(type))
-      return this.parseInterfaceType(type, location, modifiers);
     // Check function.
     if (isFunction(type)) {
       if (!location)
@@ -633,6 +630,9 @@ export default class Parser {
       const signature = type.getCallSignatures()[0];
       return this.parseSignatureType(signature, location, modifiers);
     }
+    // Check interface.
+    if (isInterface(type))
+      return this.parseInterfaceType(type, location, modifiers);
     throw new Error(`Unsupported type "${name}"`);
   }
 
