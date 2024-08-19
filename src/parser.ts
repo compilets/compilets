@@ -722,6 +722,8 @@ export default class Parser {
                      modifiers: syntax.TypeModifier[] = []): syntax.InterfaceType {
     if (!location)
       throw new Error('Can not parse interface type without location');
+    if (type.getProperties().length == 0)
+      throw new Error('Empty interface means any and is not supported');
     const cppType = new syntax.InterfaceType(type.symbol.name, modifiers);
     cppType.properties = createMapFromArray(type.getProperties(), (p) => {
       const type = this.parseSymbolType(p, location, [ 'property', ...modifiers ]);

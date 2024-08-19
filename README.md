@@ -247,6 +247,31 @@ in C++ depending on the context (for example `cppgc::Member<Object>` vs
 `Object*`), and since we do not know the actual type of generics, we rely on
 C++ type traits to ensure correct type is deduced.
 
+### Interface
+
+The `interface` in TypeScript is not really the interfaces you would find in
+other languages: you can create object literals without types and the compiler
+decides whether the object satisfies the interface. The closest thing to it in
+C++ is concepts, but we can not declare variables with concepts.
+
+To support the `interface` keyword as much as we can while still making
+generated code static (i.e. member names and types are known at compile time),
+following strategy is taken:
+
+* An `interface` is translated to C++ `struct`;
+* Creating an object literal implicitly creates an interface for its type;
+* Interfaces with same properties become the same interface;
+* An object is only considered satisfying the interface when it is declared to
+  have the type of the interface.
+* Inheritance relationship between interfaces is not translated, if an interface
+  extends another, it simply gets all the base type's properties.
+
+Many cases do not compile under this strategy, for example:
+
+* An object with excess properties can not satisfy an interface with less
+  properties.
+* An instance of class does not satisfy any interface.
+
 ## Developement
 
 The documentations of Oilpan GC (cppgc) can be found at:

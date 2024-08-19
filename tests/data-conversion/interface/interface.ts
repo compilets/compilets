@@ -15,8 +15,13 @@ interface FunctionMember {
   func: (n: NumberMember) => number;
 }
 
+interface TwoNumber extends NumberMember {
+  m: number;
+};
+
 function TestInterface() {
   let hasNumber: NumberMember | undefined;
   let hasObject: InterfaceMember | undefined;
   let hasFunction: FunctionMember | undefined;
+  let twoNumber: TwoNumber | undefined;
 }

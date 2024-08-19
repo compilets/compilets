@@ -30,10 +30,17 @@ struct Interface3 : public compilets::Object {
   virtual ~Interface3() = default;
 };
 
+struct Interface4 : public compilets::Object {
+  double m;
+
+  double n;
+};
+
 }  // namespace compilets::generated
 
 void TestInterface() {
   compilets::generated::Interface1* hasNumber = nullptr;
   compilets::generated::Interface2* hasObject = nullptr;
   compilets::generated::Interface3* hasFunction = nullptr;
+  compilets::generated::Interface4* twoNumber = nullptr;
 }
