@@ -8,6 +8,7 @@ import * as syntax from './cpp-syntax';
 import {
   UnimplementedError,
   UnsupportedError,
+  rethrowError,
   operatorToString,
   modifierToString,
   FunctionLikeNode,
@@ -566,31 +567,25 @@ export default class Parser {
   }
 
   /**
-   * Wrap parseType with detailed error information.
-   */
-  parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
-    try {
-      return this.parseType(type, node, modifiers);
-    } catch (error: unknown) {
-      if (error instanceof Error)
-        throw new UnimplementedError(node, error.message);
-      else
-        throw error;
-    }
-  }
-
-  /**
    * Parse the type of symbol at location.
    */
   parseSymbolType(symbol: ts.Symbol, location: ts.Node, modifiers?: syntax.TypeModifier[]) {
     try {
       const type = this.typeChecker.getTypeOfSymbolAtLocation(symbol, location);
       return this.parseType(type, location, modifiers);
-    } catch (error: unknown) {
-      if (error instanceof Error)
-        throw new UnimplementedError(location, error.message);
-      else
-        throw error;
+    } catch (error) {
+      rethrowError(location, error);
+    }
+  }
+
+  /**
+   * Wrap parseType with detailed error information.
+   */
+  parseTypeWithNode(type: ts.Type, node: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
+    try {
+      return this.parseType(type, node, modifiers);
+    } catch (error) {
+      rethrowError(node, error);
     }
   }
 

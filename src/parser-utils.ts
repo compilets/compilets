@@ -20,6 +20,20 @@ export class UnsupportedError extends Error {
 }
 
 /**
+ * Rethrow the error as a user-friendly one.
+ */
+export function rethrowError(location: ts.Node, error: unknown): never {
+  if ((error instanceof UnimplementedError) ||
+      (error instanceof UnsupportedError)) {
+    throw error;
+  } else if (error instanceof Error) {
+    throw new UnimplementedError(location, error.message);
+  } else {
+    throw new UnimplementedError(location, String(error));
+  }
+}
+
+/**
  * Convert JS operator to C++.
  */
 export function operatorToString(operator: ts.SyntaxKind) {
