@@ -498,6 +498,8 @@ export default class Parser {
   parseObjectLiteral(node: ts.ObjectLiteralExpression): syntax.ObjectLiteral {
     const initializers = new Map<string, syntax.Expression>();
     for (const element of node.properties) {
+      if (ts.isMethodDeclaration(element))
+        throw new UnsupportedError(element, 'Method declaration in object literal is not supported');
       if (!ts.isPropertyAssignment(element))
         throw new UnsupportedError(element, 'Unsupported property type');
       if (!ts.isIdentifier(element.name))
@@ -950,7 +952,7 @@ export default class Parser {
       isVariable = (node: ts.Node) => ts.isIdentifier(node) || node.kind == ts.SyntaxKind.ThisKeyword;
     }
     // Iterate through all child nodes of function body.
-    for (const node of filterNode(func.body, isVariable)) {
+    for (const node of filterNode(func.body, isVariable, isFunctionLikeNode)) {
       // Keep references to "this".
       if (node.kind == ts.SyntaxKind.ThisKeyword) {
         closure.push(node as ts.ThisExpression);

@@ -77,7 +77,11 @@ struct Interface5 : public compilets::Object {
 void TestInterface() {
   compilets::generated::Interface1* hasNumber = compilets::MakeObject<compilets::generated::Interface1>(1);
   compilets::generated::Interface2* hasObject = compilets::MakeObject<compilets::generated::Interface2>(hasNumber);
-  compilets::generated::Interface3* hasFunction = nullptr;
+  compilets::generated::Interface3* hasFunction = compilets::MakeObject<compilets::generated::Interface3>(compilets::MakeFunction<compilets::generated::Interface1*()>([=]() -> compilets::generated::Interface1* {
+    return hasNumber;
+  }, hasNumber), compilets::MakeFunction<double(compilets::generated::Interface1*)>([=](compilets::generated::Interface1* m) -> double {
+    return m->n;
+  }));
   compilets::generated::Interface4* twoNumber = compilets::MakeObject<compilets::generated::Interface4>(89, 64);
   compilets::generated::Interface6* hasLiteral = compilets::MakeObject<compilets::generated::Interface6>(compilets::MakeObject<compilets::generated::Interface5>(u"tiananmen"));
 }
