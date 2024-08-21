@@ -157,7 +157,7 @@ export function printTemplateDeclaration(type: Type): string | undefined {
  * It is also used for class inheritance.
  */
 export function printTypeName(type: Type, ctx?: PrintContext): string {
-  if (type.category == 'function') {
+  if (type.category == 'function' || type.category == 'method') {
     throw new Error('Raw function type should never be printed out');
   }
   // Add wrapper for array.
@@ -300,6 +300,9 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     expr = castOptional(expr, target, source);
     source = expr.type;
   }
+  // We don't support using methods as functors yet.
+  if (source.category == 'method' && target.category == 'functor')
+    throw new Error('Can not use method as function');
   // Convert function pointer to functor object.
   if (source.category == 'function' && target.category == 'functor') {
     return new CustomExpression(target, (ctx) => {

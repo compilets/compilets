@@ -16,13 +16,14 @@ class NonSimple {
     NonSimple.count++;
   }
 
-  protected method() {
-    return true;
+  public method() {
+    return this.prop;
   }
 }
 
 function TestClass() {
   const s = new NonSimple(false);
+  if (NonSimple.count != 1)
+    return;
   const r = s.method();
-  NonSimple.count == 1;
 }

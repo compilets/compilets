@@ -1,3 +1,4 @@
+#include "runtime/function.h"
 #include "runtime/object.h"
 #include "runtime/string.h"
 
@@ -23,12 +24,11 @@ class NonSimple : public compilets::Object {
     NonSimple::count++;
   }
 
-  virtual ~NonSimple() = default;
-
- protected:
-  virtual bool method() {
-    return true;
+  virtual compilets::String method() {
+    return this->prop;
   }
+
+  virtual ~NonSimple() = default;
 
  private:
   compilets::String prop = u"For a breath I tarry.";
@@ -38,6 +38,6 @@ double NonSimple::count = 0;
 
 void TestClass() {
   NonSimple* s = compilets::MakeObject<NonSimple>(false);
-  bool r = s->method();
-  NonSimple::count == 1;
+  if (NonSimple::count != 1) return;
+  compilets::String r = s->method();
 }

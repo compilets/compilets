@@ -459,6 +459,8 @@ export class VariableDeclaration extends Declaration {
     super();
     this.identifier = identifier;
     this.type = type;
+    if (type.category == 'method')
+      throw new Error('Can not store method as function object');
     if (initializer) {
       // Make sure initializer is casted to the variable type.
       this.initializer = castExpression(initializer, type);
