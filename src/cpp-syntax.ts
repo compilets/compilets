@@ -1,4 +1,9 @@
-import {PrintContext, Type, FunctionType} from './cpp-syntax-type';
+import {
+  PrintContext,
+  Type,
+  FunctionType,
+  InterfaceType,
+} from './cpp-syntax-type';
 import {
   notTriviallyDestructible,
   createTraceMethod,
@@ -49,6 +54,12 @@ export class NumericLiteral extends RawExpression {
 export class StringLiteral extends RawExpression {
   constructor(text: string) {
     super(Type.createStringType(), 'u' + JSON.stringify(text));
+  }
+}
+
+export class NullKeyword extends RawExpression {
+  constructor() {
+    super(new Type('null', 'null'), 'nullptr');
   }
 }
 
@@ -331,6 +342,14 @@ export class NewExpression extends Expression {
   }
 }
 
+export class ObjectLiteral extends NewExpression {
+  constructor(type: InterfaceType, initializers: Map<string, Expression>) {
+    const args = Array.from(type.properties.keys(), (name) => initializers.get(name) ?? new NullKeyword());
+    const parameters = Array.from(type.properties.values());
+    super(type, new CallArguments(args, parameters));
+  }
+}
+
 // Converts the expression to string.
 export class ToStringExpression extends Expression {
   expression: Expression;
@@ -445,7 +464,7 @@ export class VariableDeclaration extends Declaration {
       this.initializer = castExpression(initializer, type);
     } else if (type.isObject()) {
       // Make sure pointers are initialized to nullptr.
-      this.initializer = new RawExpression(new Type('nullptr', 'null'), 'nullptr');
+      this.initializer = new NullKeyword();
     }
   }
 
@@ -531,6 +550,7 @@ export class ConstructorDeclaration extends ClassElement {
   parameters: ParameterDeclaration[];
   body?: Block;
   baseCall?: CallArguments;
+  initializerList?: string[];
 
   constructor(name: string, parameters: ParameterDeclaration[], body?: Block, baseCall?: CallArguments) {
     super(name);
@@ -540,8 +560,14 @@ export class ConstructorDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    let body: string;
+    if (this.body)
+      body = this.body?.print(ctx);
+    else if (this.initializerList)
+      body = `: ${this.initializerList.join(', ')} {}`;
+    else
+      body = '= default;';
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
-    const body = this.body?.print(ctx) ?? '= default;';
     const baseType = this.classDeclaration?.type.base?.name;
     if (!baseType && this.baseCall)
       throw new Error(`There is no base class for "${this.name}" but super is called`);

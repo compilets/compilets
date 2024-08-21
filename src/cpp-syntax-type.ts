@@ -1,7 +1,9 @@
 import {
   ClassElement,
   PropertyDeclaration,
+  ConstructorDeclaration,
   DestructorDeclaration,
+  ParameterDeclaration,
 } from './cpp-syntax';
 import {
   notTriviallyDestructible,
@@ -467,6 +469,7 @@ export class InterfaceType extends Type {
    */
   printDeclaration(ctx: PrintContext): string {
     const members: ClassElement[] = [];
+    members.push(this.createConstructor());
     for (const [name, type] of this.properties) {
       members.push(new PropertyDeclaration(name, [ 'abstract' ], type));
     }
@@ -484,6 +487,27 @@ export class InterfaceType extends Type {
       result += '\n';
     result += ctx.padding + '};';
     return result;
+  }
+
+  /**
+   * Create a constructor for the interface.
+   */
+  private createConstructor(): ClassElement {
+    const initializerList: string[] = [];
+    const parameters: ParameterDeclaration[] = [];
+    for (const [name, type] of this.properties) {
+      if (type.category == 'string' ||
+          type.category == 'union' ||
+          type.isStdOptional()) {
+        initializerList.push(`${name}(std::move(${name}))`);
+      } else {
+        initializerList.push(`${name}(${name})`);
+      }
+      parameters.push(new ParameterDeclaration(name, type.noProperty()));
+    }
+    const decl = new ConstructorDeclaration(this.name, parameters);
+    decl.initializerList = initializerList;
+    return decl;
   }
 }
 

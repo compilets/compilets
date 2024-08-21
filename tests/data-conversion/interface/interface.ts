@@ -24,9 +24,9 @@ interface ObjectMember {
 }
 
 function TestInterface() {
-  let hasNumber: NumberMember | undefined;
-  let hasObject: InterfaceMember | undefined;
+  let hasNumber = {n: 1};
+  let hasObject = {i: hasNumber};
   let hasFunction: FunctionMember | undefined;
-  let twoNumber: TwoNumber | undefined;
-  let hasObject: ObjectMember | undefined;
+  let twoNumber = {m: 89, n: 64};
+  let hasLiteral = {obj: {name: 'tiananmen'}};
 }

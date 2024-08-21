@@ -103,8 +103,7 @@ export default class Parser {
         return new syntax.RawExpression(this.parseNodeType(node),
                                         node.getText());
       case ts.SyntaxKind.NullKeyword:
-        return new syntax.RawExpression(new syntax.Type('null', 'null'),
-                                        'nullptr');
+        return new syntax.NullKeyword();
       case ts.SyntaxKind.SuperKeyword:
         return new syntax.BaseResolutionExpression(this.parseNodeType(node));
       case ts.SyntaxKind.NumericLiteral:
@@ -204,6 +203,10 @@ export default class Parser {
           throw new UnsupportedError(node, 'The new operator only accepts class name');
         return new syntax.NewExpression(this.parseNodeType(node),
                                         this.parseArguments(newExpression, args));
+      }
+      case ts.SyntaxKind.ObjectLiteralExpression: {
+        // {prop: value}
+        return this.parseObjectLiteral(node as ts.ObjectLiteralExpression);
       }
       case ts.SyntaxKind.PropertyAccessExpression: {
         // obj.prop
@@ -490,6 +493,19 @@ export default class Parser {
                                              this.parseParameters(parameters),
                                              body ? this.parseStatement(body) as syntax.Block : undefined,
                                              baseCall);
+  }
+
+  parseObjectLiteral(node: ts.ObjectLiteralExpression): syntax.ObjectLiteral {
+    const initializers = new Map<string, syntax.Expression>();
+    for (const element of node.properties) {
+      if (!ts.isPropertyAssignment(element))
+        throw new UnsupportedError(element, 'Unsupported property type');
+      if (!ts.isIdentifier(element.name))
+        throw new UnsupportedError(element, 'Unsupported property name');
+      initializers.set(element.name.text, this.parseExpression(element.initializer));
+    }
+    return new syntax.ObjectLiteral(this.parseNodeType(node) as syntax.InterfaceType,
+                                    initializers);
   }
 
   parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
