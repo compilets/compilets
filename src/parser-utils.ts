@@ -163,7 +163,7 @@ export function isInterface(type: ts.Type): type is ts.InterfaceType {
  */
 export function filterNode(node?: ts.Node,
                            predicate?: (node: ts.Node) => boolean,
-                           isLeaf: (node: ts.Node) => boolean = () => false) {
+                           isLeaf: (node: ts.Node) => boolean = isFunctionLikeNode) {
   const results: ts.Node[] = [];
   if (!node)
     return results;

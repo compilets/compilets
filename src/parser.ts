@@ -215,9 +215,13 @@ export default class Parser {
           throw new UnimplementedError(node, 'The ?. operator is not supported');
         if (!ts.isIdentifier(name))
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
+        if (this.isSymbolClass(expression) && name.text == 'prototype')
+          throw new UnsupportedError(node, 'Can not access prototype of class');
         const obj = this.parseExpression(expression);
         if (!obj.type.isObject() && obj.type.category != 'string')
-          throw new UnimplementedError(name, 'Only support accessing properties of class');
+          throw new UnimplementedError(node, 'Only support accessing properties of objects');
+        if (name.text == '__proto__')
+          throw new UnsupportedError(node, 'Can not access prototype of object');
         return new syntax.PropertyAccessExpression(this.parseNodeType(node),
                                                    obj,
                                                    name.text);
@@ -926,6 +930,19 @@ export default class Parser {
   }
 
   /**
+   * Return whether the symbol of the node is a class declaration.
+   */
+  private isSymbolClass(node: ts.Node): boolean {
+    if (node.kind == ts.SyntaxKind.ThisKeyword ||
+        node.kind == ts.SyntaxKind.SuperKeyword)
+      return false;
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    if (!symbol || !symbol.valueDeclaration)
+      return false;
+    return ts.isClassDeclaration(symbol.valueDeclaration);
+  }
+
+  /**
    * Throws error if the function uses closure.
    */
   private forbidClosure(node: FunctionLikeNode) {
@@ -952,7 +969,7 @@ export default class Parser {
       isVariable = (node: ts.Node) => ts.isIdentifier(node) || node.kind == ts.SyntaxKind.ThisKeyword;
     }
     // Iterate through all child nodes of function body.
-    for (const node of filterNode(func.body, isVariable, isFunctionLikeNode)) {
+    for (const node of filterNode(func.body, isVariable)) {
       // Keep references to "this".
       if (node.kind == ts.SyntaxKind.ThisKeyword) {
         closure.push(node as ts.ThisExpression);
