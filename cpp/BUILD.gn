@@ -22,7 +22,7 @@ source_set("runtime") {
     "runtime/runtime.h",
     "runtime/string.cc",
     "runtime/string.h",
-    "runtime/type_helper.h",
+    "runtime/type_traits.h",
     "runtime/union.h",
   ]
 }

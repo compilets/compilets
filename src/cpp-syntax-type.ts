@@ -27,8 +27,8 @@ export type PrintMode = 'impl' | 'header' | 'forward';
 /**
  * Optional C++ features used in the code.
  */
-export type Feature = 'string' | 'union' | 'array' | 'function' |
-                      'object' | 'runtime' | 'process' | 'console';
+export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
+                      'runtime' | 'type-traits' | 'process' | 'console';
 
 /**
  * Control indentation and other formating options when printing AST to C++.
@@ -123,6 +123,10 @@ export class Type {
     const type = new Type('String', 'string', modifiers);
     type.namespace = 'compilets';
     return type;
+  }
+
+  static createBooleanType(modifiers?: TypeModifier[]) {
+    return new Type('bool', 'primitive', modifiers);
   }
 
   static createNumberType(modifiers?: TypeModifier[]) {
@@ -284,6 +288,9 @@ export class Type {
       ctx.features.add('union');
     } else if (this.category == 'array') {
       ctx.features.add('array');
+    }
+    if (this.isStdOptional()) {
+      ctx.features.add('type-traits');
     }
     if (this.namespace == 'compilets') {
       if (this.category != 'string')

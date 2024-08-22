@@ -1,4 +1,3 @@
-#include "runtime/function.h"
 #include "runtime/object.h"
 #include "runtime/string.h"
 

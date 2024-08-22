@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-#include "runtime/type_helper.h"
+#include "runtime/type_traits.h"
 
 namespace compilets {
 
@@ -67,6 +67,12 @@ bool operator==(const char16_t* left, const String& right);
 bool operator==(const String& left, const char16_t* right);
 std::ostream& operator<<(std::ostream& os, const String& str);
 std::ostream& operator<<(std::ostream& os, const char16_t* str);
+
+// String evaluates true when not empty.
+template<typename T>
+inline bool IsTrue(const String& str) {
+  return str.length > 0;
+}
 
 }  // namespace compilets
 

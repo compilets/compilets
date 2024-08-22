@@ -247,18 +247,6 @@ export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): str
 }
 
 /**
- * Convert expression to if conditions.
- */
-export function ifExpression(expr: Expression): Expression {
-  if (expr.type.category == 'union' && expr.type.isOptional) {
-    return new CustomExpression(new Type('bool', 'primitive'), (ctx) => {
-      return `!std::holds_alternative<std::monostate>(${expr.print(ctx)})`;
-    });
-  }
-  return expr;
-}
-
-/**
  * Convert the expression of source type to target type if necessary.
  */
 export function castExpression(expr: Expression, target: Type, source?: Type): Expression {

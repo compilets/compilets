@@ -12,7 +12,6 @@ import {
   printTemplateArguments,
   printTemplateDeclaration,
   printTypeName,
-  ifExpression,
   castExpression,
   castArguments,
   castOptional,
@@ -182,13 +181,30 @@ export class PrefixUnaryExpression extends Expression {
 
   constructor(type: Type, operand: Expression, operator: string) {
     super(type);
-    this.operand = operator == '!' ? ifExpression(operand) : operand;
+    this.operand = operator == '!' ? new Condition(operand) : operand;
     this.operator = operator;
     this.shouldAddParenthesesForPropertyAccess = true;
   }
 
   override print(ctx: PrintContext) {
     return `${this.operator}${this.operand.print(ctx)}`;
+  }
+}
+
+export class Condition extends Expression {
+  condition: Expression;
+
+  constructor(condition: Expression) {
+    super(Type.createBooleanType());
+    this.condition = condition;
+  }
+
+  override print(ctx: PrintContext) {
+    const {type} = this.condition;
+    if (type.isObject() || (type.category == 'primitive' && !type.isOptional))
+      return this.condition.print(ctx);
+    ctx.features.add('type-traits');
+    return `compilets::IsTrue(${this.condition.print(ctx)})`;
   }
 }
 
@@ -199,7 +215,7 @@ export class ConditionalExpression extends Expression {
 
   constructor(type: Type, condition: Expression, whenTrue: Expression, whenFalse: Expression) {
     super(type);
-    this.condition = ifExpression(condition);
+    this.condition = new Condition(condition);
     this.whenTrue = whenTrue;
     this.whenFalse = whenFalse;
     this.shouldAddParenthesesForPropertyAccess = true;
@@ -832,7 +848,7 @@ export class IfStatement extends Statement {
 
   constructor(expression: Expression, thenStatement: Statement, elseStatement?: Statement) {
     super();
-    this.expression = ifExpression(expression);
+    this.expression = new Condition(expression);
     this.thenStatement = thenStatement;
     this.elseStatement = elseStatement;
   }
@@ -841,6 +857,7 @@ export class IfStatement extends Statement {
     let result = `${ctx.prefix}if (${this.expression.print(ctx)}) ${this.thenStatement.print(ctx.join())}`;
     if (this.elseStatement)
       result += ` else ${this.elseStatement.print(ctx.join())}`;
+    ctx.concatenateNextLine = false;
     return result;
   }
 }
@@ -852,7 +869,7 @@ export class DoStatement extends Statement {
   constructor(statement: Statement, expression: Expression) {
     super();
     this.statement = statement;
-    this.expression = ifExpression(expression);
+    this.expression = new Condition(expression);
   }
 
   override print(ctx: PrintContext) {
@@ -867,7 +884,7 @@ export class WhileStatement extends Statement {
   constructor(statement: Statement, expression: Expression) {
     super();
     this.statement = statement;
-    this.expression = ifExpression(expression);
+    this.expression = new Condition(expression);
   }
 
   override print(ctx: PrintContext) {
@@ -889,7 +906,7 @@ export class ForStatement extends Statement {
     this.statement = statement;
     this.initializer = initializer;
     if (condition)
-      this.condition = ifExpression(condition);
+      this.condition = new Condition(condition);
     this.incrementor = incrementor;
   }
 

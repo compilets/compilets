@@ -97,7 +97,7 @@ export default class Parser {
     switch (node.kind) {
       case ts.SyntaxKind.TrueKeyword:
       case ts.SyntaxKind.FalseKeyword:
-        return new syntax.RawExpression(new syntax.Type('bool', 'primitive'),
+        return new syntax.RawExpression(syntax.Type.createBooleanType(),
                                         node.getText());
       case ts.SyntaxKind.ThisKeyword:
         return new syntax.RawExpression(this.parseNodeType(node),
@@ -632,7 +632,7 @@ export default class Parser {
     if (flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
       return new syntax.Type(name, 'null', modifiers);
     if (flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
-      return new syntax.Type('bool', 'primitive', modifiers);
+      return syntax.Type.createBooleanType(modifiers);
     if (flags & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral))
       return syntax.Type.createNumberType(modifiers);
     if (flags & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral))
@@ -753,7 +753,7 @@ export default class Parser {
     if (union.types.every(t => t.isStringLiteral()))
       return syntax.Type.createStringType(modifiers);
     if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
-      return new syntax.Type('bool', 'primitive', modifiers);
+      return syntax.Type.createBooleanType(modifiers);
     // Iterate all subtypes and add unique ones to cppType.
     let hasNull = false;
     let hasUndefined = false;

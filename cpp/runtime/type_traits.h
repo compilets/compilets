@@ -1,5 +1,5 @@
-#ifndef CPP_TYPE_HELPER_H_
-#define CPP_TYPE_HELPER_H_
+#ifndef CPP_RUNTIME_TYPE_TRAITS_H_
+#define CPP_RUNTIME_TYPE_TRAITS_H_
 
 #include <optional>
 #include <string>
@@ -36,6 +36,30 @@ inline T GetOptionalValue(T value) {
 template<typename T>
 inline T GetOptionalValue(std::optional<T> value) {
   return std::move(*value);
+}
+
+// Determine whether an value should evaluate to true in conditions.
+template<typename T>
+inline bool IsTrue(const T& value) {
+  return true;
+}
+
+template<typename T>
+inline bool IsTrue(T* value) {
+  return value != nullptr;
+}
+
+inline bool IsTrue(bool value) {
+  return value;
+}
+
+inline bool IsTrue(double value) {
+  return value != 0;
+}
+
+template<typename T>
+inline bool IsTrue(const std::optional<T>& value) {
+  return value && IsTrue(*value);
 }
 
 // Receive the value type for T.
@@ -80,6 +104,6 @@ struct IsCppgcMember : std::false_type {};
 template<typename T>
 struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
 
-}  // namespace co
+}  // namespace compilets
 
-#endif  // CPP_TYPE_HELPER_H_
+#endif  // CPP_RUNTIME_TYPE_TRAITS_H_

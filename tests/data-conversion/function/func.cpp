@@ -12,7 +12,7 @@ double Simple(double i) {
 }
 
 double OptionalArg(std::optional<double> arg) {
-  if (arg) {
+  if (compilets::IsTrue(arg)) {
     return arg.value();
   } else {
     return 8964;

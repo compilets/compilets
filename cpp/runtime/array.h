@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "runtime/object.h"
-#include "runtime/type_helper.h"
+#include "runtime/type_traits.h"
 
 namespace compilets {
 

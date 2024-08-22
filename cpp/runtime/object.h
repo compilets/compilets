@@ -4,7 +4,7 @@
 #include "cppgc/garbage-collected.h"
 #include "cppgc/prefinalizer.h"
 #include "runtime/runtime.h"
-#include "runtime/type_helper.h"
+#include "runtime/type_traits.h"
 
 namespace compilets {
 
@@ -39,6 +39,12 @@ inline void TracePossibleMember(cppgc::Visitor* visitor, const T& value) {
 // Convert object to string.
 inline std::u16string ValueToString(Object* value) {
   return u"<object>";
+}
+
+// Check the cppgc pointer for true evaluation.
+template<typename T>
+inline bool IsTrue(const cppgc::Member<T>& value) {
+  return value;
 }
 
 // Make T* for objects.

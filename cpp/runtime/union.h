@@ -4,7 +4,7 @@
 #include <type_traits>
 #include <variant>
 
-#include "runtime/type_helper.h"
+#include "runtime/type_traits.h"
 
 namespace compilets {
 
@@ -50,6 +50,16 @@ inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
 template<typename... Ts>
 inline std::u16string ValueToString(const Union<Ts...>& value) {
   return u"<variant>";
+}
+
+// Whether union evaluates to true depends on its subtypes and monostate.
+template<typename... Ts>
+inline bool IsTrue(const Union<Ts...>& value) {
+  return std::visit([](auto&& arg) { return IsTrue(arg); }, value);
+}
+
+inline bool IsTrue(std::monostate) {
+  return false;
 }
 
 // Replace T with cppgc::Member<T>.

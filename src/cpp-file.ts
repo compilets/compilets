@@ -139,6 +139,7 @@ export default class CppFile {
     if (ctx.features.size == 0)
       return;
     // Add headers according to used features.
+    let hasObjectHeaders = false;
     const headers = new syntax.Headers();
     for (const feature of ctx.features) {
       switch (feature) {
@@ -147,13 +148,15 @@ export default class CppFile {
         case 'array':
         case 'function':
         case 'object':
-        case 'runtime':
         case 'process':
         case 'console':
+          hasObjectHeaders = true;
+        case 'runtime':
           headers.files.push(new syntax.IncludeStatement('quoted', `runtime/${feature}.h`));
-          break;
       }
     }
+    if (!hasObjectHeaders && ctx.features.has('type-traits'))
+      headers.files.push(new syntax.IncludeStatement('quoted', `runtime/type_traits.h`));
     return headers.print(ctx);
   }
 }

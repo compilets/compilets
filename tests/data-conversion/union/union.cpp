@@ -6,7 +6,7 @@ compilets::Union<double, bool> ReturnUnion();
 void TestUnion();
 
 void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a) {
-  if (!!std::holds_alternative<std::monostate>(a)) {}
+  if (!compilets::IsTrue(a)) {}
 }
 
 void TakeNumber(double n) {}
