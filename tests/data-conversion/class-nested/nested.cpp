@@ -1,5 +1,4 @@
 #include "runtime/function.h"
-#include "runtime/object.h"
 
 class Prop;
 class Owner;

@@ -139,24 +139,30 @@ export default class CppFile {
     if (ctx.features.size == 0)
       return;
     // Add headers according to used features.
-    let hasObjectHeaders = false;
+    let hasTypeTraitsHeader = false;
+    let hasObjectHeader = false;
     const headers = new syntax.Headers();
     for (const feature of ctx.features) {
       switch (feature) {
-        case 'string':
-        case 'union':
         case 'array':
         case 'function':
-        case 'object':
         case 'process':
         case 'console':
-          hasObjectHeaders = true;
+          hasObjectHeader = true;
+        case 'string':
+        case 'union':
+          hasTypeTraitsHeader = true;
         case 'runtime':
-          headers.files.push(new syntax.IncludeStatement('quoted', `runtime/${feature}.h`));
+          headers.addLocalHeader(`runtime/${feature}.h`);
       }
     }
-    if (!hasObjectHeaders && ctx.features.has('type-traits'))
-      headers.files.push(new syntax.IncludeStatement('quoted', `runtime/type_traits.h`));
+    if (!hasObjectHeader && ctx.features.has('object')) {
+      hasTypeTraitsHeader = true;
+      headers.addLocalHeader('runtime/object.h');
+    }
+    if (!hasTypeTraitsHeader && ctx.features.has('type-traits')) {
+      headers.addLocalHeader('runtime/type_traits.h');
+    }
     return headers.print(ctx);
   }
 }

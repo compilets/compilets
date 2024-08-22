@@ -1,5 +1,4 @@
 #include "runtime/function.h"
-#include "runtime/object.h"
 
 double Simple(double i);
 double OptionalArg(std::optional<double> arg);

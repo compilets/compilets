@@ -957,6 +957,10 @@ export class Headers extends Statement {
   stl: IncludeStatement[] = [];
   files: IncludeStatement[] = [];
 
+  addLocalHeader(path: string) {
+    this.files.push(new IncludeStatement('quoted', path));
+  }
+
   override print(ctx: PrintContext) {
     let results: string[] = [];
     if (this.c.length > 0)
