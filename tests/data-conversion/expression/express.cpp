@@ -1,9 +1,10 @@
-#include "runtime/type_traits.h"
+#include "runtime/string.h"
 
 void TestExpression() {
   if (true) {}
-  if (1 > 2) {}
   std::optional<bool> optionalBoolean;
   if (compilets::IsTrue(optionalBoolean)) {}
   if (compilets::IsTrue(optionalBoolean) || 2 > 1) {}
+  if (1 > 2) {}
+  if (compilets::String(u"1") > 2) {}
 }

@@ -1,7 +1,9 @@
 #include "runtime/string.h"
 
+#include <compare>
 #include <format>
 
+#include "fastfloat/fast_float.h"
 #include "simdutf/simdutf.h"
 
 namespace compilets {
@@ -47,6 +49,13 @@ std::string String::ToUTF8() const {
   return UTF16ToUTF8(value_->c_str(), value_->length());
 }
 
+String::ToNumberResult String::ToNumber() const {
+  std::string s = ToUTF8();
+  double d = 0;
+  auto [ptr, error] = fast_float::from_chars(s.data(), s.data() + s.size(), d);
+  return {error == std::errc(), d};
+}
+
 bool operator==(const String& left, const String& right) {
   return left.value() == right.value();
 }
@@ -57,6 +66,46 @@ bool operator==(const char16_t* left, const String& right) {
 
 bool operator==(const String& left, const char16_t* right) {
   return left.value() == right;
+}
+
+std::partial_ordering operator<=>(const String& left, const String& right) {
+  return left.value() <=> right.value();
+}
+
+std::partial_ordering operator<=>(const char16_t* left, const String& right) {
+  return right.value() <=> left;
+}
+
+std::partial_ordering operator<=>(const String& left, const char16_t* right) {
+  return left.value() <=> right;
+}
+
+bool operator==(double left, const String& right) {
+  auto [ns, n] = right.ToNumber();
+  if (!ns)
+    return false;
+  return left == n;
+}
+
+bool operator==(const String& left, double right) {
+  auto [ms, m] = left.ToNumber();
+  if (!ms)
+    return false;
+  return m == right;
+}
+
+std::partial_ordering operator<=>(double left, const String& right) {
+  auto [ns, n] = right.ToNumber();
+  if (!ns)
+    return std::partial_ordering::unordered;
+  return left <=> n;
+}
+
+std::partial_ordering operator<=>(const String& left, double right) {
+  auto [ms, m] = left.ToNumber();
+  if (!ms)
+    return std::partial_ordering::unordered;
+  return m <=> right;
 }
 
 std::ostream& operator<<(std::ostream& os, const String& str) {

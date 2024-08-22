@@ -1,6 +1,7 @@
 #ifndef CPP_RUNTIME_STRING_H_
 #define CPP_RUNTIME_STRING_H_
 
+#include <compare>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -25,6 +26,8 @@ class String {
 
   // Internal helpers.
   std::string ToUTF8() const;
+  struct ToNumberResult { bool success; double result; };
+  ToNumberResult ToNumber() const;
   const std::u16string& value() const { return *value_.get(); }
 
  private:
@@ -62,6 +65,13 @@ class StringBuilder {
 bool operator==(const String& left, const String& right);
 bool operator==(const char16_t* left, const String& right);
 bool operator==(const String& left, const char16_t* right);
+std::partial_ordering operator<=>(const String& left, const String& right);
+std::partial_ordering operator<=>(const char16_t* left, const String& right);
+std::partial_ordering operator<=>(const String& left, const char16_t* right);
+bool operator==(double left, const String& right);
+bool operator==(const String& left, double right);
+std::partial_ordering operator<=>(double left, const String& right);
+std::partial_ordering operator<=>(const String& left, double right);
 std::ostream& operator<<(std::ostream& os, const String& str);
 std::ostream& operator<<(std::ostream& os, const char16_t* str);
 

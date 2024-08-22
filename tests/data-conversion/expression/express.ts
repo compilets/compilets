@@ -1,7 +1,9 @@
 function TestExpression() {
   if (true) {}
-  if (1 > 2) {}
   let optionalBoolean: boolean | undefined;
   if (optionalBoolean) {}
   if (optionalBoolean || 2 > 1) {}
+
+  if (1 > 2) {}
+  if ("1" > 2) {}
 }

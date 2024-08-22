@@ -3,4 +3,7 @@
 	url = https://github.com/compilets/cppgc.git
 [submodule "cpp/simdutf"]
 	path = cpp/simdutf
-	url = https://github.com/compilets/simdutf
+	url = https://github.com/compilets/simdutf.git
+[submodule "cpp/fastfloat"]
+	path = cpp/fastfloat
+	url = https://github.com/compilets/fastfloat.git

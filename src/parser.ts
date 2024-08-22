@@ -261,6 +261,10 @@ export default class Parser {
                                            new syntax.Condition(cppLeft),
                                            new syntax.Condition(cppRight),
                                            operator);
+      case ts.SyntaxKind.GreaterThanToken:
+      case ts.SyntaxKind.GreaterThanEqualsToken:
+      case ts.SyntaxKind.LessThanToken:
+      case ts.SyntaxKind.LessThanEqualsToken:
       case ts.SyntaxKind.EqualsEqualsToken:
       case ts.SyntaxKind.EqualsEqualsEqualsToken:
       case ts.SyntaxKind.ExclamationEqualsToken:

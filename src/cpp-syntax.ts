@@ -236,13 +236,21 @@ export class ComparisonExpression extends Expression {
     this.left = left;
     this.right = right;
     this.operator = operator;
-    // When operating 2 string literals, convert left to string type, because
-    // C++ does not allow operator overloading for 2 pointers.
-    if (this.left instanceof StringLiteral && this.right instanceof StringLiteral)
+    if (this.left instanceof StringLiteral && this.right instanceof StringLiteral) {
+      // When operating 2 string literals, convert left to string type, because
+      // C++ does not allow operator overloading for 2 pointers.
       this.left = new ToStringExpression(left);
+    } else if (this.left instanceof StringLiteral && this.right.type.category != 'string') {
+      // Similarly do conversion when comparing literal with non-strings.
+      this.left = new ToStringExpression(left);
+    } else if (this.right instanceof StringLiteral && this.left.type.category != 'string') {
+      this.right = new ToStringExpression(right);
+    }
   }
 
   override print(ctx: PrintContext) {
+    if (this.left.type.category == 'string' || this.right.type.category == 'string')
+      ctx.features.add('string');
     return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
   }
 }
