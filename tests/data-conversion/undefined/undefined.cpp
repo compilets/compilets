@@ -24,7 +24,7 @@ void TestUndefined() {
   orUndefined = std::nullopt;
   std::optional<double> orNull;
   orNull = std::nullopt;
-  compilets::Union<double, bool, std::monostate> optionalUnion;
+  compilets::Union<double, bool, std::monostate> optionalUnion = std::monostate{};
   optionalUnion = std::monostate{};
   LinkNode* node = compilets::MakeObject<LinkNode>();
   node->item = true;

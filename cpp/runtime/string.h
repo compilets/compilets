@@ -76,7 +76,6 @@ std::ostream& operator<<(std::ostream& os, const String& str);
 std::ostream& operator<<(std::ostream& os, const char16_t* str);
 
 // String evaluates true when not empty.
-template<typename T>
 inline bool IsTrue(const String& str) {
   return str.length > 0;
 }

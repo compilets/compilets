@@ -47,6 +47,23 @@ inline bool IsTrue(const cppgc::Member<T>& value) {
   return value;
 }
 
+// Compare values of cppgc::Member.
+template<typename T, typename U>
+inline bool StrictEqual(const cppgc::Member<T>& left,
+                        const cppgc::Member<U>& right) {
+  return left.Get() == right.Get();
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(const cppgc::Member<T>& left, U* right) {
+  return left.Get() == right;
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(T* left, const cppgc::Member<U>& right) {
+  return left == right.Get();
+}
+
 // Make T* for objects.
 template<typename T>
 struct Value<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {

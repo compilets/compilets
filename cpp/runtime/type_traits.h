@@ -40,11 +40,6 @@ inline T GetOptionalValue(std::optional<T> value) {
 
 // Determine whether an value should evaluate to true in conditions.
 template<typename T>
-inline bool IsTrue(const T& value) {
-  return true;
-}
-
-template<typename T>
 inline bool IsTrue(T* value) {
   return value != nullptr;
 }
@@ -59,7 +54,45 @@ inline bool IsTrue(double value) {
 
 template<typename T>
 inline bool IsTrue(const std::optional<T>& value) {
-  return value && IsTrue(*value);
+  return value && IsTrue(value.value());
+}
+
+// Defines the === operator of TypeScript.
+inline bool StrictEqual(std::nullptr_t, std::nullopt_t) { return true; }
+inline bool StrictEqual(std::nullopt_t, std::nullptr_t) { return true; }
+
+template<typename T>
+inline bool StrictEqual(const T& left, const T& right) {
+  return left == right;
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(const T& left, const U& right) {
+  return false;
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(const std::optional<T>& left,
+                        const std::optional<U>& right) {
+  if (!left && !right)
+    return true;
+  return StrictEqual(left.value(), right.value());
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(const std::optional<T>& left, const U& right) {
+  if (left)
+    return StrictEqual(left.value(), right);
+  else
+    return StrictEqual(std::nullopt, right);
+}
+
+template<typename T, typename U>
+inline bool StrictEqual(const T& left, const std::optional<U>& right) {
+  if (right)
+    return StrictEqual(left, right.value());
+  else
+    return StrictEqual(left, std::nullopt);
 }
 
 // Receive the value type for T.

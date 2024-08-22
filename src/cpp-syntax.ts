@@ -244,6 +244,7 @@ export class ComparisonExpression extends Expression {
       // Similarly do conversion when comparing literal with non-strings.
       this.left = new ToStringExpression(left);
     } else if (this.right instanceof StringLiteral && this.left.type.category != 'string') {
+      // And comparing non-strings with literals.
       this.right = new ToStringExpression(right);
     }
   }
@@ -251,7 +252,16 @@ export class ComparisonExpression extends Expression {
   override print(ctx: PrintContext) {
     if (this.left.type.category == 'string' || this.right.type.category == 'string')
       ctx.features.add('string');
-    return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
+    const left = this.left.print(ctx);
+    const right = this.right.print(ctx);
+    switch (this.operator) {
+      case '===':
+        return `compilets::StrictEqual(${left}, ${right})`;
+      case '!==':
+        return `!compilets::StrictEqual(${left}, ${right})`;
+      default:
+        return `${left} ${this.operator} ${right}`;
+    }
   }
 }
 
@@ -505,9 +515,10 @@ export class VariableDeclaration extends Declaration {
     if (initializer) {
       // Make sure initializer is casted to the variable type.
       this.initializer = castExpression(initializer, type);
-    } else if (type.isObject()) {
-      // Make sure pointers are initialized to nullptr.
-      this.initializer = new NullKeyword();
+    } else if (type.isObject() ||
+               (type.category == 'union' && type.isOptional)) {
+      // Make sure pointers and unions are initialized to nullptr.
+      this.initializer = castExpression(new NullKeyword(), type);
     }
   }
 

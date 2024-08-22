@@ -44,7 +44,7 @@ void TestGenericFunction() {
   compilets::Function<compilets::String(compilets::String)>* passStr = compilets::MakeFunction<compilets::String(compilets::String)>(Passthrough<compilets::String>);
   compilets::String str = Passthrough<compilets::String>(u"text");
   str = passStr->value()(str);
-  compilets::Union<double, bool, std::monostate> onion;
+  compilets::Union<double, bool, std::monostate> onion = std::monostate{};
   onion = Passthrough<compilets::Union<double, bool, std::monostate>>(onion);
   std::optional<double> optional;
   optional = Passthrough<std::optional<double>>(optional);

@@ -5,5 +5,6 @@ function TestExpression() {
   if (optionalBoolean || 2 > 1) {}
 
   if (1 > 2) {}
-  if ("1" > 2) {}
+  if ('1' > 2) {}
+  if (1 === '1') {}
 }

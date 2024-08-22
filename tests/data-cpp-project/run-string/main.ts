@@ -33,3 +33,8 @@ if ('a' > 123 || 'a' == 123 || 'a' < 123) {
   console.error('non-number-string number comparison');
   process.exit(7);
 }
+
+if ('123' === 123) {
+  console.error('string number strict equal');
+  process.exit(8);
+}

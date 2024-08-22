@@ -7,4 +7,5 @@ void TestExpression() {
   if (compilets::IsTrue(optionalBoolean) || 2 > 1) {}
   if (1 > 2) {}
   if (compilets::String(u"1") > 2) {}
+  if (compilets::StrictEqual(1, compilets::String(u"1"))) {}
 }
