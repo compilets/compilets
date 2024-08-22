@@ -226,6 +226,27 @@ export class ConditionalExpression extends Expression {
   }
 }
 
+export class ComparisonExpression extends Expression {
+  left: Expression;
+  right: Expression;
+  operator: string;
+
+  constructor(left: Expression, right: Expression, operator: string) {
+    super(Type.createBooleanType());
+    this.left = left;
+    this.right = right;
+    this.operator = operator;
+    // When operating 2 string literals, convert left to string type, because
+    // C++ does not allow operator overloading for 2 pointers.
+    if (this.left instanceof StringLiteral && this.right instanceof StringLiteral)
+      this.left = new ToStringExpression(left);
+  }
+
+  override print(ctx: PrintContext) {
+    return `${this.left.print(ctx)} ${this.operator} ${this.right.print(ctx)}`;
+  }
+}
+
 export class BinaryExpression extends Expression {
   left: Expression;
   right: Expression;
@@ -240,10 +261,6 @@ export class BinaryExpression extends Expression {
     // Assignment requires type conversion.
     if (operator == '=')
       this.right = castExpression(right, left.type);
-    // When operating 2 string literals, convert left to string type, because
-    // C++ does not allow operator overloading for 2 pointers.
-    if (this.left instanceof StringLiteral && this.right instanceof StringLiteral)
-      this.left = new ToStringExpression(left);
   }
 
   override print(ctx: PrintContext) {

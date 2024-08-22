@@ -239,6 +239,41 @@ export default class Parser {
     throw new UnimplementedError(node, 'Unsupported expression');
   }
 
+  parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
+    const {left, right, operatorToken} = node;
+    const cppLeft = this.parseExpression(left);
+    const cppRight = this.parseExpression(right);
+    if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
+      // Concatenate 2 string literals.
+      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
+        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
+      // Left hand is a string concatenation.
+      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
+        return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
+    }
+    const operator = operatorToken.getText();
+    switch (operatorToken.kind) {
+      case ts.SyntaxKind.AmpersandAmpersandToken:
+      case ts.SyntaxKind.BarBarToken:
+        // a && b
+        return new syntax.BinaryExpression(syntax.Type.createBooleanType(),
+                                           new syntax.Condition(cppLeft),
+                                           new syntax.Condition(cppRight),
+                                           operator);
+      case ts.SyntaxKind.EqualsEqualsToken:
+      case ts.SyntaxKind.EqualsEqualsEqualsToken:
+      case ts.SyntaxKind.ExclamationEqualsToken:
+      case ts.SyntaxKind.ExclamationEqualsEqualsToken:
+        // a == b
+        return new syntax.ComparisonExpression(cppLeft, cppRight, operator);
+      default:
+        return new syntax.BinaryExpression(this.parseNodeType(node),
+                                           cppLeft,
+                                           cppRight,
+                                           operator);
+    }
+  }
+
   parseStatement(node: ts.Statement): syntax.Statement {
     switch (node.kind) {
       case ts.SyntaxKind.Block: {
@@ -512,24 +547,6 @@ export default class Parser {
     }
     return new syntax.ObjectLiteral(this.parseNodeType(node) as syntax.InterfaceType,
                                     initializers);
-  }
-
-  parseBinaryExpression(node: ts.BinaryExpression): syntax.Expression {
-    const {left, right, operatorToken} = node;
-    const cppLeft = this.parseExpression(left);
-    const cppRight = this.parseExpression(right);
-    if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
-      // Concatenate 2 string literals.
-      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
-        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
-      // Left hand is a string concatenation.
-      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
-        return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
-    }
-    return new syntax.BinaryExpression(this.parseNodeType(node),
-                                       cppLeft,
-                                       cppRight,
-                                       operatorToken.getText());
   }
 
   parseCallExpression(node: ts.CallExpression): syntax.Expression {

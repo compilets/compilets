@@ -5,4 +5,5 @@ void TestExpression() {
   if (1 > 2) {}
   std::optional<bool> optionalBoolean;
   if (compilets::IsTrue(optionalBoolean)) {}
+  if (compilets::IsTrue(optionalBoolean) || 2 > 1) {}
 }
