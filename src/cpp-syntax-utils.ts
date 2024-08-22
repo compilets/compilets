@@ -254,8 +254,8 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     return expr;
   // The operands of ?: do not necessarily have same type.
   if (expr instanceof ConditionalExpression) {
-    expr.whenTrue = castExpression(expr.whenTrue, target);
-    expr.whenFalse = castExpression(expr.whenFalse, target);
+    expr.whenTrue = strictCastExpression(expr.whenTrue, target);
+    expr.whenFalse = strictCastExpression(expr.whenFalse, target);
     return expr;
   }
   // The array literal's type depends on the target type.
@@ -314,6 +314,29 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   return new CustomExpression(target, (ctx) => {
     return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
   });
+}
+
+/**
+ * Do strict casting even when the expression can be implictly converted to
+ * target type.
+ */
+export function strictCastExpression(expr: Expression, target: Type): Expression {
+  const source = expr.type;
+  // Get value from cppgc smart pointers.
+  if ((source.isCppgcMember() && !target.isCppgcMember()) ||
+      (source.isPersistent && !target.isPersistent)) {
+    return new CustomExpression(source, (ctx) => {
+      return `${printExpressionValue(expr, ctx)}.Get()`;
+    });
+  }
+  // Create cppgc smart pointers.
+  if ((!source.isCppgcMember() && target.isCppgcMember()) ||
+      (!source.isPersistent && target.isPersistent)) {
+    return new CustomExpression(source, (ctx) => {
+      return `${target.print(ctx)}(${expr.print(ctx)})`;
+    });
+  }
+  return castExpression(expr, target);
 }
 
 /**

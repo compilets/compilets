@@ -192,6 +192,30 @@ export class Type {
   }
 
   /**
+   * Test whether the types are strictly equal in the context of C++.
+   *
+   * This is used in rare cases where C++ require 2 operands to have exactly
+   * the same type.
+   */
+  strictEqual(other: Type): boolean {
+    if (!this.equal(other))
+      return false;
+    // Object with cppgc::Member wrapper is a different type.
+    if (this.isObject()) {
+      return this.isCppgcMember() == other.isCppgcMember();
+    }
+    // The order of union types matters.
+    if (this.category == 'union') {
+      for (let i = 0; i < this.types.length; ++i) {
+        if (!this.types[i].strictEqual(other.types[i]))
+          return false;
+      }
+      return true;
+    }
+    return true;
+  }
+
+  /**
    * Check if the type can be assigned with `other` directly in C++.
    */
   assignableWith(other: Type): boolean {
