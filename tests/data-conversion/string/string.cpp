@@ -11,9 +11,9 @@ void TakeString(compilets::String str) {}
 
 void TestString() {
   compilets::String str = u"string";
-  compilets::String rightIsLiteral = str + u"right";
-  compilets::String leftIsLiteral = u"left" + str;
-  compilets::String noLiteral = str + str;
+  compilets::String rightIsLiteral = compilets::StringBuilder().Append(str).Append(u"right").Take();
+  compilets::String leftIsLiteral = compilets::StringBuilder().Append(u"left").Append(str).Take();
+  compilets::String noLiteral = compilets::StringBuilder().Append(str).Append(str).Take();
   TakeString(str);
   TakeString(u"literal");
   compilets::console->log(str, u"literal");
@@ -29,4 +29,5 @@ void TestString() {
   if (compilets::String(u"literal") == u"literal") {
     compilets::String literalAdd = compilets::StringBuilder().Append(u"li").Append(u"ter").Append(u"ral").Take();
   }
+  compilets::String addLiteralToNumber = compilets::StringBuilder().Append(123).Append(u"456").Take();
 }

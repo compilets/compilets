@@ -243,13 +243,14 @@ export default class Parser {
     const {left, right, operatorToken} = node;
     const cppLeft = this.parseExpression(left);
     const cppRight = this.parseExpression(right);
+    // Handle string concatenation specially.
     if (operatorToken.kind == ts.SyntaxKind.PlusToken) {
-      // Concatenate 2 string literals.
-      if (ts.isStringLiteral(left) && ts.isStringLiteral(right))
-        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
       // Left hand is a string concatenation.
-      if (cppLeft instanceof syntax.StringConcatenation && cppRight.type.category == 'string')
+      if (cppLeft instanceof syntax.StringConcatenation)
         return new syntax.StringConcatenation([ ...cppLeft.spans, cppRight ]);
+      // Concatenate string with any type results in a string.
+      if (cppLeft.type.category == 'string' || cppRight.type.category == 'string')
+        return new syntax.StringConcatenation([ cppLeft, cppRight ]);
     }
     const operator = operatorToken.getText();
     switch (operatorToken.kind) {

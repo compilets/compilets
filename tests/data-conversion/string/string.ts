@@ -29,4 +29,6 @@ function TestString() {
   if ("literal" == "literal") {
     let literalAdd = "li" + "ter" + "ral";
   }
+
+  let addLiteralToNumber = 123 + "456";
 }

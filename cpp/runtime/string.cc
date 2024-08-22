@@ -47,18 +47,6 @@ std::string String::ToUTF8() const {
   return UTF16ToUTF8(value_->c_str(), value_->length());
 }
 
-String operator+(const String& left, const String& right) {
-  return String(left.value() + right.value());
-}
-
-String operator+(const char16_t* left, const String& right) {
-  return String(std::u16string(right.value()) += left);
-}
-
-String operator+(const String& left, const char16_t* right) {
-  return String(left.value() + right);
-}
-
 bool operator==(const String& left, const String& right) {
   return left.value() == right.value();
 }

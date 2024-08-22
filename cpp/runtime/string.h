@@ -59,9 +59,6 @@ class StringBuilder {
 };
 
 // Operators for string.
-String operator+(const String& left, const String& right);
-String operator+(const char16_t* left, const String& right);
-String operator+(const String& left, const char16_t* right);
 bool operator==(const String& left, const String& right);
 bool operator==(const char16_t* left, const String& right);
 bool operator==(const String& left, const char16_t* right);
