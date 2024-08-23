@@ -79,7 +79,7 @@ inline bool IsTrue(const Union<Ts...>& value) {
 
 // Comparing unions.
 template<typename... Ts, typename U,
-         typename = std::enable_if_t<!IsUnion<U>::value>>
+         typename = std::enable_if_t<!std::is_same_v<Union<Ts...>, U>>>
 inline bool StrictEqual(const Union<Ts...>& left, const U& right) {
   if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
     if (std::holds_alternative<std::monostate>(left))
@@ -97,7 +97,7 @@ inline bool StrictEqual(const T& left, const Union<Us...>& right) {
 }
 
 template<typename... Ts, typename U,
-         typename = std::enable_if_t<!IsUnion<U>::value>>
+         typename = std::enable_if_t<!std::is_same_v<Union<Ts...>, U>>>
 inline bool Equal(const Union<Ts...>& left, const U& right) {
   if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
     if (std::holds_alternative<std::monostate>(left))
