@@ -125,12 +125,13 @@ template<typename... Ts>
 struct IsCppgcMember<Union<Ts...>>
     : std::disjunction<IsCppgcMember<Ts>...> {};
 
-// Verify the IsCppgcMember utility actually works.
-static_assert(IsCppgcMember<double>::value == false);
-static_assert(IsCppgcMember<cppgc::Member<double>>::value == true);
-static_assert(IsCppgcMember<Union<double, bool>>::value == false);
-static_assert(
-    IsCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
+// Ordering for union.
+template<typename... Ts, typename U>
+std::partial_ordering operator<=>(const Union<Ts...>& left, const U& right) {
+  return std::visit([&right](const auto& arg) {
+    return arg <=> right;
+  }, left);
+}
 
 }  // namespace compilets
 

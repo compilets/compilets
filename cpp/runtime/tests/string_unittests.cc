@@ -38,6 +38,22 @@ TEST_F(StringTest, StrictEqual) {
   EXPECT_FALSE(StrictEqual(456, os));
 }
 
+TEST_F(StringTest, Ordering) {
+  String n = u"123";
+  EXPECT_LT(n, 123.4);
+  EXPECT_LT(n, u"123.4");
+  EXPECT_GT(123.4, n);
+  EXPECT_GT(u"123.4", n);
+  std::optional<String> o = u"0123";
+  EXPECT_LT(o, 123.4);
+  EXPECT_LT(o, u"123.4");
+  EXPECT_GT(123.4, o);
+  EXPECT_GT(u"123.4", o);
+  String s = u"not-number";
+  EXPECT_FALSE(s < 123.4);
+  EXPECT_FALSE(s > 123.4);
+}
+
 TEST_F(StringTest, StringBuilder) {
   EXPECT_TRUE(Equal(StringBuilder().Append(u"li")
                                    .Append(u"te")

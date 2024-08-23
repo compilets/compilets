@@ -121,7 +121,7 @@ inline bool StrictEqual(const char16_t* left, const String& right) {
 std::partial_ordering operator<=>(const String& left, double right);
 inline
 std::partial_ordering operator<=>(double left, const String& right) {
-  return right <=> left;
+  return 0 <=> (right <=> left);
 }
 inline
 std::partial_ordering operator<=>(const char16_t* left, const String& right) {

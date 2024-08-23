@@ -7,6 +7,13 @@ namespace compilets {
 class UnionTest : public testing::Test {
 };
 
+// Verify that IsCppgcMember utility actually works.
+static_assert(IsCppgcMember<double>::value == false);
+static_assert(IsCppgcMember<cppgc::Member<double>>::value == true);
+static_assert(IsCppgcMember<Union<double, bool>>::value == false);
+static_assert(
+    IsCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
+
 TEST_F(UnionTest, Equal) {
   Union<String, double> n = 123.;
   EXPECT_TRUE(Equal(n, n));
@@ -39,6 +46,14 @@ TEST_F(UnionTest, StrictEqual) {
   std::optional<String> s = u"123";
   EXPECT_FALSE(StrictEqual(n, s));
   EXPECT_FALSE(StrictEqual(s, n));
+}
+
+TEST_F(UnionTest, Ordering) {
+  Union<String, double> n = 123.;
+  EXPECT_LT(n, 123.4);
+  EXPECT_LT(n, String(u"123.4"));
+  EXPECT_GT(123.4, n);
+  EXPECT_GT(String(u"123.4"), n);
 }
 
 }  // namespace compilets
