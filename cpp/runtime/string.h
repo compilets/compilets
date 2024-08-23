@@ -15,20 +15,39 @@ std::u16string ValueToString(double value);
 // Immutable string.
 class String {
  public:
+  // Construct empty string.
   String();
+  // Take ownership of the string.
   String(std::u16string str);
+  // Copy string literal.
   template<size_t N>
   String(const char16_t (&str)[N]) : String(std::u16string(str, N - 1)) {}
 
+  // The string length.
+  double length = 0;
+
+  // Accessing a char at index returns a new string.
   String operator[](size_t index) const;
+
+  // Comparing with another string.
   bool operator==(const String& other) const {
     return value() == other.value();
   }
+
+  // Comparing with string literals.
+  bool operator==(const char16_t* other) const {
+    return value() == other;
+  }
+
+  // Ordering with another string.
   std::partial_ordering operator<=>(const String& other) const {
     return value() <=> other.value();
   }
 
-  double length = 0;
+  // Ordering with string literals.
+  std::partial_ordering operator<=>(const char16_t* other) const {
+    return value() <=> other;
+  }
 
   // Internal helpers.
   std::string ToUTF8() const;
@@ -67,32 +86,49 @@ class StringBuilder {
   std::u16string value_;
 };
 
-// Operators for string.
-bool StrictEqual(const String& left, const char16_t* right);
-inline bool StrictEqual(const char16_t* left, const String& right) {
-  return StrictEqual(right, left);
-}
-inline bool Equal(const String& left, const char16_t* right) {
-  return StrictEqual(left, right);
-}
-inline bool Equal(const char16_t* left, const String& right) {
-  return StrictEqual(left, right);
-}
-std::partial_ordering operator<=>(const char16_t* left, const String& right);
-std::partial_ordering operator<=>(const String& left, const char16_t* right);
-bool Equal(const String& left, double right);
-inline bool Equal(double left, const String& right) {
-  return Equal(right, left);
-}
-std::partial_ordering operator<=>(double left, const String& right);
-std::partial_ordering operator<=>(const String& left, double right);
-std::ostream& operator<<(std::ostream& os, const String& str);
-std::ostream& operator<<(std::ostream& os, const char16_t* str);
-
 // String evaluates true when not empty.
 inline bool IsTrue(const String& str) {
   return str.length > 0;
 }
+
+// Support loose comparisons with numbers.
+bool Equal(const String& left, double right);
+inline bool Equal(double left, const String& right) {
+  return Equal(right, left);
+}
+
+// Handle string literals for comparisons.
+inline bool Equal(const String& left, const char16_t* right) {
+  return left == right;
+}
+inline bool Equal(const char16_t* left, const String& right) {
+  return right == left;
+}
+inline bool Equal(double left, const char16_t* right) {
+  return Equal(left, String(right));
+}
+inline bool Equal(const char16_t* left, double right) {
+  return Equal(String(left), right);
+}
+inline bool StrictEqual(const String& left, const char16_t* right) {
+  return left == right;
+}
+inline bool StrictEqual(const char16_t* left, const String& right) {
+  return right == left;
+}
+
+// Operators for string.
+std::partial_ordering operator<=>(const String& left, double right);
+inline
+std::partial_ordering operator<=>(double left, const String& right) {
+  return right <=> left;
+}
+inline
+std::partial_ordering operator<=>(const char16_t* left, const String& right) {
+  return 0 <=> (right <=> left);
+}
+std::ostream& operator<<(std::ostream& os, const String& str);
+std::ostream& operator<<(std::ostream& os, const char16_t* str);
 
 }  // namespace compilets
 
