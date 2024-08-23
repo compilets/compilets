@@ -107,6 +107,31 @@ export function hasTypeNode(decl?: ts.Declaration): boolean {
 }
 
 /**
+ * Return whether the declaration is from a .d.ts file.
+ */
+export function isExternalDeclaration(decl: ts.Declaration): boolean {
+  return decl.getSourceFile().isDeclarationFile;
+}
+
+/**
+ * Return whether the declaration comes from Node.js.
+ */
+export function isNodeJsDeclaration(decl: ts.Declaration): boolean {
+  const sourceFile = decl.getSourceFile();
+  return sourceFile.isDeclarationFile &&
+         sourceFile.fileName.includes('node_modules/@types/node');
+}
+
+/**
+ * Return whether the type of node is from Node.js.
+ */
+export function isNodeJsType(type: ts.Type): boolean {
+  if (!type.symbol || !type.symbol.declarations)
+    return false;
+  return type.symbol.declarations.some(isNodeJsDeclaration);
+}
+
+/**
  * Whether the node is a function type.
  */
 export type FunctionLikeNode = ts.FunctionDeclaration |
@@ -190,37 +215,4 @@ export function parseHint(node: ts.Node): string[] {
       return comment.substring(14).split(',');
   }
   return [];
-}
-
-/**
- * Return a proper type representation for Node.js objects.
- */
-export function parseNodeJsType(node: ts.Node, type: ts.Type, modifiers?: syntax.TypeModifier[]): syntax.Type | undefined {
-  let result: syntax.Type | undefined;
-  // The gc function is defined as optional.
-  if (type.isUnion())
-    type = (type as ts.UnionType).types.find(t => !(t.getFlags() & ts.TypeFlags.Undefined))!;
-  // Get the type's original declaration.
-  if (!type.symbol?.declarations || type.symbol.declarations.length == 0)
-    return result;
-  // Get the declaration from Node.js type file.
-  const decl = type.symbol.declarations.find((decl) => {
-    const sourceFile = decl.getSourceFile();
-    return sourceFile.isDeclarationFile &&
-           sourceFile.fileName.includes('node_modules/@types/node');
-  });
-  if (!decl)
-    return result;
-  const name = type.symbol.name;
-  // Global objects.
-  if (name == 'Process')
-    result = new syntax.Type('Process', 'class', modifiers);
-  else if (name == 'Console')
-    result = new syntax.Type('Console', 'class', modifiers);
-  // The gc function.
-  if (node.getText() == 'gc')
-    result = new syntax.Type('gc', 'function', modifiers);
-  if (result)
-    result.namespace = 'compilets';
-  return result;
 }

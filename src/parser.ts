@@ -11,17 +11,19 @@ import {
   rethrowError,
   operatorToString,
   modifierToString,
+  hasTypeNode,
+  hasQuestionToken,
+  isExternalDeclaration,
+  isNodeJsDeclaration,
+  isNodeJsType,
   FunctionLikeNode,
   isFunctionLikeNode,
   isFunction,
   isTemplateFunctor,
   isClass,
   isInterface,
-  hasQuestionToken,
-  hasTypeNode,
   filterNode,
   parseHint,
-  parseNodeJsType,
 } from './parser-utils';
 import {
   uniqueArray,
@@ -113,8 +115,8 @@ export default class Parser {
       case ts.SyntaxKind.Identifier: {
         const type = this.parseNodeType(node);
         const text = type.category == 'null' ? 'nullptr' : node.getText();
-        const isExternal = this.getOriginalDeclaration(node)?.getSourceFile().isDeclarationFile == true;
-        return new syntax.Identifier(type, text, isExternal);
+        const isExternal = this.getOriginalDeclarations(node)?.some(isExternalDeclaration);
+        return new syntax.Identifier(type, text, !!isExternal);
       }
       case ts.SyntaxKind.TemplateExpression: {
         // `prefix${value}`
@@ -218,7 +220,7 @@ export default class Parser {
         if (this.isSymbolClass(expression) && name.text == 'prototype')
           throw new UnsupportedError(node, 'Can not access prototype of class');
         const obj = this.parseExpression(expression);
-        if (!obj.type.isObject() && obj.type.category != 'string')
+        if (!obj.type.isObject() && obj.type.category != 'string' && obj.type.category != 'union')
           throw new UnimplementedError(node, 'Only support accessing properties of objects');
         if (name.text == '__proto__')
           throw new UnsupportedError(node, 'Can not access prototype of object');
@@ -589,23 +591,31 @@ export default class Parser {
    * Parse the type of expression located at node to C++ type.
    */
   parseNodeType(node: ts.Node): syntax.Type {
-    // Get modifiers of the type from original declaration.
-    const decl = this.getOriginalDeclaration(node);
-    const modifiers = this.getTypeModifiers(decl);
-    // Get the node the represents the type of node, and query its type.
-    const typeNode = decl ? this.getTypeNode(decl) : node;
-    let type = this.typeChecker.getTypeAtLocation(typeNode);
-    // If there is unknown type parameter in the type, rely on typeChecker to
-    // resolve the type.
-    if (typeNode != node && this.hasTypeParameter(type))
-      type = this.typeChecker.getTypeAtLocation(node);
-    // Check Node.js type.
-    if (modifiers.includes('external')) {
-      const nodeJsType = parseNodeJsType(node, type, modifiers);
-      if (nodeJsType)
-        return nodeJsType;
+    const decls = this.getOriginalDeclarations(node);
+    // Rely on typeChecker for resolving type if there is no declaration.
+    if (!decls)
+      return this.parseTypeWithNode(this.typeChecker.getTypeAtLocation(node), node);
+    // Parse the types of all declarations.
+    let results: syntax.Type[] = [];
+    for (const decl of decls) {
+      // Get modifiers of the type from the declaration.
+      const modifiers = this.getTypeModifiers(decl);
+      // Compute the types of the declaration.
+      let types = this.getTypeNodes(decl).map(node => this.typeChecker.getTypeAtLocation(node));
+      // If there is unknown type parameter in the type, rely on typeChecker to
+      // resolve the type instead, as our own type parser is not capable of
+      // resolving type parameters yet.
+      if (types.some(type => this.hasTypeParameter(type)))
+        types = [ this.typeChecker.getTypeAtLocation(node) ];
+      // Parse all the types.
+      for (const type of types)
+        results.push(this.parseTypeWithNode(type, node, modifiers));
     }
-    return this.parseTypeWithNode(type, node, modifiers);
+    // Some symbols have multiple declarations but our parser is not able to
+    // distinguish the subtle differences.
+    results = uniqueArray(results, (x, y) => x.equal(y));
+    // Only use the first type found.
+    return results[0];
   }
 
   /**
@@ -635,6 +645,12 @@ export default class Parser {
    * Parse TypeScript type to C++ type.
    */
   parseType(type: ts.Type, location?: ts.Node, modifiers?: syntax.TypeModifier[]): syntax.Type {
+    // Check Node.js type.
+    if (isNodeJsType(type)) {
+      const result = this.parseNodeJsType(type, location);
+      if (result)
+        return result;
+    }
     // Check literals.
     if (type.isNumberLiteral())
       return syntax.Type.createNumberType(modifiers);
@@ -820,6 +836,25 @@ export default class Parser {
   }
 
   /**
+   * Return a proper type representation for Node.js objects.
+   */
+  parseNodeJsType(type: ts.Type, location?: ts.Node): syntax.Type | undefined {
+    let result: syntax.Type | undefined;
+    const name = type.symbol.name;
+    // Global objects.
+    if (name == 'Process')
+      result = new syntax.Type('Process', 'class', [ 'external' ]);
+    else if (name == 'Console')
+      result = new syntax.Type('Console', 'class', [ 'external' ]);
+    // The gc function.
+    if (location?.getText() == 'gc')
+      result = new syntax.Type('gc', 'function', [ 'external' ]);
+    if (result)
+      result.namespace = 'compilets';
+    return result;
+  }
+
+  /**
    * Get the type modifiers from the declaration.
    */
   private getTypeModifiers(decl?: ts.Declaration): syntax.TypeModifier[] {
@@ -851,38 +886,79 @@ export default class Parser {
     // 1. The original decl has a question token.
     // 2. The original declaration has no type specified, and the root one
     //    has a question token.
-    const root = this.getRootDeclaration(decl);
+    const roots = this.getRootDeclarations(decl);
     if (hasQuestionToken(decl) ||
-        (hasQuestionToken(root) && !hasTypeNode(decl))) {
+        (roots?.some(hasQuestionToken) && !hasTypeNode(decl))) {
       modifiers.push('optional');
     }
     // External type if declaration in in a d.ts file.
-    if (root?.getSourceFile().isDeclarationFile) {
+    if (roots?.some(isExternalDeclaration)) {
       modifiers.push('external');
     }
     return modifiers;
   }
 
   /**
-   * Get a node that determines the type of the passed node.
+   * Get the nodes that determines the type of the passed node.
    *
    * The result could be things like ts.TypeNode, literals, expressions, etc.
    */
-  private getTypeNode(decl: ts.Declaration): ts.Declaration | ts.TypeNode | ts.Expression {
+  private getTypeNodes(decl: ts.Declaration): (ts.Declaration | ts.TypeNode | ts.Expression)[] {
     if (ts.isVariableDeclaration(decl) ||
         ts.isPropertyDeclaration(decl) ||
         ts.isParameter(decl)) {
       const {type, initializer} = decl as ts.VariableDeclaration | ts.PropertyDeclaration | ts.ParameterDeclaration;
       if (type) {
-        return type;
+        return [ type ];
       } else if (initializer) {
-        const initDecl = this.getOriginalDeclaration(initializer);
-        return initDecl ? this.getTypeNode(initDecl) : initializer;
+        const decls = this.getOriginalDeclarations(initializer);
+        if (!decls)
+          return [ initializer ];
+        return decls.map(d => this.getTypeNodes(d))
+                    .reduce((r, i) => r.concat(i), []);
       } else {
         throw new Error('Can not find type or initializer in the declaration');
       }
     }
-    return decl;
+    return [ decl ];
+  }
+
+  /**
+   * Get the root declarations that decides the type of the passed declaration.
+   *
+   * For example, for `let a = object.prop`, this method returns the declaration
+   * of `prop: type`.
+   */
+  private getRootDeclarations(decl?: ts.Declaration): ts.Declaration[] | undefined {
+    if (!decl)
+      return;
+    if (ts.isVariableDeclaration(decl) ||
+        ts.isPropertyDeclaration(decl) ||
+        ts.isParameter(decl)) {
+      const {type, initializer} = decl as ts.VariableDeclaration | ts.PropertyDeclaration | ts.ParameterDeclaration;
+      if (!type && initializer) {
+        const decls = this.getOriginalDeclarations(initializer);
+        if (decls) {
+          return decls.map(d => this.getRootDeclarations(d) ?? [])
+                      .reduce((r, i) => r.concat(i), []);
+        }
+      }
+    }
+    return [ decl ];
+  }
+
+  /**
+   * Get the original declarations of a node.
+   *
+   * This is the declaration where the node's symbol is declared. Usually there
+   * is only one declaration for most nodes, exceptions could be external APIs
+   * of Node.js, or property of unions.
+   */
+  private getOriginalDeclarations(node: ts.Node): ts.Declaration[] | undefined {
+    const symbol = this.typeChecker.getSymbolAtLocation(node);
+    if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
+      return;
+    return symbol.declarations;
   }
 
   /**
@@ -891,7 +967,7 @@ export default class Parser {
    * We are abusing internals of TypeScript before there is an official API:
    * https://github.com/microsoft/TypeScript/issues/59637
    */
-  getTypeArgumentsOfSignature(signature: ts.Signature): readonly ts.Type[] {
+  private getTypeArgumentsOfSignature(signature: ts.Signature): readonly ts.Type[] {
     const {mapper, target} = signature as unknown as {
       mapper: unknown,
       target: {typeParameters: unknown},
@@ -904,40 +980,6 @@ export default class Parser {
       },
       mapper,
     } as unknown as ts.TypeReference);
-  }
-
-  /**
-   * Get the root declaration that decides the type of the passed declaration.
-   *
-   * For example, for `let a = object.prop`, this method returns the declaration
-   * of `prop: type`.
-   */
-  private getRootDeclaration(decl?: ts.Declaration): ts.Declaration | undefined {
-    if (!decl)
-      return;
-    if (ts.isVariableDeclaration(decl) ||
-        ts.isPropertyDeclaration(decl) ||
-        ts.isParameter(decl)) {
-      const {type, initializer} = decl as ts.VariableDeclaration | ts.PropertyDeclaration | ts.ParameterDeclaration;
-      if (!type && initializer) {
-        const initDecl = this.getOriginalDeclaration(initializer);
-        if (initDecl)
-          return this.getRootDeclaration(initDecl);
-      }
-    }
-    return decl;
-  }
-
-  /**
-   * Get the original declaration of a node.
-   *
-   * This is the declaration where the node's symbol is declared.
-   */
-  private getOriginalDeclaration(node: ts.Node): ts.Declaration | undefined {
-    const symbol = this.typeChecker.getSymbolAtLocation(node);
-    if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
-      return undefined;
-    return symbol.declarations[0];
   }
 
   /**

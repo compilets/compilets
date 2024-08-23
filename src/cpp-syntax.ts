@@ -63,6 +63,7 @@ export class NullKeyword extends RawExpression {
 }
 
 export class Identifier extends RawExpression {
+  // Whether the identifier itself comes from external .d.ts file.
   isExternal: boolean;
 
   constructor(type: Type, text: string, isExternal: boolean) {
@@ -455,16 +456,19 @@ export class PropertyAccessExpression extends Expression {
     super(type);
     if (expression instanceof StringLiteral)
       this.expression = new ToStringExpression(expression);
-    else if (expression instanceof BaseResolutionExpression)
-      this.expression = expression;
     else
-      this.expression = castExpression(expression, expression.type);
+      this.expression = expression;
     this.member = member;
   }
 
   override print(ctx: PrintContext) {
+    // Accessing a type's property means we must know the type's declaration.
     const {type} = this.expression;
     type.addFeatures(ctx);
+    // Accessing union's property requires using std::visit.
+    if (type.category == 'union') {
+    }
+    // For other types things fallback to usual C++ property access.
     let dot: string;
     if (type.category == 'super') {
       dot = '';

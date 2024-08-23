@@ -1,24 +1,31 @@
 class Member {
 }
 
-class HasUnionMember {
+function TakeMember(c: Member) {
+}
+
+class WithNumber {
   member: Member | number;
 }
 
-function TakeClass(c: Member) {
+function TestMemberUnion() {
+  let memberInUnion: boolean | Member = new Member();
+  TakeMember(memberInUnion);
+  let member: Member = memberInUnion;
+  TakeMember(member);
+  let copy = memberInUnion;
+  TakeMember(copy);
+
+  let wrapper = new WithNumber();
+  wrapper.member = member;
+  member = wrapper.member;
+}
+
+class WithString {
+  member: Member | string;
 }
 
 function TestClassUnion() {
-  let bc: boolean | Member = new Member();
-  TakeClass(bc);
-  let member: Member = bc;
-  TakeClass(member);
-  let abc = bc;
-  TakeClass(abc);
-
-  let has = new HasUnionMember();
-  has.member = member;
-  member = has.member;
-
-  let memberCast = has.member as Member;
+  let common: WithNumber | WithString = new WithString();
+  let commonMember = common.member;
 }
