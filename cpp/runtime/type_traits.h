@@ -27,40 +27,32 @@ inline Target Cast(T&& value) {
   return Target(std::forward<T>(value));
 }
 
+// Whether the type is an optional.
+template<typename T>
+struct IsOptional : std::false_type {};
+
+template<typename T>
+struct IsOptional<std::optional<T>> : std::true_type {};
+
 // Read value from optional.
 template<typename T>
 inline T GetOptionalValue(T value) {
-  return std::move(value);
-}
-
-template<typename T>
-inline T GetOptionalValue(std::optional<T> value) {
-  return std::move(*value);
+  if constexpr (IsOptional<T>::value)
+    return std::move(value.value());
+  else
+    return std::move(value);
 }
 
 // Determine whether an value should evaluate to true in conditions.
 template<typename T>
-inline bool IsTrue(T* value) {
-  return value != nullptr;
-}
-
-inline bool IsTrue(bool value) {
-  return value;
-}
-
-inline bool IsTrue(double value) {
-  return value != 0;
-}
-
-template<typename T>
-inline bool IsTrue(const std::optional<T>& value) {
-  return value && IsTrue(value.value());
+inline bool IsTrue(const T& value) {
+  if constexpr (IsOptional<T>::value)
+    return value && IsTrue(value.value());
+  else
+    return value;
 }
 
 // Defines the === operator of TypeScript.
-inline bool StrictEqual(std::nullptr_t, std::nullopt_t) { return true; }
-inline bool StrictEqual(std::nullopt_t, std::nullptr_t) { return true; }
-
 template<typename T>
 inline bool StrictEqual(const T& left, const T& right) {
   return left == right;
@@ -68,31 +60,18 @@ inline bool StrictEqual(const T& left, const T& right) {
 
 template<typename T, typename U>
 inline bool StrictEqual(const T& left, const U& right) {
+  // Compare the values of optionals.
+  if constexpr (IsOptional<T>::value) {
+    if (left)
+      return StrictEqual(left.value(), right);
+    else
+      return StrictEqual(std::nullopt, right);
+  }
+  if constexpr (IsOptional<U>::value) {
+    return StrictEqual(right, left);
+  }
+  // Comparing different types defaults to fail.
   return false;
-}
-
-template<typename T, typename U>
-inline bool StrictEqual(const std::optional<T>& left,
-                        const std::optional<U>& right) {
-  if (!left && !right)
-    return true;
-  return StrictEqual(left.value(), right.value());
-}
-
-template<typename T, typename U>
-inline bool StrictEqual(const std::optional<T>& left, const U& right) {
-  if (left)
-    return StrictEqual(left.value(), right);
-  else
-    return StrictEqual(std::nullopt, right);
-}
-
-template<typename T, typename U>
-inline bool StrictEqual(const T& left, const std::optional<U>& right) {
-  if (right)
-    return StrictEqual(left, right.value());
-  else
-    return StrictEqual(left, std::nullopt);
 }
 
 // Receive the value type for T.
@@ -138,5 +117,20 @@ template<typename T>
 struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
 
 }  // namespace compilets
+
+namespace std {
+
+// Types that are treated as null.
+//
+// Defined in std namespace so they can be found via argument-dependent lookup,
+// which is visible to template versions of StrictEqual wherever they are
+// defined. If we put it in compilets namespace, these overloads will not be
+// visible to template functions defined before them.
+inline bool StrictEqual(std::nullptr_t, std::nullptr_t) { return true; }
+inline bool StrictEqual(std::nullptr_t, std::nullopt_t) { return true; }
+inline bool StrictEqual(std::nullopt_t, std::nullopt_t) { return true; }
+inline bool StrictEqual(std::nullopt_t, std::nullptr_t) { return true; }
+
+}  // namespace std
 
 #endif  // CPP_RUNTIME_TYPE_TRAITS_H_

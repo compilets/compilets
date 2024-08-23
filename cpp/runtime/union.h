@@ -36,6 +36,13 @@ class Union : public std::variant<Ts...> {
   }
 };
 
+// Utility to check if the type is an union.
+template<typename T>
+struct IsUnion : std::false_type {};
+
+template<typename... Ts>
+struct IsUnion<Union<Ts...>> : std::true_type {};
+
 // Utility to check if the union contains a certain type.
 template<typename U, typename T>
 struct IsUnionMember : std::false_type {};
@@ -71,50 +78,22 @@ inline bool IsTrue(const Union<Ts...>& value) {
 }
 
 // Comparing unions.
-inline bool StrictEqual(std::monostate, std::nullptr_t) { return true; }
-inline bool StrictEqual(std::nullptr_t, std::monostate) { return true; }
-inline bool StrictEqual(std::monostate, std::nullopt_t) { return true; }
-inline bool StrictEqual(std::nullopt_t, std::monostate) { return true; }
-
-template<typename... Ts, typename... Us>
-inline bool StrictEqual(const Union<Ts...>& left, const Union<Us...>& right) {
-  return std::visit([&right](const auto& arg) {
-    return StrictEqual(arg, std::get<decltype(arg)>(right));
-  }, left);
-}
-
-template<typename... Ts, typename U>
+template<typename... Ts, typename U,
+         typename = std::enable_if_t<!IsUnion<U>::value>>
 inline bool StrictEqual(const Union<Ts...>& left, const U& right) {
+  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
+    if (std::holds_alternative<std::monostate>(left))
+      return StrictEqual(std::monostate(), right);
+  }
   return std::visit([&right](const auto& arg) {
     return StrictEqual(arg, right);
   }, left);
 }
 
-template<typename T, typename... Us>
+template<typename T, typename... Us,
+         typename = std::enable_if_t<!IsUnion<T>::value>>
 inline bool StrictEqual(const T& left, const Union<Us...>& right) {
-  return std::visit([&left](const auto& arg) {
-    return StrictEqual(left, arg);
-  }, right);
-}
-
-template<typename... Ts, typename U>
-inline bool StrictEqual(const Union<Ts...>& left,
-                        const std::optional<U>& right) {
-  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
-    if (std::holds_alternative<std::monostate>(left) && !right)
-      return true;
-  }
-  return StrictEqual(left, right.value());
-}
-
-template<typename T, typename... Us>
-inline bool StrictEqual(const std::optional<T>& left,
-                        const Union<Us...>& right) {
-  if constexpr (IsUnionMember<std::monostate, Union<Us...>>::value) {
-    if (std::holds_alternative<std::monostate>(right) && !left)
-      return true;
-  }
-  return StrictEqual(left.value(), right);
+  return StrictEqual(right, left);
 }
 
 // Replace T with cppgc::Member<T>.
@@ -136,5 +115,18 @@ static_assert(
     IsCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
 
 }  // namespace compilets
+
+namespace std {
+
+// Types that are treated as null.
+//
+// Check type_traits.h on why they are defined in std namespace.
+inline bool StrictEqual(std::monostate, std::monostate) { return true; }
+inline bool StrictEqual(std::monostate, std::nullptr_t) { return true; }
+inline bool StrictEqual(std::nullptr_t, std::monostate) { return true; }
+inline bool StrictEqual(std::monostate, std::nullopt_t) { return true; }
+inline bool StrictEqual(std::nullopt_t, std::monostate) { return true; }
+
+}  // namespace std
 
 #endif  // CPP_RUNTIME_UNION_H_

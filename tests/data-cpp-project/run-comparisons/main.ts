@@ -2,9 +2,15 @@ let optionalNumber: number | undefined = 123;
 let optionalString: string | undefined = '123';
 if (optionalNumber === optionalString)
   process.exit(1);
+if (optionalNumber !== optionalNumber)
+  process.exit(1);
+if (optionalString !== optionalString)
+  process.exit(1);
 
 let unionNumberString: number | string | undefined;
 if (unionNumberString)
+  process.exit(2);
+if (unionNumberString !== unionNumberString)
   process.exit(2);
 if (unionNumberString !== null)
   process.exit(2);
@@ -37,3 +43,9 @@ const arr1 = [1, 2, 3, 4];
 const arr2 = arr1;
 if (arr1 !== arr2)
   process.exit(5);
+
+let anotherUnion: string | number = 123;
+if (anotherUnion !== anotherUnion)
+  process.exit(6);
+if (anotherUnion === unionNumberString)
+  process.exit(6);
