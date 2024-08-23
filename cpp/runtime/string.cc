@@ -56,20 +56,8 @@ String::ToNumberResult String::ToNumber() const {
   return {error == std::errc(), d};
 }
 
-bool operator==(const String& left, const String& right) {
-  return left.value() == right.value();
-}
-
-bool operator==(const char16_t* left, const String& right) {
-  return right.value() == left;
-}
-
-bool operator==(const String& left, const char16_t* right) {
+bool StrictEqual(const String& left, const char16_t* right) {
   return left.value() == right;
-}
-
-std::partial_ordering operator<=>(const String& left, const String& right) {
-  return left.value() <=> right.value();
 }
 
 std::partial_ordering operator<=>(const char16_t* left, const String& right) {
@@ -80,18 +68,11 @@ std::partial_ordering operator<=>(const String& left, const char16_t* right) {
   return left.value() <=> right;
 }
 
-bool operator==(double left, const String& right) {
-  auto [ns, n] = right.ToNumber();
-  if (!ns)
+bool Equal(const String& left, double right) {
+  auto [success, result] = left.ToNumber();
+  if (!success)
     return false;
-  return left == n;
-}
-
-bool operator==(const String& left, double right) {
-  auto [ms, m] = left.ToNumber();
-  if (!ms)
-    return false;
-  return m == right;
+  return result == right;
 }
 
 std::partial_ordering operator<=>(double left, const String& right) {

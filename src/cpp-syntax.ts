@@ -254,13 +254,31 @@ export class ComparisonExpression extends Expression {
       ctx.features.add('string');
     const left = this.left.print(ctx);
     const right = this.right.print(ctx);
-    switch (this.operator) {
-      case '===':
-        return `compilets::StrictEqual(${left}, ${right})`;
-      case '!==':
-        return `!compilets::StrictEqual(${left}, ${right})`;
-      default:
-        return `${left} ${this.operator} ${right}`;
+    if (this.left.type.category == 'primitive' &&
+        this.right.type.category == 'primitive') {
+      // Use plain old comparisons when comparing primitives types.
+      switch (this.operator) {
+        case '===':
+          return `${left} == ${right}`;
+        case '!==':
+          return `${left} != ${right}`;
+        default:
+          return `${left} ${this.operator} ${right}`;
+      }
+    } else {
+      // Use helpers when comparing with custom types.
+      switch (this.operator) {
+        case '===':
+          return `compilets::StrictEqual(${left}, ${right})`;
+        case '!==':
+          return `!compilets::StrictEqual(${left}, ${right})`;
+        case '==':
+          return `compilets::Equal(${left}, ${right})`;
+        case '!=':
+          return `!compilets::Equal(${left}, ${right})`;
+        default:
+          return `${left} ${this.operator} ${right}`;
+      }
     }
   }
 }

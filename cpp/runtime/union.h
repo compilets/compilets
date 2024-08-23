@@ -96,6 +96,24 @@ inline bool StrictEqual(const T& left, const Union<Us...>& right) {
   return StrictEqual(right, left);
 }
 
+template<typename... Ts, typename U,
+         typename = std::enable_if_t<!IsUnion<U>::value>>
+inline bool Equal(const Union<Ts...>& left, const U& right) {
+  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
+    if (std::holds_alternative<std::monostate>(left))
+      return Equal(std::monostate(), right);
+  }
+  return std::visit([&right](const auto& arg) {
+    return Equal(arg, right);
+  }, left);
+}
+
+template<typename T, typename... Us,
+         typename = std::enable_if_t<!IsUnion<T>::value>>
+inline bool Equal(const T& left, const Union<Us...>& right) {
+  return Equal(right, left);
+}
+
 // Replace T with cppgc::Member<T>.
 template<typename... Ts>
 struct CppgcMember<Union<Ts...>> {
@@ -126,6 +144,11 @@ inline bool StrictEqual(std::monostate, std::nullptr_t) { return true; }
 inline bool StrictEqual(std::nullptr_t, std::monostate) { return true; }
 inline bool StrictEqual(std::monostate, std::nullopt_t) { return true; }
 inline bool StrictEqual(std::nullopt_t, std::monostate) { return true; }
+inline bool Equal(std::monostate, std::monostate) { return true; }
+inline bool Equal(std::monostate, std::nullptr_t) { return true; }
+inline bool Equal(std::nullptr_t, std::monostate) { return true; }
+inline bool Equal(std::monostate, std::nullopt_t) { return true; }
+inline bool Equal(std::nullopt_t, std::monostate) { return true; }
 
 }  // namespace std
 

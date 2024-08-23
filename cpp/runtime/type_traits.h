@@ -34,6 +34,11 @@ struct IsOptional : std::false_type {};
 template<typename T>
 struct IsOptional<std::optional<T>> : std::true_type {};
 
+// Check if type is any numeric type but not double.
+template<typename T>
+constexpr bool IsNonDoubleNumericV = std::is_arithmetic_v<T> &&
+                                     !std::is_same_v<T, double>;
+
 // Read value from optional.
 template<typename T>
 inline T GetOptionalValue(T value) {
@@ -69,6 +74,42 @@ inline bool StrictEqual(const T& left, const U& right) {
   }
   if constexpr (IsOptional<U>::value) {
     return StrictEqual(right, left);
+  }
+  // Handle numeric types other than double.
+  if constexpr (IsNonDoubleNumericV<T>) {
+    return StrictEqual(static_cast<double>(left), right);
+  }
+  if constexpr (IsNonDoubleNumericV<U>) {
+    return StrictEqual(left, static_cast<double>(right));
+  }
+  // Comparing different types defaults to fail.
+  return false;
+}
+
+// Defines the == operator of TypeScript.
+template<typename T>
+inline bool Equal(const T& left, const T& right) {
+  return StrictEqual(left, right);
+}
+
+template<typename T, typename U>
+inline bool Equal(const T& left, const U& right) {
+  // Compare the values of optionals.
+  if constexpr (IsOptional<T>::value) {
+    if (left)
+      return Equal(left.value(), right);
+    else
+      return Equal(std::nullopt, right);
+  }
+  if constexpr (IsOptional<U>::value) {
+    return Equal(right, left);
+  }
+  // Handle numeric types other than double.
+  if constexpr (IsNonDoubleNumericV<T>) {
+    return Equal(static_cast<double>(left), right);
+  }
+  if constexpr (IsNonDoubleNumericV<U>) {
+    return Equal(left, static_cast<double>(right));
   }
   // Comparing different types defaults to fail.
   return false;
@@ -130,6 +171,10 @@ inline bool StrictEqual(std::nullptr_t, std::nullptr_t) { return true; }
 inline bool StrictEqual(std::nullptr_t, std::nullopt_t) { return true; }
 inline bool StrictEqual(std::nullopt_t, std::nullopt_t) { return true; }
 inline bool StrictEqual(std::nullopt_t, std::nullptr_t) { return true; }
+inline bool Equal(std::nullptr_t, std::nullptr_t) { return true; }
+inline bool Equal(std::nullptr_t, std::nullopt_t) { return true; }
+inline bool Equal(std::nullopt_t, std::nullopt_t) { return true; }
+inline bool Equal(std::nullopt_t, std::nullptr_t) { return true; }
 
 }  // namespace std
 

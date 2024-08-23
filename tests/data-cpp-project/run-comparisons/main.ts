@@ -1,5 +1,7 @@
 let optionalNumber: number | undefined = 123;
 let optionalString: string | undefined = '123';
+if (optionalNumber != optionalString)
+  process.exit(1);
 if (optionalNumber === optionalString)
   process.exit(1);
 if (optionalNumber !== optionalNumber)
@@ -10,11 +12,15 @@ if (optionalString !== optionalString)
 let unionNumberString: number | string | undefined;
 if (unionNumberString)
   process.exit(2);
+if (unionNumberString != unionNumberString)
+  process.exit(2);
 if (unionNumberString !== unionNumberString)
   process.exit(2);
 if (unionNumberString !== null)
   process.exit(2);
 if (unionNumberString !== undefined)
+  process.exit(2);
+if (unionNumberString == optionalNumber)
   process.exit(2);
 if (unionNumberString === optionalNumber)
   process.exit(2);
@@ -25,6 +31,8 @@ if (optionalNumber)
 if (optionalNumber !== null)
   process.exit(3);
 if (optionalNumber !== undefined)
+  process.exit(3);
+if (optionalNumber != unionNumberString)
   process.exit(3);
 if (optionalNumber !== unionNumberString)
   process.exit(3);
@@ -48,4 +56,8 @@ let anotherUnion: string | number = 123;
 if (anotherUnion !== anotherUnion)
   process.exit(6);
 if (anotherUnion === unionNumberString)
+  process.exit(6);
+if (anotherUnion != 123)
+  process.exit(6);
+if (anotherUnion != '123')
   process.exit(6);

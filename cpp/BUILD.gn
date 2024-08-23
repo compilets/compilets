@@ -31,6 +31,8 @@ test("cpp_unittests") {
   sources = [
     "runtime/tests/run_all.cc",
     "runtime/tests/stack_unittest.cc",
+    "runtime/tests/string_unittests.cc",
+    "runtime/tests/union_unittests.cc",
   ]
 
   include_dirs = [ "cppgc" ]

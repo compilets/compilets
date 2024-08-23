@@ -21,6 +21,12 @@ class String {
   String(const char16_t (&str)[N]) : String(std::u16string(str, N - 1)) {}
 
   String operator[](size_t index) const;
+  bool operator==(const String& other) const {
+    return value() == other.value();
+  }
+  std::partial_ordering operator<=>(const String& other) const {
+    return value() <=> other.value();
+  }
 
   double length = 0;
 
@@ -53,7 +59,7 @@ class StringBuilder {
     return *this;
   }
 
-  std::u16string Take() {
+  String Take() {
     return std::move(value_);
   }
 
@@ -62,14 +68,22 @@ class StringBuilder {
 };
 
 // Operators for string.
-bool operator==(const String& left, const String& right);
-bool operator==(const char16_t* left, const String& right);
-bool operator==(const String& left, const char16_t* right);
-std::partial_ordering operator<=>(const String& left, const String& right);
+bool StrictEqual(const String& left, const char16_t* right);
+inline bool StrictEqual(const char16_t* left, const String& right) {
+  return StrictEqual(right, left);
+}
+inline bool Equal(const String& left, const char16_t* right) {
+  return StrictEqual(left, right);
+}
+inline bool Equal(const char16_t* left, const String& right) {
+  return StrictEqual(left, right);
+}
 std::partial_ordering operator<=>(const char16_t* left, const String& right);
 std::partial_ordering operator<=>(const String& left, const char16_t* right);
-bool operator==(double left, const String& right);
-bool operator==(const String& left, double right);
+bool Equal(const String& left, double right);
+inline bool Equal(double left, const String& right) {
+  return Equal(right, left);
+}
 std::partial_ordering operator<=>(double left, const String& right);
 std::partial_ordering operator<=>(const String& left, double right);
 std::ostream& operator<<(std::ostream& os, const String& str);
