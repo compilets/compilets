@@ -467,6 +467,9 @@ export class PropertyAccessExpression extends Expression {
     type.addFeatures(ctx);
     // Accessing union's property requires using std::visit.
     if (type.category == 'union') {
+      const expression = this.expression.print(ctx);
+      const returnType = this.type.print(ctx);
+      return `std::visit([](const auto& arg) -> ${returnType} { return arg->${this.member}; }, ${expression})`;
     }
     // For other types things fallback to usual C++ property access.
     let dot: string;
@@ -480,7 +483,7 @@ export class PropertyAccessExpression extends Expression {
     } else {
       dot = '.';
     }
-    return this.expression.print(ctx) + dot + this.member;
+    return printExpressionValue(this.expression, ctx) + dot + this.member;
   }
 }
 
