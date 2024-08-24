@@ -7,9 +7,11 @@
 namespace compilets {
 
 // Globals of Node.js.
+namespace nodejs {
 extern Console* console;
 extern Process* process;
 void gc();
+}
 
 using State = StateExe;
 

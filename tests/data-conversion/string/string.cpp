@@ -16,7 +16,7 @@ void TestString() {
   compilets::String noLiteral = compilets::StringBuilder().Append(str).Append(str).Take();
   TakeString(str);
   TakeString(u"literal");
-  compilets::console->log(str, u"literal");
+  compilets::nodejs::console->log(str, u"literal");
   std::optional<compilets::String> optionalStr;
   optionalStr = str;
   str = optionalStr.value();

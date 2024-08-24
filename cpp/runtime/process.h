@@ -5,7 +5,7 @@
 
 #include "runtime/object.h"
 
-namespace compilets {
+namespace compilets::nodejs {
 
 class Process : public Object {
  public:
@@ -13,6 +13,6 @@ class Process : public Object {
   void exit(std::variant<double, std::monostate> arg);
 };
 
-}  // namespace compilets
+}  // namespace compilets::nodejs
 
 #endif  // CPP_RUNTIME_PROCESS_H_

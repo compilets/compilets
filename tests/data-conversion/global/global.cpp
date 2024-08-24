@@ -3,8 +3,8 @@
 #include "runtime/runtime.h"
 
 void TestGlobals() {
-  compilets::process->exit(static_cast<double>(0));
-  compilets::Process* processRef = compilets::process;
+  compilets::nodejs::process->exit(static_cast<double>(0));
+  compilets::nodejs::Process* processRef = compilets::nodejs::process;
   processRef->exit();
-  compilets::console->log(u"text", 123, compilets::process);
+  compilets::nodejs::console->log(u"text", 123, compilets::nodejs::process);
 }

@@ -6,8 +6,12 @@
 
 namespace compilets {
 
+namespace nodejs {
+
 Console* console = nullptr;
 Process* process = nullptr;
+
+}  // namespace nodejs
 
 namespace {
 
@@ -26,15 +30,16 @@ StateExe::StateExe()
   heap_ = cppgc::Heap::Create(platform_);
   CPPGC_CHECK(!g_state);
   g_state = this;
-  console_ = cppgc::MakeGarbageCollected<Console>(GetAllocationHandle());
-  console = console_.Get();
-  process_ = cppgc::MakeGarbageCollected<Process>(GetAllocationHandle());
-  process = process_.Get();
+  console_ = MakeObject<nodejs::Console>();
+  process_ = MakeObject<nodejs::Process>();
+  // Set nodejs globals.
+  nodejs::console = console_.Get();
+  nodejs::process = process_.Get();
 }
 
 StateExe::~StateExe() {
-  console = nullptr;
-  process = nullptr;
+  nodejs::console = nullptr;
+  nodejs::process = nullptr;
   cppgc::ShutdownProcess();
 }
 

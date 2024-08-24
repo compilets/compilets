@@ -6,7 +6,7 @@
 #include "runtime/object.h"
 #include "runtime/string.h"
 
-namespace compilets {
+namespace compilets::nodejs {
 
 class Console : public Object {
  public:
@@ -33,6 +33,6 @@ class Console : public Object {
   }
 };
 
-}  // namespace compilets
+}  // namespace compilets::nodejs
 
 #endif  // CPP_RUNTIME_CONSOLE_H_

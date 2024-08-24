@@ -1,6 +1,6 @@
 #include "runtime/process.h"
 
-namespace compilets {
+namespace compilets::nodejs {
 
 void Process::exit() {
   ::exit(0);
@@ -13,4 +13,4 @@ void Process::exit(std::variant<double, std::monostate> arg) {
   ::exit(code);
 }
 
-}  // namespace compilets
+}  // namespace compilets::nodejs

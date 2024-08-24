@@ -7,8 +7,10 @@
 
 namespace compilets {
 
+namespace nodejs {
 class Console;
 class Process;
+}
 
 class StateExe {
  public:
@@ -24,8 +26,8 @@ class StateExe {
  private:
   std::shared_ptr<cppgc::DefaultPlatform> platform_;
   std::unique_ptr<cppgc::Heap> heap_;
-  cppgc::Persistent<Console> console_;
-  cppgc::Persistent<Process> process_;
+  cppgc::Persistent<nodejs::Console> console_;
+  cppgc::Persistent<nodejs::Process> process_;
 };
 
 }  // namespace compilets

@@ -336,7 +336,7 @@ export default class Parser {
       case ts.SyntaxKind.ReturnStatement: {
         // return xxx
         const {expression} = node as ts.ReturnStatement;
-        let returnType = new syntax.Type('void', 'void')
+        let returnType = syntax.Type.createVoidType();
         if (expression) {
           const func = ts.findAncestor(node.parent, isFunctionLikeNode);
           if (!func)
@@ -668,7 +668,7 @@ export default class Parser {
       return new syntax.Type(name, 'template', modifiers);
     // Check builtin types.
     if (flags & (ts.TypeFlags.Never | ts.TypeFlags.Void))
-        return new syntax.Type(name, 'void', modifiers);
+      return syntax.Type.createVoidType(name, modifiers);
     if (flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
       return new syntax.Type(name, 'null', modifiers);
     if (flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
@@ -843,16 +843,21 @@ export default class Parser {
   parseNodeJsType(type: ts.Type, location?: ts.Node): syntax.Type | undefined {
     let result: syntax.Type | undefined;
     const name = type.symbol.name;
-    // Global objects.
-    if (name == 'Process')
-      result = new syntax.Type('Process', 'class', [ 'external' ]);
-    else if (name == 'Console')
-      result = new syntax.Type('Console', 'class', [ 'external' ]);
-    // The gc function.
-    if (location?.getText() == 'gc')
-      result = new syntax.Type('gc', 'function', [ 'external' ]);
-    if (result)
-      result.namespace = 'compilets';
+    if (type.isClassOrInterface()) {
+      // Global objects.
+      if (name == 'Process')
+        result = new syntax.Type('Process', 'class');
+      else if (name == 'Console')
+        result = new syntax.Type('Console', 'class');
+    } else if (isFunction(type)) {
+      // The gc function.
+      if (location?.getText() == 'gc')
+        result = new syntax.FunctionType('function', syntax.Type.createVoidType(), []);
+    }
+    if (result) {
+      result.namespace = 'compilets::nodejs';
+      result.isExternal = true;
+    }
     return result;
   }
 

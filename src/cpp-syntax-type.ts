@@ -133,6 +133,10 @@ export class Type {
     return new Type('double', 'primitive', modifiers);
   }
 
+  static createVoidType(name = 'void', modifiers?: TypeModifier[]) {
+    return new Type(name, 'void', modifiers);
+  }
+
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
     this.category = category;
@@ -339,9 +343,8 @@ export class Type {
     if (this.isStdOptional()) {
       ctx.features.add('type-traits');
     }
-    if (this.namespace == 'compilets') {
-      if (this.category != 'string')
-        ctx.features.add('runtime');
+    if (this.namespace == 'compilets::nodejs') {
+      ctx.features.add('runtime');
       if (this.name == 'Console')
         ctx.features.add('console');
       else if (this.name == 'Process')
