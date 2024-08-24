@@ -137,27 +137,12 @@ export class Type {
     this.name = name;
     this.category = category;
     if (modifiers) {
-      for (const modifier of modifiers) {
-        if (modifier == 'variadic')
-          this.isVariadic = true;
-        else if (modifier == 'optional')
-          this.isOptional = true;
-        else if (modifier == 'external')
-          this.isExternal = true;
-        else if (modifier == 'property')
-          this.isProperty = true;
-        else if (modifier == 'static')
-          this.isStatic = true;
-        else if (modifier == 'element')
-          this.isElement = true;
-        else if (modifier == 'persistent')
-          this.isPersistent = true;
-        else if (modifier == 'not-function' && this.category == 'function')
-          this.category = 'functor';
-      }
+      if (this.category == 'any' && !modifiers.includes('external'))
+        throw new Error('The "any" type is not supported');
+      if (this.category == 'function' && modifiers.includes('not-function'))
+        this.category = 'functor';
+      this.setModifiers(modifiers);
     }
-    if (this.category == 'any' && !this.isExternal)
-      throw new Error('The "any" type is not supported');
   }
 
   print(ctx: PrintContext): string {
@@ -254,13 +239,7 @@ export class Type {
     this.base = other.base?.clone();
     this.namespace = other.namespace;
     this.templateArguments = other.templateArguments?.map(a => a.clone());
-    this.isVariadic = other.isVariadic;
-    this.isOptional = other.isOptional;
-    this.isProperty = other.isProperty;
-    this.isStatic = other.isStatic;
-    this.isExternal = other.isExternal;
-    this.isElement = other.isElement;
-    this.isPersistent = other.isPersistent;
+    this.setModifiers(other.getModifiers());
     return this;
   }
 
@@ -271,6 +250,50 @@ export class Type {
     const newType = new Type(this.name, this.category);
     newType.overwriteWith(this);
     return newType;
+  }
+
+  /**
+   * Get the modifiers in an array.
+   */
+  getModifiers(): TypeModifier[] {
+    const modifiers: TypeModifier[] = [];
+    if (this.isVariadic)
+      modifiers.push('variadic');
+    if (this.isOptional)
+      modifiers.push('optional');
+    if (this.isProperty)
+      modifiers.push('property');
+    if (this.isStatic)
+      modifiers.push('property');
+    if (this.isExternal)
+      modifiers.push('external');
+    if (this.isElement)
+      modifiers.push('element');
+    if (this.isPersistent)
+      modifiers.push('persistent');
+    return modifiers;
+  }
+
+  /**
+   * Set the modifiers of the type.
+   */
+  setModifiers(modifiers: TypeModifier[]) {
+    for (const modifier of modifiers) {
+      if (modifier == 'variadic')
+        this.isVariadic = true;
+      else if (modifier == 'optional')
+        this.isOptional = true;
+      else if (modifier == 'external')
+        this.isExternal = true;
+      else if (modifier == 'property')
+        this.isProperty = true;
+      else if (modifier == 'static')
+        this.isStatic = true;
+      else if (modifier == 'element')
+        this.isElement = true;
+      else if (modifier == 'persistent')
+        this.isPersistent = true;
+    }
   }
 
   /**
@@ -561,11 +584,7 @@ export class InterfaceRegistry {
     // Return a clone as caller may modify type.
     const result = existing.clone();
     // Retain the modifiers of the passed type.
-    result.isProperty = type.isProperty;
-    result.isStatic = type.isStatic;
-    result.isExternal = type.isExternal;
-    result.isElement = type.isElement;
-    result.isPersistent = type.isPersistent;
+    result.setModifiers(type.getModifiers());
     return result;
   }
 

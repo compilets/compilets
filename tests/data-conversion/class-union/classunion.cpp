@@ -6,7 +6,8 @@ class Member;
 void TakeMember(Member* c);
 class WithNumber;
 void TestMemberUnion();
-class WithString;
+class StringMember;
+class MemberMember;
 void TestClassUnion();
 
 class Member : public compilets::Object {
@@ -37,18 +38,25 @@ void TestMemberUnion() {
   member = std::get<cppgc::Member<Member>>(wrapper->member);
 }
 
-class WithString : public compilets::Object {
+class StringMember : public compilets::Object {
  public:
-  compilets::Union<compilets::String, cppgc::Member<Member>> member;
+  compilets::String member;
+
+  virtual ~StringMember() = default;
+};
+
+class MemberMember : public compilets::Object {
+ public:
+  cppgc::Member<Member> member;
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceMember(visitor, member);
   }
 
-  virtual ~WithString() = default;
+  virtual ~MemberMember() = default;
 };
 
 void TestClassUnion() {
-  compilets::Union<WithNumber*, WithString*> common = compilets::MakeObject<WithString>();
-  compilets::Union<double, Member*> commonMember = common.member;
+  compilets::Union<WithNumber*, StringMember*, MemberMember*> common = compilets::MakeObject<StringMember>();
+  compilets::Union<double, Member*, compilets::String> commonMember = common.member;
 }

@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
 import * as syntax from './cpp-syntax';
+import {uniqueArray} from './js-utils';
 
 /**
  * An error indicating a TypeScript feature has not been implemented.
@@ -215,4 +216,27 @@ export function parseHint(node: ts.Node): string[] {
       return comment.substring(14).split(',');
   }
   return [];
+}
+
+/**
+ * Merge multiple types into one union.
+ */
+export function mergeTypes(types: syntax.Type[]): syntax.Type {
+  if (types.length == 1)
+    return types[0];
+  // For unions, add all subtypes to the merged type's subtypes, for other types
+  // add themselves to the subtypes.
+  let subtypes: syntax.Type[] = [];
+  for (const type of types) {
+    if (type.category == 'union')
+      subtypes.push(...type.types);
+    else
+      subtypes.push(type);
+  }
+  subtypes = uniqueArray(subtypes, (x, y) => x.equal(y));
+  const name = subtypes.map(t => t.name).join(' | ');
+  const mergedType = new syntax.Type(name, 'union');
+  mergedType.types = subtypes;
+  mergedType.setModifiers(types[0].getModifiers());
+  return mergedType;
 }

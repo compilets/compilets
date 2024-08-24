@@ -24,6 +24,7 @@ import {
   isInterface,
   filterNode,
   parseHint,
+  mergeTypes,
 } from './parser-utils';
 import {
   uniqueArray,
@@ -614,8 +615,9 @@ export default class Parser {
     // Some symbols have multiple declarations but our parser is not able to
     // distinguish the subtle differences.
     results = uniqueArray(results, (x, y) => x.equal(y));
-    // Only use the first type found.
-    return results[0];
+    // When there are multiple types available, merge them to one. This can
+    // happen when getting members from an union of objects.
+    return mergeTypes(results);
   }
 
   /**

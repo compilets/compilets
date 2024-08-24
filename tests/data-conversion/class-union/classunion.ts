@@ -21,11 +21,15 @@ function TestMemberUnion() {
   member = wrapper.member;
 }
 
-class WithString {
-  member: Member | string;
+class StringMember {
+  member: string;
+}
+
+class MemberMember {
+  member: Member;
 }
 
 function TestClassUnion() {
-  let common: WithNumber | WithString = new WithString();
+  let common: WithNumber | StringMember | MemberMember = new StringMember();
   let commonMember = common.member;
 }

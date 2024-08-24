@@ -1,8 +1,11 @@
 /**
  * Remove duplicate elements in the array.
  */
-export function uniqueArray<T>(a: T[], compare: (item1: T, item2: T) => boolean): T[] {
-  return a.filter((x, pos) => a.findIndex((y) => compare(x, y)) == pos);
+export function uniqueArray<T>(a: T[], compare?: (item1: T, item2: T) => boolean): T[] {
+  if (compare)
+    return a.filter((x, pos) => a.findIndex((y) => compare(x, y)) == pos);
+  else
+    return a.filter((x, pos) => a.indexOf(x) == pos);
 }
 
 /**
