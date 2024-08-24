@@ -146,6 +146,19 @@ example `number | string` becomes `std::variant<double, std::string>`.
 For union types that includes `undefined`, the `std::monostate` is used to
 represent the empty state.
 
+When calling a method or getting a property on a union type, `std::visit` is
+used:
+
+```typescript
+let obj: A | B | C;
+obj.method();
+```
+
+```cpp
+std::variant<A*, B*, C*> obj;
+std::visit([](auto&& arg) { arg->method(); }, obj);
+```
+
 ### Question mark and `std::optional`
 
 The optional function parameters and class properties in TypeScript are simply

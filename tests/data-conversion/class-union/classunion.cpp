@@ -64,6 +64,6 @@ class MemberMember : public compilets::Object {
 
 void TestClassUnion() {
   compilets::Union<WithNumber*, StringMember*, MemberMember*> common = compilets::MakeObject<StringMember>();
-  compilets::Union<double, Member*, compilets::String> commonMember = std::visit([](const auto& obj) -> compilets::Union<double, cppgc::Member<Member>, compilets::String> { return obj->member; }, common);
-  std::visit([&](const auto& obj) -> void { return obj->method(); }, common);
+  compilets::Union<double, Member*, compilets::String> commonMember = std::visit([](auto&& obj) -> compilets::Union<double, cppgc::Member<Member>, compilets::String> { return obj->member; }, common);
+  std::visit([&](auto&& obj) -> void { return obj->method(); }, common);
 }
