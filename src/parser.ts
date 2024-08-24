@@ -559,22 +559,25 @@ export default class Parser {
 
   parseCallExpression(node: ts.CallExpression): syntax.Expression {
     const {expression, questionDotToken} = node;
-    const args = node['arguments'];  // arguments is a keyword
     if (questionDotToken)
       throw new UnimplementedError(node, 'The ?. operator is not supported');
-    // Resolve function type with the resolved signature of call expression,
-    // required for inferring the type arguments when calling generic functions.
+    const type = this.parseNodeType(node);
     const callee = this.parseExpression(expression);
-    if (isFunction(this.typeChecker.getTypeAtLocation(expression))) {
-      const signature = this.typeChecker.getResolvedSignature(node);
-      if (signature) {
-        const {name, templateArguments} = this.parseSignatureType(signature, node);
-        Object.assign(callee.type, {name, templateArguments});
-      }
-    }
-    return new syntax.CallExpression(this.parseNodeType(node),
-                                     callee,
-                                     this.parseArguments(node, args));
+    const args = this.parseArguments(node, node['arguments']);
+    // Get the type of the resolved function signature, which is used for
+    // inferring the type arguments when calling generic functions.
+    const signature = this.typeChecker.getResolvedSignature(node);
+    if (!signature)
+      throw new UnsupportedError(node, 'Can not get resolved signature');
+    const resolvedFunctionType = this.parseSignatureType(signature, node);
+    // Update function type with resolved signature's name and templates.
+    callee.type.name = resolvedFunctionType.name;
+    callee.type.templateArguments = resolvedFunctionType.templateArguments;
+    // Method is handled differently from the normal function.
+    if (ts.isPropertyAccessExpression(expression))
+      return new syntax.MethodCallExpression(type, callee as syntax.PropertyAccessExpression, args);
+    else
+      return new syntax.CallExpression(type, callee, args);
   }
 
   parseArguments(node: ts.CallLikeExpression,

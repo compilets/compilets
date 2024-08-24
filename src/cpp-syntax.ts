@@ -389,9 +389,27 @@ export class CallExpression extends Expression {
   override print(ctx: PrintContext) {
     this.callee.type.addFeatures(ctx);
     let callee = printExpressionValue(this.callee, ctx);
-    if (this.callee.type.category == 'functor' && !this.callee.type.isExternal)
+    if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
     return `${callee}(${this.args.print(ctx)})`;
+  }
+}
+
+export class MethodCallExpression extends CallExpression {
+  constructor(type: Type, callee: PropertyAccessExpression, args: CallArguments) {
+    super(type, callee, args);
+  }
+
+  override print(ctx: PrintContext) {
+    const {expression, member} = this.callee as PropertyAccessExpression;
+    if (expression.type.isObject() || expression.type.category == 'string')
+      return super.print(ctx);
+    if (expression.type.category == 'union') {
+      // Accessing union's method with std::visit.
+      const returnType = (this.callee.type as FunctionType).returnType.print(ctx);
+      return `std::visit([&](const auto& obj) -> ${returnType} { return obj->${member}(${this.args.print(ctx)}); }, ${expression.print(ctx)})`;
+    }
+    throw new Error(`Unable to print method call for unsupported type ${expression.type.name}`);
   }
 }
 
@@ -469,7 +487,7 @@ export class PropertyAccessExpression extends Expression {
     if (type.category == 'union') {
       const expression = this.expression.print(ctx);
       const returnType = this.type.print(ctx);
-      return `std::visit([](const auto& arg) -> ${returnType} { return arg->${this.member}; }, ${expression})`;
+      return `std::visit([](const auto& obj) -> ${returnType} { return obj->${this.member}; }, ${expression})`;
     }
     // For other types things fallback to usual C++ property access.
     let dot: string;

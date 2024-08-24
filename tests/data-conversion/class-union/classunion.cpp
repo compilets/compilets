@@ -19,6 +19,8 @@ class WithNumber : public compilets::Object {
  public:
   compilets::Union<double, cppgc::Member<Member>> member;
 
+  virtual void method() {}
+
   void Trace(cppgc::Visitor* visitor) const override {
     TraceMember(visitor, member);
   }
@@ -42,12 +44,16 @@ class StringMember : public compilets::Object {
  public:
   compilets::String member;
 
+  virtual void method() {}
+
   virtual ~StringMember() = default;
 };
 
 class MemberMember : public compilets::Object {
  public:
   cppgc::Member<Member> member;
+
+  virtual void method() {}
 
   void Trace(cppgc::Visitor* visitor) const override {
     TraceMember(visitor, member);
@@ -58,5 +64,6 @@ class MemberMember : public compilets::Object {
 
 void TestClassUnion() {
   compilets::Union<WithNumber*, StringMember*, MemberMember*> common = compilets::MakeObject<StringMember>();
-  compilets::Union<double, Member*, compilets::String> commonMember = std::visit([](const auto& arg) -> compilets::Union<double, cppgc::Member<Member>, compilets::String> { return arg->member; }, common);
+  compilets::Union<double, Member*, compilets::String> commonMember = std::visit([](const auto& obj) -> compilets::Union<double, cppgc::Member<Member>, compilets::String> { return obj->member; }, common);
+  std::visit([&](const auto& obj) -> void { return obj->method(); }, common);
 }

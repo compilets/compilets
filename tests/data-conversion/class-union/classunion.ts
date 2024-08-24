@@ -6,6 +6,8 @@ function TakeMember(c: Member) {
 
 class WithNumber {
   member: Member | number;
+
+  method() {}
 }
 
 function TestMemberUnion() {
@@ -23,13 +25,18 @@ function TestMemberUnion() {
 
 class StringMember {
   member: string;
+
+  method() {}
 }
 
 class MemberMember {
   member: Member;
+
+  method() {}
 }
 
 function TestClassUnion() {
   let common: WithNumber | StringMember | MemberMember = new StringMember();
   let commonMember = common.member;
+  common.method();
 }
