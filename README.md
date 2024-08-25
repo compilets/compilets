@@ -2,14 +2,10 @@
 
 TypeScript to C++ compiler.
 
-To have an idea of how the converted code looks like, you can check the
-[`tests/data-conversion/`](https://github.com/compilets/compilets/tree/main/tests/data-conversion)
-directory.
-
-Note that this is an ongoing research and not production ready, if you are
-looking for a compiler that works with real code, please check
-[TypeScript2Cxx](https://github.com/ASDAlexander77/TypeScript2Cxx) and lots of
-[other options](https://news.ycombinator.com/item?id=22756657).
+This project does not plan to support every JavaScript feature - doing so would
+make it downgrade to a JavaScript interpreter - it only translates code that can
+be effiently represented in C++. Code relying on JavaScript's dynamic natures,
+for example `prototype` and `any`, will be rejected.
 
 ## CLI
 
@@ -49,24 +45,11 @@ compilets build
 ./cpp-project/out/Debug/example
 ```
 
-## Principles
+## Design
 
-* Only the static part of TypeScript will be supported - for example there is no
-  support for prototype manipulation, object literal and Record are separate
-  types that can not be converted to each other.
-* Interoperability with Node.js - the TypeScript code should be able to be
-  compiled into a native module that works with the JavaScript code.
-* Language support comes first than runtime - this project will focus on
-  implementing core TypeScript language support first, things like Object and
-  String's methods will only be implemented at very last.
-
-## The unusual parts
-
-The reason this project was created despite the existences of all other ones, is
-that I believe the C++ and TypeScript languages have some subtle overlaps and
-there is a beautiful way to map TypeScript code to C++.
-
-This project means to validate my ideas which I did not find anywhere else.
+Modern C++ has evolved to support fancy syntax which you could only find in
+scripting languages before, with minimum runtime overhead. In this document we
+discuss how TypeScript code can be translated to C++ in a beautiful way.
 
 ### Oilpan GC
 
