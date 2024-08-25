@@ -45,7 +45,7 @@ Example:
 ```sh
 mkdir example
 cd example
-echo 'class A {}' > main.ts
+echo 'console.log("Hello World!")' > main.ts
 compilets gen
 compilets build
 ./cpp-project/out/Debug/example
@@ -78,15 +78,21 @@ About GN, the build system used for building C++ code:
 
 ## License
 
-This project is published under GPLv3 license, including the C++ files that are
-built into the final binary.
+This project is published under GPLv3, the C++ code (`/cpp/runtime`) has a an
+extra [linking exception](https://github.com/compilets/compilets/blob/main/cpp/runtime/LICENSE).
 
-I'll change the license to a permissive one when I consider this project as a
-ready product.
+In plain words, distributing the compiled executable files does not require you
+to open source, only including the source code of this project requires so.
 
-## Contributions
+I'll change the license to a permissive one if this project gets enough funding.
 
-It is discouraged to submit patches as this project is still an ongoing
-experiment. If you are still kind enough to fix bugs, please note that you must
-agree to allow me to re-license the contributions to permissive licenses in
-future.
+## Contributor license agreement
+
+By sending a pull request, you hereby grant to owners and users of this project
+a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+copyright license to reproduce, prepare derivative works of, publicly display,
+publicly perform, sublicense, and distribute your contributions and such
+derivative works.
+
+The owners of the this project will also be granted the right to relicense the
+contributed source code and its derivative works to a more permissive license.
