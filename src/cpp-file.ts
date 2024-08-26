@@ -1,21 +1,18 @@
 import * as syntax from './cpp-syntax';
 import {cloneMap} from './js-utils';
 
-interface PrintOptions {
-  generationMode: syntax.GenerationMode;
-  mode: syntax.PrintMode;
-}
-
 /**
  * Represent a `.h` or `.cc` file in C++.
  */
 export default class CppFile {
+  name: string;
   isMain: boolean;
   interfaceRegistry: syntax.InterfaceRegistry;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   body = new syntax.MainFunction();
 
-  constructor(isMain: boolean, interfaceRegistry: syntax.InterfaceRegistry) {
+  constructor(name: string, isMain: boolean, interfaceRegistry: syntax.InterfaceRegistry) {
+    this.name = name;
     this.isMain = isMain;
     this.interfaceRegistry = interfaceRegistry;
   }
@@ -37,16 +34,22 @@ export default class CppFile {
   /**
    * Return whether top-level declarations can be added to this file.
    */
-  canAddDeclaration() {
+  canAddDeclaration(): boolean {
     return !this.isMain || this.body.isEmpty();
+  }
+
+  /**
+   * Return whether this file contains exported declarations.
+   */
+  hasExports(): boolean {
+    return this.declarations.statements.some(d => d.isExported);
   }
 
   /**
    * Print the file to C++ source code.
    */
-  print(options: PrintOptions): string {
+  print(ctx: syntax.PrintContext): string {
     // Print all parts.
-    const ctx = new syntax.PrintContext(options.generationMode, options.mode, 2);
     const forwardDeclarations = this.printForwardDeclarations(ctx);
     const declarations = this.declarations.print(ctx);
     const mainFunction = this.printMainFunction(ctx);
@@ -103,7 +106,11 @@ export default class CppFile {
    * Print used interfaces.
    */
   private printInterfaces(ctx: syntax.PrintContext): string | undefined {
-    if (ctx.interfaces.size == 0)
+    // Remove skipped interfaces.
+    let interfaces = ctx.interfaces;
+    if (ctx.includedInterfaces)
+      interfaces = interfaces.difference(ctx.includedInterfaces);
+    if (interfaces.size == 0)
       return;
     // Put results in a namespace.
     ctx.namespace = 'compilets::generated';
@@ -112,12 +119,14 @@ export default class CppFile {
     // there is no more generated.
     const declarations: string[] = [];
     const printed = new Set<string>();
-    while (ctx.interfaces.size > printed.size) {
-      for (const name of ctx.interfaces.difference(printed)) {
+    while (interfaces.size > printed.size) {
+      for (const name of interfaces.difference(printed)) {
         const type = this.interfaceRegistry.get(name);
         declarations.push(type.printDeclaration(ctx));
         printed.add(name);
       }
+      if (ctx.includedInterfaces)
+        interfaces = ctx.interfaces.difference(ctx.includedInterfaces);
     }
     // Add forward declarations to result.
     result += Array.from(printed).map(name => `struct ${name};`).join('\n');
@@ -137,33 +146,68 @@ export default class CppFile {
     // If this is the main file of an exe, it requires runtime headers.
     if (this.isMain && ctx.generationMode == 'exe')
       ctx.features.add('runtime');
-    if (ctx.features.size == 0)
+    // Remove included headers.
+    let features = ctx.features;
+    if (ctx.includedFeatures)
+      features = features.difference(ctx.includedFeatures);
+    // The .cpp file with exports needs to to include its own header.
+    const includesOwnHeader = ctx.mode == 'impl' && this.hasExports();
+    if (features.size == 0 && !includesOwnHeader)
       return;
-    // Add headers according to used features.
-    let hasTypeTraitsHeader = false;
-    let hasObjectHeader = false;
     const headers = new syntax.Headers();
-    for (const feature of ctx.features) {
+    if (includesOwnHeader)
+      headers.addLocalHeader(`${this.name}.h`);
+    // Add headers according to used features.
+    for (const feature of features) {
       switch (feature) {
         case 'array':
         case 'function':
         case 'process':
         case 'console':
-          hasObjectHeader = true;
         case 'string':
         case 'union':
-          hasTypeTraitsHeader = true;
         case 'runtime':
           headers.addLocalHeader(`runtime/${feature}.h`);
       }
     }
-    if (!hasObjectHeader && ctx.features.has('object')) {
-      hasTypeTraitsHeader = true;
+    let allFeatures = ctx.features;
+    if (ctx.includedFeatures)
+      allFeatures = allFeatures.union(ctx.includedFeatures);
+    if (features.has('object') && !hasHeadersUsingObject(allFeatures))
       headers.addLocalHeader('runtime/object.h');
-    }
-    if (!hasTypeTraitsHeader && ctx.features.has('type-traits')) {
+    if (features.has('type-traits') && !hasHeadersUsingTypeTraits(allFeatures))
       headers.addLocalHeader('runtime/type_traits.h');
-    }
     return headers.print(ctx);
   }
+}
+
+// Whether the features includes classes that inherits from object.
+function hasHeadersUsingObject(features: Set<syntax.Feature>) {
+  for (const feature of features) {
+    switch (feature) {
+      case 'array':
+      case 'function':
+      case 'process':
+      case 'console':
+        return true;
+    }
+  }
+  return false;
+}
+
+// Whether the features use the type traits.
+function hasHeadersUsingTypeTraits(features: Set<syntax.Feature>) {
+  for (const feature of features) {
+    switch (feature) {
+      case 'array':
+      case 'function':
+      case 'process':
+      case 'console':
+      case 'object':
+      case 'string':
+      case 'union':
+        return true;
+    }
+  }
+  return false;
 }

@@ -20,10 +20,7 @@ function testDir(root: string) {
   const parser = new Parser(project);
   parser.parse();
   // Compare the compiled results with the .h/.cpp files in dir.
-  const result = project.getFiles().map(([name, file]) => {
-    const mode = name.endsWith('.h') ? 'header' : 'impl';
-    return [ name, file.print({mode, generationMode: 'lib'}) ];
-  });
+  const result = Array.from(project.getPrintedFiles('lib')).sort();
   const expected = fs.readdirSync(root)
                      .filter(f => f.endsWith('.h') || f.endsWith('.cpp'))
                      .map(f => [ f, fs.readFileSync(`${root}/${f}`).toString() ]);

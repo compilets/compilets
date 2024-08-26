@@ -5,10 +5,6 @@ import * as ts from 'typescript';
 import CppFile from './cpp-file';
 import * as syntax from './cpp-syntax';
 
-interface GenerationOptions {
-  generationMode: syntax.GenerationMode;
-}
-
 /**
  * Represent a C++ project that can be compiled to executable.
  */
@@ -23,7 +19,6 @@ export default class CppProject {
   private cppFiles = new Map<string, CppFile>();
 
   constructor(rootDir: string) {
-    this.rootDir = rootDir;
     // Read project name from package.json, and use dir name as fallback.
     let projectName: string | undefined;
     let mainFileName: string | undefined;
@@ -40,10 +35,12 @@ export default class CppProject {
       // Get the TypeScript files from config.
       const config = ts.readJsonConfigFile(configFileName, (p) => fs.readFileSync(p).toString());
       const parsed = ts.parseJsonSourceFileConfigFileContent(config, ts.sys, rootDir);
+      this.rootDir = parsed.options.rootDir ?? rootDir;
       this.fileNames = parsed.fileNames;
       this.compilerOptions = parsed.options;
     } else {
       // Get the TypeScript files from the rootDir.
+      this.rootDir = rootDir;
       this.fileNames = fs.readdirSync(rootDir).filter(f => f.endsWith('.ts'))
                                               .map(p => `${rootDir}/${p}`);
       this.compilerOptions = {
@@ -81,23 +78,48 @@ export default class CppProject {
   getFiles(): [string, CppFile][] {
     const result: [string, CppFile][] = [];
     for (const [ name, file ] of this.cppFiles) {
+      if (file.hasExports())
+        result.push([ name + '.h', file ]);
+      // The .cpp is listed after .h so common headers do not print twice.
       result.push([ name + '.cpp', file ]);
     }
     return result;
   }
 
   /**
+   * Yield filename and printed content at each generation.
+   */
+  *getPrintedFiles(generationMode: syntax.GenerationMode): Generator<[string, string], void> {
+    const headers = new Map<string, syntax.PrintContext>();
+    for (const [ name, file ] of this.getFiles()) {
+      const mode = name.endsWith('.h') ? 'header' : 'impl';
+      const ctx = new syntax.PrintContext(generationMode, mode, 2);
+      // When printing .cpp files, there is no need to print includes and
+      // interfaces which were already printed in .h files.
+      if (name.endsWith('.cpp')) {
+        const header = headers.get(name.replace(/.cpp$/, '.h'));
+        if (header) {
+          ctx.includedFeatures = header.features;
+          ctx.includedInterfaces = header.interfaces;
+        }
+      } else if (name.endsWith('.h')) {
+        headers.set(name, ctx);
+      }
+      yield [ name, file.print(ctx) ];
+    }
+  }
+
+  /**
    * Create a C++ project at `target` directory.
    */
-  async writeTo(target: string, options: GenerationOptions) {
+  async writeTo(target: string, generationMode: syntax.GenerationMode) {
     await fs.ensureDir(target);
     const tasks: Promise<void>[] = [];
     tasks.push(this.writeGnFiles(target));
-    for (const [ name, file ] of this.getFiles()) {
+    for (const [ name, content ] of this.getPrintedFiles(generationMode)) {
       const filepath = `${target}/${name}`;
       await fs.ensureFile(filepath);
-      const mode = name.endsWith('.h') ? 'header' : 'impl';
-      await fs.writeFile(filepath, file.print({mode, ...options}));
+      await fs.writeFile(filepath, content);
     }
     return Promise.all(tasks);
   }

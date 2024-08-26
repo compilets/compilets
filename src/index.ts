@@ -19,7 +19,7 @@ export async function generateCppProject(root: string,
   const project = new CppProject(root);
   const parser = new Parser(project);
   parser.parse();
-  await project.writeTo(target, {generationMode: 'exe'});
+  await project.writeTo(target, 'exe');
   await gnGen(target, {config: 'Debug', stream: options?.stream});
   return project;
 }

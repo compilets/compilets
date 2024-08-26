@@ -55,12 +55,12 @@ export default class Parser {
                        .replace(/.ts$/, '');
       const isMain = fileName == this.project.mainFileName;
       const sourceFile = this.program.getSourceFile(fileName)!;
-      this.project.addParsedFile(name, this.parseSourceFile(isMain, sourceFile));
+      this.project.addParsedFile(name, this.parseSourceFile(name, isMain, sourceFile));
     }
   }
 
-  parseSourceFile(isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(isMain, this.interfaceRegistry);
+  parseSourceFile(name: string, isMain: boolean, sourceFile: ts.SourceFile): CppFile {
+    const cppFile = new CppFile(name, isMain, this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.InterfaceDeclaration:

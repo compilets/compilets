@@ -751,25 +751,25 @@ export abstract class Statement {
 
 export abstract class DeclarationStatement extends Statement {
   name: string;
+  isExported: boolean;
 
-  constructor(name: string) {
+  constructor(name: string, isExported = false) {
     super();
     this.name = name;
+    this.isExported = isExported;
   }
 }
 
 export class ClassDeclaration extends DeclarationStatement {
   type: Type;
-  isExport: boolean;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
   destructor?: ClassElement;
 
-  constructor(type: Type, isExport: boolean, members: ClassElement[]) {
-    super(type.name);
+  constructor(type: Type, isExported: boolean, members: ClassElement[]) {
+    super(type.name, isExported);
     this.type = type;
-    this.isExport = isExport;
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);
@@ -802,18 +802,16 @@ export class ClassDeclaration extends DeclarationStatement {
 
 export class FunctionDeclaration extends DeclarationStatement {
   type: FunctionType;
-  isExport: boolean;
   parameters: ParameterDeclaration[];
   body?: Block;
 
   constructor(type: FunctionType,
-              isExport: boolean,
+              isExported: boolean,
               name: string,
               parameters: ParameterDeclaration[],
               body?: Block) {
-    super(name);
+    super(name, isExported);
     this.type = type;
-    this.isExport = isExport;
     this.parameters = parameters;
     this.body = body;
   }

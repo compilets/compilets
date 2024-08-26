@@ -59,9 +59,17 @@ export class PrintContext {
    */
   features = new Set<Feature>();
   /**
-   * The generated interfaces when printing.
+   * Used interfaces when printing.
    */
   interfaces = new Set<string>();
+  /**
+   * The features that used in the included headers.
+   */
+  includedFeatures?: Set<Feature>;
+  /**
+   * The interfaces that printed in the included headers.
+   */
+  includedInterfaces?: Set<string>;
   /**
    * Whether the node should put padding in the beginning.
    * TODO(zcbenz): This was introduced to handle the formatting of if statement,
