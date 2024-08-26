@@ -3,6 +3,9 @@
 class View;
 template<typename T>
 class Container;
+View* createView();
+template<typename T>
+Container<T>* createContainer();
 
 namespace compilets::generated {
 
@@ -40,3 +43,10 @@ class Container : public compilets::Object {
 
   virtual ~Container() = default;
 };
+
+View* createView();
+
+template<typename T>
+Container<T>* createContainer() {
+  return compilets::MakeObject<Container<T>>();
+}

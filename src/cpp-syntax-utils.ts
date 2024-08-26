@@ -80,10 +80,10 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
   if (!decl.isExported && ctx.mode == 'header')
     return '';
   // Exported template class always live in header.
-  if (decl.isExported && decl.type.hasTemplate() && ctx.mode == 'impl')
+  if (decl.isExported && templateDeclaration && ctx.mode == 'impl')
     return '';
   // Print method declarations.
-  if (decl.isExported && !decl.type.hasTemplate() && ctx.mode == 'impl') {
+  if (decl.isExported && !templateDeclaration && ctx.mode == 'impl') {
     const methods = decl.getMembers()
                         .filter(m => m instanceof PropertyDeclaration ||
                                      m instanceof MethodDeclaration ||

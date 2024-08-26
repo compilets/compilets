@@ -14,3 +14,11 @@ export class Container<T> {
   layout(options: {redraw: boolean}) {
   }
 }
+
+export function createView() {
+  return new View();
+}
+
+export function createContainer<T>() {
+  return new Container<T>();
+}

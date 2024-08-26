@@ -866,6 +866,8 @@ export class FunctionDeclaration extends DeclarationStatement {
     let result = `${returnType} ${this.name}(${parameters})`;
     if (ctx.mode == 'forward') {
       result += ';';
+    } else if (ctx.mode == 'header' && !templateDeclaration) {
+      result += ';\n';
     } else {
       const body = this.body?.print(ctx) ?? '{}';
       result += ` ${body}\n`;

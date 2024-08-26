@@ -12,3 +12,7 @@ void View::Trace(cppgc::Visitor* visitor) const {
 }
 
 View::~View() = default;
+
+View* createView() {
+  return compilets::MakeObject<View>();
+}
