@@ -533,6 +533,10 @@ export class InterfaceType extends Type {
    * It is similar to printClassDeclaration but without class specific things.
    */
   printDeclaration(ctx: PrintContext): string {
+    // The interface is always printed as single class declaration.
+    const oldMode = ctx.mode;
+    ctx.mode = 'impl';
+    // Constructor class members from the type.
     const members: ClassElement[] = [];
     members.push(this.createConstructor());
     for (const [name, type] of this.properties) {
@@ -544,6 +548,7 @@ export class InterfaceType extends Type {
         members.push(trace);
       members.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
     }
+    // Print.
     let result = `${ctx.prefix}struct ${this.name} : public compilets::Object {\n`;
     ctx.level++;
     result += members.map(m => m.print(ctx)).join('\n\n');
@@ -551,6 +556,7 @@ export class InterfaceType extends Type {
     if (members.length > 0)
       result += '\n';
     result += ctx.padding + '};';
+    ctx.mode = oldMode;
     return result;
   }
 

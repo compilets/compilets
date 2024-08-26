@@ -147,9 +147,11 @@ export default class CppFile {
         interfaces = ctx.interfaces.difference(ctx.includedInterfaces);
     }
     // Add forward declarations to result.
-    result += Array.from(printed).map(name => `struct ${name};`).join('\n');
+    if (printed.size > 1) {
+      result += Array.from(printed).map(name => `struct ${name};`).join('\n');
+      result += '\n\n';
+    }
     // Add declarations to result.
-    result += '\n\n';
     result += declarations.join('\n\n');
     // End of namespace.
     result += '\n\n}  // namespace compilets::generated'

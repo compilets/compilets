@@ -10,4 +10,7 @@ export class View {
 
 export class Container<T> {
   children: T[] = [];
+
+  layout(options: {redraw: boolean}) {
+  }
 }
