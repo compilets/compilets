@@ -633,11 +633,13 @@ export abstract class ClassElement extends NamedDeclaration {
   }
 
   protected getPrintMode(ctx: PrintContext) {
+    const hasTemplate = this.classDeclaration?.type.hasTemplate();
     const isExported = this.classDeclaration?.isExported;
-    const isFullDeclaraion = ctx.mode == 'impl' && !isExported;
+    const isFullDeclaraion = hasTemplate || (ctx.mode == 'impl' && !isExported);
     return {
+      hasTemplate,
       isFullDeclaraion,
-      isMethodDeclaration: ctx.mode == 'impl' && isExported,
+      isMethodDeclaration: !hasTemplate && ctx.mode == 'impl' && isExported,
       isClassDeclaration: ctx.mode == 'header' || isFullDeclaraion,
     };
   }
@@ -786,26 +788,26 @@ export abstract class Statement {
 }
 
 export abstract class DeclarationStatement extends Statement {
+  type: Type;
   name: string;
   isExported: boolean;
 
-  constructor(name: string, isExported = false) {
+  constructor(type: Type, name: string, isExported = false) {
     super();
+    this.type = type;
     this.name = name;
     this.isExported = isExported;
   }
 }
 
 export class ClassDeclaration extends DeclarationStatement {
-  type: Type;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
   destructor?: ClassElement;
 
   constructor(type: Type, isExported: boolean, members: ClassElement[]) {
-    super(type.name, isExported);
-    this.type = type;
+    super(type, type.name, isExported);
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);
@@ -841,7 +843,6 @@ export class ClassDeclaration extends DeclarationStatement {
 }
 
 export class FunctionDeclaration extends DeclarationStatement {
-  type: FunctionType;
   parameters: ParameterDeclaration[];
   body?: Block;
 
@@ -850,17 +851,17 @@ export class FunctionDeclaration extends DeclarationStatement {
               name: string,
               parameters: ParameterDeclaration[],
               body?: Block) {
-    super(name, isExported);
-    this.type = type;
+    super(type, name, isExported);
     this.parameters = parameters;
     this.body = body;
   }
 
   override print(ctx: PrintContext) {
-    this.type.returnType.addFeatures(ctx);
+    const type = this.type as FunctionType;
+    type.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
-    const templateDeclaration = printTemplateDeclaration(this.type);
-    const returnType = this.type.returnType.print(ctx);
+    const templateDeclaration = printTemplateDeclaration(type);
+    const returnType = type.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     let result = `${returnType} ${this.name}(${parameters})`;
     if (ctx.mode == 'forward') {
@@ -881,7 +882,9 @@ export class MainFunction extends DeclarationStatement {
   body: Block = new Block();
 
   constructor() {
-    super('main');
+    const int = new Type('int', 'primitive');
+    const argv = new Type('const char*[]', 'external');
+    super(new FunctionType('function', int, [ int, argv ]), 'main');
   }
 
   override print(ctx: PrintContext) {
@@ -921,6 +924,10 @@ export class Paragraph<T extends Statement> extends Statement {
 
   override print(ctx: PrintContext) {
     return this.statements.map(s => s.print(ctx)).join('\n');
+  }
+
+  filter(callback: (value: T) => boolean) {
+    return new Paragraph<T>(this.statements.filter(callback));
   }
 }
 

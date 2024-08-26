@@ -51,7 +51,7 @@ export default class CppFile {
   print(ctx: syntax.PrintContext): string {
     // Print all parts.
     const forwardDeclarations = this.printForwardDeclarations(ctx);
-    const declarations = this.declarations.print(ctx);
+    const declarations = this.printDeclarations(ctx);
     const mainFunction = this.printMainFunction(ctx);
     // Collect used interfaces after printing code.
     const interfaces = this.printInterfaces(ctx);
@@ -80,9 +80,27 @@ export default class CppFile {
   }
 
   /**
+   * Print declarations for all the function and class declarations.
+   */
+  private printDeclarations(ctx: syntax.PrintContext): string | undefined {
+    let declarations = this.declarations;
+    if (ctx.mode == 'header')
+      declarations = declarations.filter(d => d.isExported);
+    else if (ctx.mode == 'impl')
+      declarations = declarations.filter(d => !(d.isExported && d.type.hasTemplate()));
+    if (declarations.statements.length == 0)
+      return;
+    return declarations.print(ctx);
+  }
+
+  /**
    * Print forward declarations for all the function and class declarations.
    */
   private printForwardDeclarations(ctx: syntax.PrintContext): string | undefined {
+    // When it is a .cpp file with a .h header, the forward declarations only
+    // live in header.
+    if (ctx.mode == 'impl' && this.hasExports())
+      return;
     if (this.declarations.statements.length > 1) {
       const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
       return this.declarations.print(forward);

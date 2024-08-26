@@ -7,3 +7,7 @@ export class View {
     View.count++;
   }
 }
+
+export class Container<T> {
+  children: T[] = [];
+}

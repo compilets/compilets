@@ -60,8 +60,7 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
   const visitorType = new Type('cppgc::Visitor*', 'external');
   const visitor = new ParameterDeclaration('visitor', visitorType);
   // Create the method.
-  const returnType = new Type('void', 'void');
-  const methodType = new FunctionType('function', returnType, [ visitorType ]);
+  const methodType = new FunctionType('function', Type.createVoidType(), [ visitorType ]);
   return new MethodDeclaration(methodType, 'Trace', [ 'public', 'override', 'const' ], [ visitor ], body);
 }
 
@@ -69,16 +68,22 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
  * Print the class declaration.
  */
 export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext): string {
-  const templateDeclaration = printTemplateDeclaration(decl.type);
   // Forward declaration.
+  const templateDeclaration = printTemplateDeclaration(decl.type);
   if (ctx.mode == 'forward') {
     let result = `class ${decl.type.name};`;
     if (templateDeclaration)
       return templateDeclaration + '\n' + result;
     return result;
   }
+  // Do not expose in header if class is not exported.
+  if (!decl.isExported && ctx.mode == 'header')
+    return '';
+  // Exported template class always live in header.
+  if (decl.isExported && decl.type.hasTemplate() && ctx.mode == 'impl')
+    return '';
   // Print method declarations.
-  if (ctx.mode == 'impl' && decl.isExported) {
+  if (decl.isExported && !decl.type.hasTemplate() && ctx.mode == 'impl') {
     const methods = decl.getMembers()
                         .filter(m => m instanceof PropertyDeclaration ||
                                      m instanceof MethodDeclaration ||
