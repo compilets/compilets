@@ -22,7 +22,7 @@ class WithNumber : public compilets::Object {
   virtual void method() {}
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, member);
+    compilets::TraceMember(visitor, member);
   }
 
   virtual ~WithNumber() = default;
@@ -56,7 +56,7 @@ class MemberMember : public compilets::Object {
   virtual void method() {}
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, member);
+    compilets::TraceMember(visitor, member);
   }
 
   virtual ~MemberMember() = default;

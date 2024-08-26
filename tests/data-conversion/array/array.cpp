@@ -17,9 +17,9 @@ class Collection : public compilets::Object {
   cppgc::Member<compilets::Array<compilets::Union<double, cppgc::Member<Item>>>> multiItems = compilets::MakeArray<compilets::Union<double, cppgc::Member<Item>>>({static_cast<double>(123)});
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, items);
-    TraceMember(visitor, maybeItems);
-    TraceMember(visitor, multiItems);
+    compilets::TraceMember(visitor, items);
+    compilets::TraceMember(visitor, maybeItems);
+    compilets::TraceMember(visitor, multiItems);
   }
 
   virtual ~Collection() = default;

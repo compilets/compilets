@@ -37,13 +37,13 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
     if (member instanceof PropertyDeclaration) {
       let traceMethod: string | undefined;
       if (member.type.hasObject())
-        traceMethod = 'TraceMember';
+        traceMethod = 'compilets::TraceMember';
       else if (member.type.hasTemplate())
         traceMethod = 'compilets::TracePossibleMember';
       if (traceMethod) {
         body.statements.push(
           new ExpressionStatement(
-            new RawExpression(new Type('void', 'void'),
+            new RawExpression(Type.createVoidType(),
                               `${traceMethod}(visitor, ${member.name})`)));
       }
     }

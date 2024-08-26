@@ -22,7 +22,7 @@ struct Interface2 : public compilets::Object {
   cppgc::Member<Interface1> i;
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, i);
+    compilets::TraceMember(visitor, i);
   }
 
   virtual ~Interface2() = default;
@@ -36,8 +36,8 @@ struct Interface3 : public compilets::Object {
   cppgc::Member<compilets::Function<double(Interface1*)>> func;
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, method);
-    TraceMember(visitor, func);
+    compilets::TraceMember(visitor, method);
+    compilets::TraceMember(visitor, func);
   }
 
   virtual ~Interface3() = default;
@@ -57,7 +57,7 @@ struct Interface6 : public compilets::Object {
   cppgc::Member<Interface5> obj;
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, obj);
+    compilets::TraceMember(visitor, obj);
   }
 
   virtual ~Interface6() = default;

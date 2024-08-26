@@ -43,7 +43,7 @@ class Wrapper : public compilets::Object {
     compilets::TracePossibleMember(visitor, optionalMember);
     compilets::TracePossibleMember(visitor, unionMember);
     compilets::TracePossibleMember(visitor, optionalUnionMember);
-    TraceMember(visitor, arrayMember);
+    compilets::TraceMember(visitor, arrayMember);
   }
 
   virtual ~Wrapper() = default;

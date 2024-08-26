@@ -38,7 +38,7 @@ class Container : public compilets::Object {
   virtual void layout(compilets::generated::Interface1* options) {}
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, children);
+    compilets::TraceMember(visitor, children);
   }
 
   virtual ~Container() = default;

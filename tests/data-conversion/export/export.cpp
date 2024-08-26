@@ -8,7 +8,7 @@ View::View() {
 }
 
 void View::Trace(cppgc::Visitor* visitor) const {
-  TraceMember(visitor, children);
+  compilets::TraceMember(visitor, children);
 }
 
 View::~View() = default;

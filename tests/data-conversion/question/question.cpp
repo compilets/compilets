@@ -15,7 +15,7 @@ class LinkNode : public compilets::Object {
   }
 
   void Trace(cppgc::Visitor* visitor) const override {
-    TraceMember(visitor, next);
+    compilets::TraceMember(visitor, next);
   }
 
   virtual ~LinkNode() = default;
