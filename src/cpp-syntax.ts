@@ -631,6 +631,16 @@ export abstract class ClassElement extends NamedDeclaration {
     super(name);
     this.modifiers = modifiers ?? [];
   }
+
+  protected getPrintMode(ctx: PrintContext) {
+    const isExported = this.classDeclaration?.isExported;
+    const isFullDeclaraion = ctx.mode == 'impl' && !isExported;
+    return {
+      isFullDeclaraion,
+      isMethodDeclaration: ctx.mode == 'impl' && isExported,
+      isClassDeclaration: ctx.mode == 'header' || isFullDeclaraion,
+    };
+  }
 }
 
 export class SemicolonClassElement extends ClassElement {
@@ -657,19 +667,25 @@ export class ConstructorDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    const {isFullDeclaraion, isMethodDeclaration} = this.getPrintMode(ctx);
+    const name = isMethodDeclaration ? `${this.name}::${this.name}` : this.name;
     let body: string;
-    if (this.body)
-      body = this.body?.print(ctx);
-    else if (this.initializerList)
-      body = `: ${this.initializerList.join(', ')} {}`;
-    else
-      body = '= default;';
+    if (isFullDeclaraion || isMethodDeclaration) {
+      if (this.body)
+        body = ' ' + this.body.print(ctx);
+      else if (this.initializerList)
+        body = ` : ${this.initializerList.join(', ')} {}`;
+      else
+        body = ' = default;';
+    } else {
+      body = ';';
+    }
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const baseType = this.classDeclaration?.type.base?.name;
     if (!baseType && this.baseCall)
       throw new Error(`There is no base class for "${this.name}" but super is called`);
     const baseCall = this.baseCall ? ` : ${baseType}(${this.baseCall.print(ctx)})` : '';
-    return `${ctx.prefix}${this.name}(${parameters})${baseCall} ${body}`;
+    return `${ctx.prefix}${name}(${parameters})${baseCall}${body}`;
   }
 }
 
@@ -682,11 +698,17 @@ export class DestructorDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
+    const {isFullDeclaraion, isMethodDeclaration, isClassDeclaration} = this.getPrintMode(ctx);
     let result = ctx.prefix;
-    if (this.modifiers.includes('virtual'))
+    if (isClassDeclaration && this.modifiers.includes('virtual'))
       result += 'virtual ';
-    result += `~${this.name}() `;
-    result += this.body?.print(ctx) ?? '= default;';
+    if (isMethodDeclaration)
+      result += `${this.name}::`;
+    result += `~${this.name}()`;
+    if (isMethodDeclaration || isFullDeclaraion)
+      result += ' ' + (this.body?.print(ctx) ?? '= default;');
+    else
+      result += ';';
     return result;
   }
 }
@@ -704,12 +726,20 @@ export class PropertyDeclaration extends ClassElement {
 
   override print(ctx: PrintContext) {
     this.type.addFeatures(ctx);
+    const {isFullDeclaraion, isMethodDeclaration} = this.getPrintMode(ctx);
     const isStatic = this.modifiers.includes('static');
+    if (!isStatic && isMethodDeclaration)
+      return '';
     let result = ctx.prefix;
-    if (isStatic)
-      result += 'static ';
-    result += `${this.type.print(ctx)} ${this.name}`;
-    if (this.initializer && !isStatic)
+    if (isStatic) {
+      if (isMethodDeclaration)
+        result += '// static\n'
+      else
+        result += 'static ';
+    }
+    result += `${this.type.print(ctx)} `;
+    result += isMethodDeclaration ? `${this.classDeclaration!.name}::${this.name}` : this.name;
+    if (this.initializer && isStatic == isMethodDeclaration)
       result += ` = ${this.initializer.print(ctx)}`;
     return result + ';';
   }
@@ -730,17 +760,23 @@ export class MethodDeclaration extends ClassElement {
   override print(ctx: PrintContext) {
     this.type.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
+    const {isFullDeclaraion, isMethodDeclaration, isClassDeclaration} = this.getPrintMode(ctx);
     let result = ctx.prefix;
-    if (this.modifiers.includes('virtual'))
+    if (isClassDeclaration && this.modifiers.includes('virtual'))
       result += 'virtual ';
-    result += `${this.type.returnType.print(ctx)} ${this.name}(`;
+    result += `${this.type.returnType.print(ctx)} `;
+    result += isMethodDeclaration ? `${this.classDeclaration!.name}::${this.name}` : this.name;
+    result += '(';
     result += ParameterDeclaration.printParameters(ctx, this.parameters);
-    result += ') ';
+    result += ')';
     if (this.modifiers.includes('const'))
-      result += 'const ';
-    if (this.modifiers.includes('override'))
-      result += 'override ';
-    result += this.body?.print(ctx) ?? '{}';
+      result += ' const';
+    if (isClassDeclaration && this.modifiers.includes('override'))
+      result += ' override';
+    if (isMethodDeclaration || isFullDeclaraion)
+      result += ' ' + (this.body?.print(ctx) ?? '{}');
+    else
+      result += ';';
     return result;
   }
 }
@@ -781,10 +817,14 @@ export class ClassDeclaration extends DeclarationStatement {
     if (notTriviallyDestructible(members)) {
       // Add Trace method.
       const trace = createTraceMethod(this.type, members);
-      if (trace)
+      if (trace) {
+        trace.classDeclaration = this;
         this.publicMembers.push(trace);
+      }
       // Add a virtual destructor.
-      this.publicMembers.push(new DestructorDeclaration(this.name, [ 'virtual' ]));
+      const destructor = new DestructorDeclaration(this.name, [ 'virtual' ]);
+      destructor.classDeclaration = this;
+      this.publicMembers.push(destructor);
     }
     // Add pre finalizer if a method is marked as destructor.
     this.destructor = members.find(m => m instanceof MethodDeclaration && m.modifiers.includes('destructor'));
@@ -845,6 +885,8 @@ export class MainFunction extends DeclarationStatement {
   }
 
   override print(ctx: PrintContext) {
+    if (ctx.mode == 'header')
+      return '';
     let signature: string;
     let body: Block;
     if (ctx.generationMode == 'exe') {

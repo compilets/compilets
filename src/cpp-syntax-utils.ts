@@ -10,6 +10,8 @@ import {
   CustomExpression,
   ClassDeclaration,
   ClassElement,
+  ConstructorDeclaration,
+  DestructorDeclaration,
   PropertyDeclaration,
   MethodDeclaration,
   ParameterDeclaration,
@@ -74,6 +76,17 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
     if (templateDeclaration)
       return templateDeclaration + '\n' + result;
     return result;
+  }
+  // Print method declarations.
+  if (ctx.mode == 'impl' && decl.isExported) {
+    const methods = decl.getMembers()
+                        .filter(m => m instanceof PropertyDeclaration ||
+                                     m instanceof MethodDeclaration ||
+                                     m instanceof ConstructorDeclaration ||
+                                     m instanceof DestructorDeclaration)
+                        .map(m => m.print(ctx))
+                        .filter(s => s.length > 0);
+    return methods.join('\n\n') + '\n';
   }
   // Print class name and inheritance.
   const base = decl.type.base ? printTypeName(decl.type.base, ctx) : 'compilets::Object';
