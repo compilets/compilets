@@ -9,7 +9,7 @@
   },
   "scripts": {
     "prepack": "tsc",
-    "pretest": "tsc --noEmit",
+    "pretest": "tsc --noEmit -p tests/tsconfig.json",
     "test": "tsx tests/run.ts"
   },
   "author": "zcbenz",

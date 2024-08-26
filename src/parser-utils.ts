@@ -115,6 +115,15 @@ export function isExternalDeclaration(decl: ts.Declaration): boolean {
 }
 
 /**
+ * Return whether the declaration is marked as "export".
+ */
+export function isExportedDeclaration(decl: ts.ClassDeclaration | ts.FunctionDeclaration): boolean {
+  if (!decl.modifiers)
+    return false;
+  return decl.modifiers.some(m => m.kind == ts.SyntaxKind.ExportKeyword);
+}
+
+/**
  * Return whether the declaration comes from Node.js.
  */
 export function isNodeJsDeclaration(decl: ts.Declaration): boolean {

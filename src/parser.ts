@@ -14,6 +14,7 @@ import {
   hasTypeNode,
   hasQuestionToken,
   isExternalDeclaration,
+  isExportedDeclaration,
   isNodeJsDeclaration,
   isNodeJsType,
   FunctionLikeNode,
@@ -41,7 +42,7 @@ export default class Parser {
   interfaceRegistry = new syntax.InterfaceRegistry();
 
   constructor(project: CppProject) {
-    if (project.files.size > 0)
+    if (project.getFiles().length > 0)
       throw new Error('The project has already been parsed');
     this.project = project;
     this.program = ts.createProgram(project.fileNames, project.compilerOptions);
@@ -51,10 +52,10 @@ export default class Parser {
   parse() {
     for (const fileName of this.program.getRootFileNames()) {
       const name = path.relative(this.project.rootDir, fileName)
-                       .replace(/.ts$/, '.cpp');
+                       .replace(/.ts$/, '');
       const isMain = fileName == this.project.mainFileName;
       const sourceFile = this.program.getSourceFile(fileName)!;
-      this.project.addFile(name, this.parseSourceFile(isMain, sourceFile));
+      this.project.addParsedFile(name, this.parseSourceFile(isMain, sourceFile));
     }
   }
 
@@ -405,6 +406,7 @@ export default class Parser {
     const {body, name, parameters} = node;
     this.forbidClosure(node);
     return new syntax.FunctionDeclaration(this.parseNodeType(node) as syntax.FunctionType,
+                                          isExportedDeclaration(node),
                                           name.text,
                                           this.parseParameters(parameters),
                                           body ? this.parseStatement(body) as syntax.Block : undefined);
@@ -459,7 +461,9 @@ export default class Parser {
     if (!name)
       throw new UnimplementedError(node, 'Empty class name is not supported');
     const cppMembers = members.map(this.parseClassElement.bind(this, node));
-    const classDeclaration = new syntax.ClassDeclaration(this.parseNodeType(node), cppMembers);
+    const classDeclaration = new syntax.ClassDeclaration(this.parseNodeType(node),
+                                                         isExportedDeclaration(node),
+                                                         cppMembers);
     cppMembers.forEach(m => m.classDeclaration = classDeclaration);
     return classDeclaration;
   }

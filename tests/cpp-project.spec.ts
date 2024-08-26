@@ -20,7 +20,7 @@ describe('CppProject', function() {
     const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path);
     assert.deepStrictEqual(fs.readdirSync(target.path),
                            [ '.gn', 'BUILD.gn', 'cpp', 'noop.cpp', 'out' ]);
-    await ninjaBuild(target.path, {target: project.name, config: 'Debug'});
+    await ninjaBuild(target.path, {config: 'Debug'});
     let exe = `${target.path}/out/Debug/noop`;
     if (process.platform == 'win32')
       exe += '.exe';
@@ -37,10 +37,10 @@ describe('CppProject', function() {
   });
 });
 
-async function runDir(root) {
+async function runDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
   const project = await generateCppProject(root, target.path);
-  await ninjaBuild(target.path, {target: project.name, config: 'Debug'});
+  await ninjaBuild(target.path, {config: 'Debug'});
   let exe = `${target.path}/out/Debug/${project.name}`;
   if (process.platform == 'win32')
     exe += '.exe';

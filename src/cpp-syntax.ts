@@ -760,14 +760,16 @@ export abstract class DeclarationStatement extends Statement {
 
 export class ClassDeclaration extends DeclarationStatement {
   type: Type;
+  isExport: boolean;
   publicMembers: ClassElement[] = [];
   protectedMembers: ClassElement[] = [];
   privateMembers: ClassElement[] = [];
   destructor?: ClassElement;
 
-  constructor(type: Type, members: ClassElement[]) {
+  constructor(type: Type, isExport: boolean, members: ClassElement[]) {
     super(type.name);
     this.type = type;
+    this.isExport = isExport;
     for (const member of members) {
       if (member.modifiers.includes('private'))
         this.privateMembers.push(member);
@@ -800,15 +802,18 @@ export class ClassDeclaration extends DeclarationStatement {
 
 export class FunctionDeclaration extends DeclarationStatement {
   type: FunctionType;
+  isExport: boolean;
   parameters: ParameterDeclaration[];
   body?: Block;
 
   constructor(type: FunctionType,
+              isExport: boolean,
               name: string,
               parameters: ParameterDeclaration[],
               body?: Block) {
     super(name);
     this.type = type;
+    this.isExport = isExport;
     this.parameters = parameters;
     this.body = body;
   }

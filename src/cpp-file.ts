@@ -3,6 +3,7 @@ import {cloneMap} from './js-utils';
 
 interface PrintOptions {
   generationMode: syntax.GenerationMode;
+  mode: syntax.PrintMode;
 }
 
 /**
@@ -45,7 +46,7 @@ export default class CppFile {
    */
   print(options: PrintOptions): string {
     // Print all parts.
-    const ctx = new syntax.PrintContext(options.generationMode, 'impl', 2);
+    const ctx = new syntax.PrintContext(options.generationMode, options.mode, 2);
     const forwardDeclarations = this.printForwardDeclarations(ctx);
     const declarations = this.declarations.print(ctx);
     const mainFunction = this.printMainFunction(ctx);
