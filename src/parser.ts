@@ -17,6 +17,7 @@ import {
   isExportedDeclaration,
   isNodeJsDeclaration,
   isNodeJsType,
+  isGlobalVariable,
   FunctionLikeNode,
   isFunctionLikeNode,
   isFunction,
@@ -76,8 +77,10 @@ export default class Parser {
             throw new UnsupportedError(node, 'Can not add function declaration after statements');
           cppFile.addDeclaration(this.parseFunctionDeclaration(node as ts.FunctionDeclaration));
           return;
-        case ts.SyntaxKind.Block:
         case ts.SyntaxKind.VariableStatement:
+          cppFile.addVariableStatement(this.parseStatement(node as ts.Statement) as syntax.VariableStatement);
+          return;
+        case ts.SyntaxKind.Block:
         case ts.SyntaxKind.ExpressionStatement:
         case ts.SyntaxKind.IfStatement:
         case ts.SyntaxKind.DoStatement:
@@ -88,8 +91,13 @@ export default class Parser {
             throw new UnsupportedError(node, 'In C++ only class and function declarations can be made top-level, unless it is the main script');
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
           return;
-        case ts.SyntaxKind.EmptyStatement:
         case ts.SyntaxKind.EndOfFileToken:
+          if (cppFile.isMain)
+            cppFile.pushVariableStatementsToMainFunction();
+          else
+            cppFile.pushVariableStatementsToDeclarations();
+          return;
+        case ts.SyntaxKind.EmptyStatement:
           return;
       }
       throw new UnimplementedError(node, 'Unsupported top-level node');
@@ -1073,7 +1081,8 @@ export default class Parser {
       }
       // Find identifiers not declared inside the function.
       if (!ts.findAncestor(symbol.valueDeclaration, (n) => n == func)) {
-        closure.push(node as ts.Identifier);
+        if (!isGlobalVariable(symbol.valueDeclaration!))
+          closure.push(node as ts.Identifier);
       }
     }
     return uniqueArray(closure, (x, y) => x.getText() == y.getText());

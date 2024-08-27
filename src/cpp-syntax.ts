@@ -878,6 +878,19 @@ export class FunctionDeclaration extends DeclarationStatement {
   }
 }
 
+export class VariableStatement extends DeclarationStatement {
+  declarationList: VariableDeclarationList;
+
+  constructor(list: VariableDeclarationList, isExported = false) {
+    super(list.declarations[0].type, list.declarations[0].identifier, isExported);
+    this.declarationList = list;
+  }
+
+  override print(ctx: PrintContext) {
+    return `${ctx.prefix}${this.declarationList.print(ctx)};`;
+  }
+}
+
 // A special declaration for putting the top-level statements of the entry
 // script into the "main" function.
 export class MainFunction extends FunctionDeclaration {
@@ -898,8 +911,8 @@ export class MainFunction extends FunctionDeclaration {
           body);
   }
 
-  addStatement(statement: Statement) {
-    this.body!.statements.splice(this.body!.statements.length - 1, 0, statement);
+  addStatement(...statement: Statement[]) {
+    this.body!.statements.splice(this.body!.statements.length - 1, 0, ...statement);
   }
 
   isEmpty() {
@@ -938,19 +951,6 @@ export class Block extends Paragraph<Statement> {
     } else {
       return '{}';
     }
-  }
-}
-
-export class VariableStatement extends Statement {
-  declarationList: VariableDeclarationList;
-
-  constructor(list: VariableDeclarationList) {
-    super();
-    this.declarationList = list;
-  }
-
-  override print(ctx: PrintContext) {
-    return `${ctx.prefix}${this.declarationList.print(ctx)};`;
   }
 }
 

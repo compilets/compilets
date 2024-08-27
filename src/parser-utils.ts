@@ -133,6 +133,16 @@ export function isNodeJsDeclaration(decl: ts.Declaration): boolean {
 }
 
 /**
+ * Return whether it is a top-level variable declaration.
+ */
+export function isGlobalVariable(decl: ts.Declaration): boolean {
+  return ts.isVariableDeclaration(decl) &&
+         ts.isVariableDeclarationList(decl.parent) &&
+         ts.isVariableStatement(decl.parent.parent) &&
+         ts.isSourceFile(decl.parent.parent.parent);
+}
+
+/**
  * Return whether the type of node is from Node.js.
  */
 export function isNodeJsType(type: ts.Type): boolean {

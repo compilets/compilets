@@ -9,6 +9,7 @@ export default class CppFile {
   isMain: boolean;
   interfaceRegistry: syntax.InterfaceRegistry;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
+  variableStatements = new Array<syntax.VariableStatement>();
   body = new syntax.MainFunction();
 
   constructor(name: string, isMain: boolean, interfaceRegistry: syntax.InterfaceRegistry) {
@@ -18,17 +19,59 @@ export default class CppFile {
   }
 
   /**
-   * Add a top-level declaration.
+   * Add a top-level class/function declaration.
    */
   addDeclaration(declaration: syntax.DeclarationStatement) {
+    // When seeing class/function declaration in main script, the variable
+    // statements before should be treated as static variables.
+    if (this.isMain)
+      this.pushVariableStatementsToDeclarations();
     this.declarations.statements.push(declaration);
+  }
+
+  /**
+   * Add a top-level variable declaration.
+   */
+  addVariableStatement(statement: syntax.VariableStatement) {
+    // For non-main function top-level variable declaration is static variable.
+    if (!this.isMain)
+      return this.addDeclaration(statement);
+    // If the function has been created, treat it as local variable.
+    if (!this.body.isEmpty())
+      return this.addStatement(statement);
+    // Otherwise keep the declarations and wait for following statements.
+    this.variableStatements.push(statement);
   }
 
   /**
    * Add statements to the main body.
    */
   addStatement(statement: syntax.Statement) {
+    // When adding a statement to main function, the variable statements before
+    // should belong to the main function.
+    if (this.isMain)
+      this.pushVariableStatementsToMainFunction();
     this.body.addStatement(statement);
+  }
+
+  /**
+   * Move the variable statements to main function.
+   */
+  pushVariableStatementsToMainFunction() {
+    if (this.variableStatements.length == 0)
+      return;
+    this.body.addStatement(...this.variableStatements);
+    this.variableStatements = [];
+  }
+
+  /**
+   * Move the variable statements to declarations.
+   */
+  pushVariableStatementsToDeclarations() {
+    if (this.variableStatements.length == 0)
+      return;
+    this.declarations.statements.push(...this.variableStatements);
+    this.variableStatements = [];
   }
 
   /**
@@ -65,7 +108,7 @@ export default class CppFile {
       result += forwardDeclarations + '\n\n';
     if (interfaces)
       result += interfaces;
-    if (interfaces && declarations)
+    if ((interfaces && declarations)
       result += '\n\n';
     if (declarations)
       result += declarations;
@@ -101,9 +144,11 @@ export default class CppFile {
     // live in header.
     if (ctx.mode == 'impl' && this.hasExports())
       return;
-    if (this.declarations.statements.length > 1) {
+    const statements = this.declarations.statements.filter(d => d instanceof syntax.ClassDeclaration ||
+                                                                d instanceof syntax.FunctionDeclaration);
+    if (statements.length > 1) {
       const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
-      return this.declarations.print(forward);
+      return statements.map(s => s.print(forward)).join('\n');
     }
   }
 
