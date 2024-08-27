@@ -26,7 +26,7 @@ export default class CppFile {
     // statements before should be treated as static variables.
     if (this.isMain)
       this.pushVariableStatementsToDeclarations();
-    this.declarations.statements.push(declaration);
+    this.pushDeclaration(declaration);
   }
 
   /**
@@ -70,7 +70,7 @@ export default class CppFile {
   pushVariableStatementsToDeclarations() {
     if (this.variableStatements.length == 0)
       return;
-    this.declarations.statements.push(...this.variableStatements);
+    this.pushDeclaration(...this.variableStatements);
     this.variableStatements = [];
   }
 
@@ -108,7 +108,7 @@ export default class CppFile {
       result += forwardDeclarations + '\n\n';
     if (interfaces)
       result += interfaces;
-    if ((interfaces && declarations)
+    if (interfaces && declarations)
       result += '\n\n';
     if (declarations)
       result += declarations;
@@ -120,6 +120,19 @@ export default class CppFile {
     if (!result.endsWith('\n'))
       result += '\n';
     return result;
+  }
+
+  /**
+   * Push the declaration to this.declarations with some checks.
+   */
+  private pushDeclaration(...declarations: syntax.DeclarationStatement[]) {
+    for (const decl of declarations) {
+      if (decl instanceof syntax.VariableStatement) {
+        if (decl.type.hasObject() && decl.declarationList.declarations.some(d => d.initializer))
+          throw new Error('Can not initialize objects in top-level variable declarations');
+      }
+    }
+    this.declarations.statements.push(...declarations);
   }
 
   /**
