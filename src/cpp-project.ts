@@ -47,6 +47,7 @@ export default class CppProject {
         rootDir,
         noImplicitAny: true,
         strictNullChecks: true,
+        allowImportingTsExtensions: true,
         target: ts.ScriptTarget.ESNext,
         module: ts.ModuleKind.CommonJS,
       };

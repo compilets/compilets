@@ -28,7 +28,7 @@ export default class CppFile {
    * Add statements to the main body.
    */
   addStatement(statement: syntax.Statement) {
-    this.body.body.statements.push(statement);
+    this.body.addStatement(statement);
   }
 
   /**

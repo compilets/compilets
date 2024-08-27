@@ -8,6 +8,8 @@
 * `enum`
 * `switch`
 * `regex`
+* tuple
+* destructuring assignment
 * `Array` methods
 * `String` methods
 * `console.time`

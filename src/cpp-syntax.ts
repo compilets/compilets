@@ -880,37 +880,30 @@ export class FunctionDeclaration extends DeclarationStatement {
 
 // A special declaration for putting the top-level statements of the entry
 // script into the "main" function.
-export class MainFunction extends DeclarationStatement {
-  body: Block = new Block();
-
+export class MainFunction extends FunctionDeclaration {
   constructor() {
-    const int = new Type('int', 'primitive');
-    const argv = new Type('const char*[]', 'external');
-    super(new FunctionType('function', int, [ int, argv ]), 'main');
+    const intType = new Type('int', 'primitive');
+    const argvType = new Type('const char**', 'external');
+    const body = new Block([
+      new VariableStatement(new VariableDeclarationList([
+        new VariableDeclaration('_state', new Type('compilets::State', 'external')),
+      ])),
+      new ReturnStatement(new RawExpression(intType, '0')),
+    ]);
+    super(new FunctionType('function', intType, [ intType, argvType ]),
+          false /* isExported */,
+          'main',
+          [ new ParameterDeclaration('argc', intType),
+            new ParameterDeclaration('argv', argvType) ],
+          body);
   }
 
-  override print(ctx: PrintContext) {
-    if (ctx.mode == 'header')
-      return '';
-    let signature: string;
-    let body: Block;
-    if (ctx.generationMode == 'exe') {
-      signature = 'int main(int, const char*[])';
-      body = new Block([
-        new ExpressionStatement(new RawExpression(new Type('compilets::State', 'external'),
-                                                  'compilets::State state')),
-        ...this.body.statements,
-        new ReturnStatement(new RawExpression(new Type('int', 'primitive'), '0')),
-      ]);
-    } else {
-      signature = 'void Main()';
-      body = this.body;
-    }
-    return `${ctx.prefix}${signature} ${body.print(ctx)}`;
+  addStatement(statement: Statement) {
+    this.body!.statements.splice(this.body!.statements.length - 1, 0, statement);
   }
 
   isEmpty() {
-    return this.body.statements.length == 0;
+    return this.body!.statements.length <= 2;
   }
 }
 
