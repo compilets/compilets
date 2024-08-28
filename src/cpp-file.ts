@@ -227,14 +227,34 @@ export default class CppFile {
    * Print forward declarations for all the function and class declarations.
    */
   private printForwardDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
-    // When it is a .cpp file with a .h header, the forward declarations only
-    // live in header.
-    if (ctx.mode == 'impl' && this.hasExports())
-      return [];
-    const statements = this.declarations.statements.filter(d => d instanceof syntax.ClassDeclaration ||
-                                                                d instanceof syntax.FunctionDeclaration);
+    let {statements} = this.declarations;
+    // Only function/class need forward declaration.
+    statements = statements.filter(d => d instanceof syntax.ClassDeclaration ||
+                                        d instanceof syntax.FunctionDeclaration);
+    // If only one declaration, then there is no need for forward declaration.
     if (statements.length <= 1)
       return [];
+    // Put classes before functions.
+    statements.sort((a, b) => {
+      if (a instanceof syntax.ClassDeclaration &&
+          b instanceof syntax.FunctionDeclaration)
+        return -1;
+      else if (a instanceof syntax.FunctionDeclaration &&
+               b instanceof syntax.ClassDeclaration)
+        return 1;
+      else
+        return 0;
+    });
+    if (ctx.mode == 'header') {
+      // In header only print exported forward declarations.
+      statements = statements.filter(s => s.isExported);
+    } else if (ctx.mode == 'impl') {
+      // In impl only print for non-exported.
+      statements = statements.filter(s => !s.isExported);
+    }
+    if (statements.length == 0)
+      return [];
+    // Forward declarations are printed compact.
     const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
     return [ {code: statements.map(s => s.print(forward)).join('\n')} ];
   }

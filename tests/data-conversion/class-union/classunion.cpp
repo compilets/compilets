@@ -3,11 +3,11 @@
 #include "runtime/union.h"
 
 class Member;
-void TakeMember(Member* c);
 class WithNumber;
-void TestMemberUnion();
 class StringMember;
 class MemberMember;
+void TakeMember(Member* c);
+void TestMemberUnion();
 void TestClassUnion();
 
 class Member : public compilets::Object {

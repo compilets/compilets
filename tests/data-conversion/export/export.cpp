@@ -1,5 +1,7 @@
 #include "export.h"
 
+void checkLeaks();
+
 // static
 double View::count = 0;
 

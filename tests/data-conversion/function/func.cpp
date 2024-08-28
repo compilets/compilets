@@ -1,9 +1,9 @@
 #include "runtime/function.h"
 
+class SaveCallback;
 double Simple(double i);
 double OptionalArg(std::optional<double> arg);
 compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback);
-class SaveCallback;
 void TestLocalFunction();
 
 double Simple(double i) {

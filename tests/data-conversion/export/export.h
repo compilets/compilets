@@ -6,7 +6,6 @@ class Container;
 View* createView();
 template<typename T>
 Container<T>* createContainer();
-void checkLeaks();
 
 namespace compilets::generated {
 
