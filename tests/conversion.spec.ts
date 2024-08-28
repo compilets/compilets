@@ -16,8 +16,6 @@ describe('Conversion', function() {
 
 function testDir(root: string) {
   const project = new CppProject(root);
-  // Avoid generating the main function.
-  project.mainFileName = undefined;
   // Parse the TypeScript files.
   const parser = new Parser(project);
   parser.parse();

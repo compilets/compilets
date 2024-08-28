@@ -12,6 +12,7 @@ export default class CppProject {
   rootDir: string;
   name: string;
   mainFileName?: string;
+  executables?: Record<string, string>;
   fileNames: string[] = [];
   compilerOptions: ts.CompilerOptions;
 
@@ -22,10 +23,12 @@ export default class CppProject {
     // Read project name from package.json, and use dir name as fallback.
     let projectName: string | undefined;
     try {
-      const {name, main} = fs.readJsonSync(`${rootDir}/package.json`);
+      const {name, main, bin} = fs.readJsonSync(`${rootDir}/package.json`);
       projectName = name;
       if (main)
-        this.mainFileName = `${rootDir}/${main.replace(/\.[^.]+$/, '.ts')}`;
+        this.mainFileName = main;
+      if (bin)
+        this.executables = bin;
     } catch {}
     this.name = projectName ?? path.basename(rootDir);
     // File config file and read it.
@@ -51,11 +54,9 @@ export default class CppProject {
         module: ts.ModuleKind.CommonJS,
       };
     }
-    // Determine the main file name.
+    // Warn about empty directory.
     if (this.fileNames.length == 0)
       throw new Error(`Directory "${rootDir}" contains no TypeScript file`);
-    if (!this.mainFileName)
-      this.mainFileName = this.fileNames[0];
   }
 
   /**

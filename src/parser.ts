@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 
-import CppFile from './cpp-file';
+import CppFile, {CppFileType} from './cpp-file';
 import CppProject from './cpp-project';
 import * as syntax from './cpp-syntax';
 
@@ -52,16 +52,20 @@ export default class Parser {
 
   parse() {
     for (const fileName of this.program.getRootFileNames()) {
-      const name = path.relative(this.project.rootDir, fileName)
-                       .replace(/.ts$/, '');
-      const isMain = fileName == this.project.mainFileName;
+      const name = path.relative(this.project.rootDir, fileName);
       const sourceFile = this.program.getSourceFile(fileName)!;
-      this.project.addParsedFile(name, this.parseSourceFile(name, isMain, sourceFile));
+      const cppFile = this.parseSourceFile(name, sourceFile);
+      this.project.addParsedFile(cppFile.name, cppFile);
     }
   }
 
-  parseSourceFile(name: string, isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(name, isMain ? 'exe' : 'lib', this.interfaceRegistry);
+  parseSourceFile(name: string, sourceFile: ts.SourceFile): CppFile {
+    let cppFileType: CppFileType = 'lib';
+    if (this.project.mainFileName == name)
+      cppFileType = 'napi';
+    else if (this.project.executables && Object.values(this.project.executables).includes(name))
+      cppFileType = 'exe';
+    const cppFile = new CppFile(name, cppFileType, this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.InterfaceDeclaration:

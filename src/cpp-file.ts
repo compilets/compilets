@@ -4,9 +4,9 @@ import {joinArray, cloneMap} from './js-utils';
 /**
  * Possible types of the CppFile.
  */
-type CppFileType = 'lib' |  // file shared between all targets
-                   'exe' |  // executable entry file
-                   'napi';  // native module entry file
+export type CppFileType = 'lib' |  // file shared between all targets
+                          'exe' |  // executable entry file
+                          'napi';  // native module entry file
 
 /**
  * Represent a .ts file in C++, should be translated to .h and .cpp files.
@@ -20,7 +20,7 @@ export default class CppFile {
   body = new syntax.MainFunction();
 
   constructor(name: string, type: CppFileType, interfaceRegistry: syntax.InterfaceRegistry) {
-    this.name = name;
+    this.name = name.replace(/\.ts$/, '');
     this.type = type;
     this.interfaceRegistry = interfaceRegistry;
   }
