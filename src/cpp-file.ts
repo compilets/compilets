@@ -1,5 +1,5 @@
 import * as syntax from './cpp-syntax';
-import {cloneMap} from './js-utils';
+import {joinArray, cloneMap} from './js-utils';
 
 /**
  * Represent a `.h` or `.cc` file in C++.
@@ -92,34 +92,45 @@ export default class CppFile {
    * Print the file to C++ source code.
    */
   print(ctx: syntax.PrintContext): string {
-    // Print all parts.
-    const forwardDeclarations = this.printForwardDeclarations(ctx);
-    const declarations = this.printDeclarations(ctx);
-    const mainFunction = this.printMainFunction(ctx);
-    // Collect used interfaces after printing code.
-    const interfaces = this.printInterfaces(ctx);
-    // Collect used headers after printing everything.
-    const headers = this.printHeaders(ctx);
-    // Concatenate parts together.
-    let result = '';
-    if (headers)
-      result += headers + '\n';
-    if (forwardDeclarations)
-      result += forwardDeclarations + '\n\n';
-    if (interfaces)
-      result += interfaces;
-    if (interfaces && declarations)
-      result += '\n\n';
-    if (declarations)
-      result += declarations;
-    if ((declarations || interfaces) && mainFunction)
-      result += '\n';
-    if (mainFunction)
-      result += mainFunction;
-    // Make sure file has a new line in the end.
-    if (!result.endsWith('\n'))
-      result += '\n';
-    return result;
+    const blocks: NamespaceBlock[] = [];
+    // Print declarations and main function first.
+    blocks.push(...this.printDeclarations(ctx));
+    blocks.push(...this.printMainFunction(ctx));
+    // Then interfaces.
+    blocks.unshift(...this.printInterfaces(ctx));
+    // Then forward declarations.
+    blocks.unshift(...this.printForwardDeclarations(ctx));
+    // Then headers.
+    blocks.unshift(...this.printHeaders(ctx));
+    // Concatenate results.
+    return joinArray(
+      // Merge blocks with same namespace.
+      blocks.reduce((result, block, index, blocks) => {
+        if (result.length == 0)
+          return [ block ];
+        const last = result[result.length - 1];
+        if (last.namespace === block.namespace) {
+          last.code += '\n\n' + block.code;
+          if (last.isForwardDeclaration != block.isForwardDeclaration)
+            last.isForwardDeclaration = false;
+        } else {
+          result.push(block);
+        }
+        return result;
+      }, <NamespaceBlock[]>[]),
+      // Blocks have empty line between them.
+      () => '\n\n',
+      // Add namespaces when printing block.
+      (block) => {
+        if (block.namespace) {
+          if (block.isForwardDeclaration)
+            return `namespace ${block.namespace} {\n${block.code}\n}`;
+          else
+            return `namespace ${block.namespace} {\n\n${block.code}\n\n}  // namespace ${block.namespace}`;
+        } else {
+          return block.code;
+        }
+      }) + '\n';
   }
 
   /**
@@ -138,59 +149,42 @@ export default class CppFile {
   /**
    * Print declarations for all the function and class declarations.
    */
-  private printDeclarations(ctx: syntax.PrintContext): string | undefined {
+  private printDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
     let declarations = this.declarations;
     if (ctx.mode == 'header')
       declarations = declarations.filter(d => d.isExported);
     else if (ctx.mode == 'impl')
       declarations = declarations.filter(d => !(d.isExported && d.type.hasTemplate()));
     if (declarations.statements.length == 0)
-      return;
-    return declarations.print(ctx);
-  }
-
-  /**
-   * Print forward declarations for all the function and class declarations.
-   */
-  private printForwardDeclarations(ctx: syntax.PrintContext): string | undefined {
-    // When it is a .cpp file with a .h header, the forward declarations only
-    // live in header.
-    if (ctx.mode == 'impl' && this.hasExports())
-      return;
-    const statements = this.declarations.statements.filter(d => d instanceof syntax.ClassDeclaration ||
-                                                                d instanceof syntax.FunctionDeclaration);
-    if (statements.length > 1) {
-      const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
-      return statements.map(s => s.print(forward)).join('\n');
-    }
+      return [];
+    return [ {code: declarations.print(ctx)} ];
   }
 
   /**
    * Print main function.
    */
-  private printMainFunction(ctx: syntax.PrintContext): string | undefined {
+  private printMainFunction(ctx: syntax.PrintContext): NamespaceBlock[] {
     // It is only printed when:
     // 1) we are generating the exe main file;
     // 2) or there are statements in body.
     if ((ctx.generationMode == 'exe' && this.isMain) ||
         !this.body.isEmpty()) {
-      return this.body.print(ctx);
+      return [ {code: this.body.print(ctx)} ];
     }
+    return [];
   }
 
   /**
    * Print used interfaces.
    */
-  private printInterfaces(ctx: syntax.PrintContext): string | undefined {
+  private printInterfaces(ctx: syntax.PrintContext): NamespaceBlock[] {
     // Remove skipped interfaces.
     let interfaces = ctx.interfaces;
     if (ctx.includedInterfaces)
       interfaces = interfaces.difference(ctx.includedInterfaces);
     if (interfaces.size == 0)
-      return;
-    // Put results in a namespace.
+      return [];
     ctx.namespace = 'compilets::generated';
-    let result = 'namespace compilets::generated {\n\n';
     // As interfaces are being generated while printing, keep printing until
     // there is no more generated.
     const declarations: string[] = [];
@@ -204,23 +198,46 @@ export default class CppFile {
       if (ctx.includedInterfaces)
         interfaces = ctx.interfaces.difference(ctx.includedInterfaces);
     }
-    // Add forward declarations to result.
+    ctx.interfaces = printed;
+    // Add forward declarations to results.
+    const results: NamespaceBlock[] = [];
     if (printed.size > 1) {
-      result += Array.from(printed).map(name => `struct ${name};`).join('\n');
-      result += '\n\n';
+      results.push({
+        code: Array.from(printed).map(name => `struct ${name};`).join('\n'),
+        namespace: 'compilets::generated',
+        isForwardDeclaration: true,
+      });
     }
-    // Add declarations to result.
-    result += declarations.join('\n\n');
+    // Add declarations to results.
+    results.push({
+      code: declarations.join('\n\n'),
+      namespace: 'compilets::generated',
+    });
     // End of namespace.
-    result += '\n\n}  // namespace compilets::generated'
     ctx.namespace = undefined;
-    return result;
+    return results;
+  }
+
+  /**
+   * Print forward declarations for all the function and class declarations.
+   */
+  private printForwardDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
+    // When it is a .cpp file with a .h header, the forward declarations only
+    // live in header.
+    if (ctx.mode == 'impl' && this.hasExports())
+      return [];
+    const statements = this.declarations.statements.filter(d => d instanceof syntax.ClassDeclaration ||
+                                                                d instanceof syntax.FunctionDeclaration);
+    if (statements.length <= 1)
+      return [];
+    const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
+    return [ {code: statements.map(s => s.print(forward)).join('\n')} ];
   }
 
   /**
    * Print required headers for this file.
    */
-  private printHeaders(ctx: syntax.PrintContext): string | undefined {
+  private printHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
     // If this is the main file of an exe, it requires runtime headers.
     if (this.isMain && ctx.generationMode == 'exe')
       ctx.features.add('runtime');
@@ -231,10 +248,10 @@ export default class CppFile {
     // The .cpp file with exports needs to to include its own header.
     const includesOwnHeader = ctx.mode == 'impl' && this.hasExports();
     if (features.size == 0 && !includesOwnHeader)
-      return;
-    const headers = new syntax.Headers();
+      return [];
+    const headers: IncludeDirective[] = [];
     if (includesOwnHeader)
-      headers.addLocalHeader(`${this.name}.h`);
+      headers.push({type: 'quoted', path: `${this.name}.h`});
     // Add headers according to used features.
     for (const feature of features) {
       switch (feature) {
@@ -245,18 +262,35 @@ export default class CppFile {
         case 'string':
         case 'union':
         case 'runtime':
-          headers.addLocalHeader(`runtime/${feature}.h`);
+          headers.push({type: 'quoted', path: `runtime/${feature}.h`});
       }
     }
     let allFeatures = ctx.features;
     if (ctx.includedFeatures)
       allFeatures = allFeatures.union(ctx.includedFeatures);
     if (features.has('object') && !hasHeadersUsingObject(allFeatures))
-      headers.addLocalHeader('runtime/object.h');
+      headers.push({type: 'quoted', path: 'runtime/object.h'});
     if (features.has('type-traits') && !hasHeadersUsingTypeTraits(allFeatures))
-      headers.addLocalHeader('runtime/type_traits.h');
-    return headers.print(ctx);
+      headers.push({type: 'quoted', path: 'runtime/type_traits.h'});
+    const code = headers.map(h => h.type == 'bracket' ? `#include <${h.path}>`
+                                                      : `#include "${h.path}"`)
+                        .sort()
+                        .join('\n');
+    return [ {code} ];
   }
+}
+
+// Code block wrapped by namespaces.
+interface NamespaceBlock {
+  code: string;
+  namespace?: string;
+  isForwardDeclaration?: boolean;
+}
+
+// Represent the #include directive in C++.
+interface IncludeDirective {
+  type: 'bracket' | 'quoted';
+  path: string;
 }
 
 // Whether the features includes classes that inherits from object.
