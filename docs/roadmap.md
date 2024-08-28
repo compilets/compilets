@@ -16,6 +16,7 @@
 * `process.argv`
 * Convert `interface` function parameters to templates
 * `try`/`catch`
+* `typeof` operator
 
 ## Long term plans
 
@@ -33,5 +34,7 @@
 
 ## Long long term plans
 
+* `using` declaration
+* `keyof` operator
 * `node:fs` APIs
 * `node:test` APIs

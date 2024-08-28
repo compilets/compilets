@@ -91,6 +91,27 @@ export class PrintContext {
   }
 }
 
+/**
+ * Helper to change the context's members in a scope.
+ */
+export class PrintContextScope implements Disposable {
+  ctx: PrintContext;
+  savedProperties: Partial<PrintContext>;
+
+  constructor(ctx: PrintContext, updates: Partial<PrintContext>) {
+    this.ctx = ctx;
+    this.savedProperties = {};
+    for (const key of Object.getOwnPropertyNames(updates))
+      (this.savedProperties as any)[key] = this.ctx[key as keyof PrintContext];
+    Object.assign(ctx, updates);
+  }
+
+  [Symbol.dispose]() {
+    for (const key of Object.getOwnPropertyNames(this.savedProperties))
+      (this.ctx as any)[key] = this.savedProperties[key as keyof PrintContext];
+  }
+}
+
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'method' |
                            'class' | 'interface' | 'external' | 'super' |
@@ -523,9 +544,11 @@ export class InterfaceType extends Type {
    * It is similar to printClassDeclaration but without class specific things.
    */
   printDeclaration(ctx: PrintContext): string {
+    // Forward declaration.
+    if (ctx.mode == 'forward')
+      return `${ctx.prefix}struct ${this.name};`;
     // The interface is always printed as single class declaration.
-    const oldMode = ctx.mode;
-    ctx.mode = 'impl';
+    using scope = new PrintContextScope(ctx, {mode: 'impl'});
     // Constructor class members from the type.
     const members: ClassElement[] = [];
     members.push(this.createConstructor());
@@ -546,7 +569,6 @@ export class InterfaceType extends Type {
     if (members.length > 0)
       result += '\n';
     result += ctx.padding + '};';
-    ctx.mode = oldMode;
     return result;
   }
 

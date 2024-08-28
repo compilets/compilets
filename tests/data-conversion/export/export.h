@@ -1,5 +1,10 @@
 #include "runtime/array.h"
 
+namespace compilets::generated {
+struct Interface1;
+struct Interface2;
+}
+
 class View;
 template<typename T>
 class Container;
@@ -8,9 +13,6 @@ template<typename T>
 Container<T>* createContainer();
 
 namespace compilets::generated {
-
-struct Interface1;
-struct Interface2;
 
 struct Interface1 : public compilets::Object {
   Interface1(bool force) : force(force) {}

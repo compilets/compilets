@@ -107,6 +107,11 @@ export default class CppFile {
     blocks.unshift(...this.printInterfaces(ctx));
     // Then forward declarations.
     blocks.unshift(...this.printForwardDeclarations(ctx));
+    // Then forward declarations of interfaces.
+    {
+      using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
+      blocks.unshift(...this.printInterfaces(ctx));
+    }
     // Then headers.
     blocks.unshift(...this.printHeaders(ctx));
     // Concatenate results.
@@ -197,7 +202,7 @@ export default class CppFile {
       interfaces = interfaces.difference(ctx.includedInterfaces);
     if (interfaces.size == 0)
       return [];
-    ctx.namespace = 'compilets::generated';
+    using scope = new syntax.PrintContextScope(ctx, {namespace: 'compilets::generated'});
     // As interfaces are being generated while printing, keep printing until
     // there is no more generated.
     const declarations: string[] = [];
@@ -212,23 +217,11 @@ export default class CppFile {
         interfaces = ctx.interfaces.difference(ctx.includedInterfaces);
     }
     ctx.interfaces = printed;
-    // Add forward declarations to results.
-    const results: NamespaceBlock[] = [];
-    if (printed.size > 1) {
-      results.push({
-        code: Array.from(printed).map(name => `struct ${name};`).join('\n'),
-        namespace: 'compilets::generated',
-        isForwardDeclaration: true,
-      });
-    }
-    // Add declarations to results.
-    results.push({
-      code: declarations.join('\n\n'),
-      namespace: 'compilets::generated',
+    // Print the collected interfaces.
+    const isForwardDeclaration = ctx.mode == 'forward';
+    return declarations.map((code) => {
+      return {code, namespace: ctx.namespace, isForwardDeclaration};
     });
-    // End of namespace.
-    ctx.namespace = undefined;
-    return results;
   }
 
   /**
