@@ -6,11 +6,21 @@ class Container;
 View* createView();
 template<typename T>
 Container<T>* createContainer();
+void checkLeaks();
 
 namespace compilets::generated {
 
+struct Interface1;
+struct Interface2;
+
 struct Interface1 : public compilets::Object {
-  Interface1(bool redraw) : redraw(redraw) {}
+  Interface1(bool force) : force(force) {}
+
+  bool force;
+};
+
+struct Interface2 : public compilets::Object {
+  Interface2(bool redraw) : redraw(redraw) {}
 
   bool redraw;
 };
@@ -25,6 +35,8 @@ class View : public compilets::Object {
 
   View();
 
+  virtual void redraw(compilets::generated::Interface1* options);
+
   void Trace(cppgc::Visitor* visitor) const override;
 
   virtual ~View();
@@ -35,7 +47,7 @@ class Container : public compilets::Object {
  public:
   cppgc::Member<compilets::Array<compilets::CppgcMemberType<T>>> children = compilets::MakeArray<compilets::CppgcMemberType<T>>({});
 
-  virtual void layout(compilets::generated::Interface1* options) {}
+  virtual void layout(compilets::generated::Interface2* options) {}
 
   void Trace(cppgc::Visitor* visitor) const override {
     compilets::TraceMember(visitor, children);
@@ -43,8 +55,6 @@ class Container : public compilets::Object {
 
   virtual ~Container() = default;
 };
-
-View* createView();
 
 template<typename T>
 Container<T>* createContainer() {

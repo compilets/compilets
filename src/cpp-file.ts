@@ -151,10 +151,15 @@ export default class CppFile {
    */
   private printDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
     let declarations = this.declarations;
-    if (ctx.mode == 'header')
-      declarations = declarations.filter(d => d.isExported);
-    else if (ctx.mode == 'impl')
+    if (ctx.mode == 'header') {
+      // In header print exported declarations except for non-template function,
+      // which is printed in forward declarations.
+      declarations = declarations.filter(d => d.isExported && !(d instanceof syntax.FunctionDeclaration && !d.type.hasTemplate()));
+    } else if (ctx.mode == 'impl') {
+      // In impl print everything except for exported template class/function,
+      // whose full definition is printed in header.
       declarations = declarations.filter(d => !(d.isExported && d.type.hasTemplate()));
+    }
     if (declarations.statements.length == 0)
       return [];
     return [ {code: declarations.print(ctx)} ];
