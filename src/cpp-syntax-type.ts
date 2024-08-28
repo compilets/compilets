@@ -15,11 +15,6 @@ import {
 } from './js-utils';
 
 /**
- * Possible modes for generating the project.
- */
-export type GenerationMode = 'lib' | 'exe' | 'napi';
-
-/**
  * Possible modes for printing the syntax node.
  */
 export type PrintMode = 'impl' | 'header' | 'forward';
@@ -34,10 +29,6 @@ export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
  * Control indentation and other formating options when printing AST to C++.
  */
 export class PrintContext {
-  /**
-   * The generation mode.
-   */
-  generationMode: GenerationMode;
   /**
    * The print mode.
    */
@@ -77,8 +68,7 @@ export class PrintContext {
    */
   concatenateNextLine = false;
 
-  constructor(generationMode: GenerationMode, mode: PrintMode, indent: number = 2) {
-    this.generationMode = generationMode;
+  constructor(mode: PrintMode, indent: number = 2) {
     this.mode = mode;
     this.indent = indent;
   }
@@ -479,7 +469,7 @@ export class FunctionType extends Type {
    */
   getSignature(ctx?: PrintContext): string {
     if (!ctx)
-      ctx = new PrintContext('lib', 'header');
+      ctx = new PrintContext('header');
     return `${this.returnType.print(ctx)}(${this.parameters.map(p => p.print(ctx)).join(', ')})`;
   }
 }

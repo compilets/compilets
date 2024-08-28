@@ -2,19 +2,26 @@ import * as syntax from './cpp-syntax';
 import {joinArray, cloneMap} from './js-utils';
 
 /**
- * Represent a `.h` or `.cc` file in C++.
+ * Possible types of the CppFile.
+ */
+type CppFileType = 'lib' |  // file shared between all targets
+                   'exe' |  // executable entry file
+                   'napi';  // native module entry file
+
+/**
+ * Represent a .ts file in C++, should be translated to .h and .cpp files.
  */
 export default class CppFile {
   name: string;
-  isMain: boolean;
+  type: CppFileType;
   interfaceRegistry: syntax.InterfaceRegistry;
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   variableStatements = new Array<syntax.VariableStatement>();
   body = new syntax.MainFunction();
 
-  constructor(name: string, isMain: boolean, interfaceRegistry: syntax.InterfaceRegistry) {
+  constructor(name: string, type: CppFileType, interfaceRegistry: syntax.InterfaceRegistry) {
     this.name = name;
-    this.isMain = isMain;
+    this.type = type;
     this.interfaceRegistry = interfaceRegistry;
   }
 
@@ -24,7 +31,7 @@ export default class CppFile {
   addDeclaration(declaration: syntax.DeclarationStatement) {
     // When seeing class/function declaration in main script, the variable
     // statements before should be treated as static variables.
-    if (this.isMain)
+    if (this.type != 'lib')
       this.pushVariableStatementsToDeclarations();
     this.pushDeclaration(declaration);
   }
@@ -34,7 +41,7 @@ export default class CppFile {
    */
   addVariableStatement(statement: syntax.VariableStatement) {
     // For non-main function top-level variable declaration is static variable.
-    if (!this.isMain)
+    if (this.type == 'lib')
       return this.addDeclaration(statement);
     // If the function has been created, treat it as local variable.
     if (!this.body.isEmpty())
@@ -49,7 +56,7 @@ export default class CppFile {
   addStatement(statement: syntax.Statement) {
     // When adding a statement to main function, the variable statements before
     // should belong to the main function.
-    if (this.isMain)
+    if (this.type != 'lib')
       this.pushVariableStatementsToMainFunction();
     this.body.addStatement(statement);
   }
@@ -78,7 +85,7 @@ export default class CppFile {
    * Return whether top-level declarations can be added to this file.
    */
   canAddDeclaration(): boolean {
-    return !this.isMain || this.body.isEmpty();
+    return this.type == 'lib' || this.body.isEmpty();
   }
 
   /**
@@ -175,10 +182,8 @@ export default class CppFile {
     // It is only printed when:
     // 1) we are generating the exe main file;
     // 2) or there are statements in body.
-    if ((ctx.generationMode == 'exe' && this.isMain) ||
-        !this.body.isEmpty()) {
-      return [ {code: this.body.print(ctx)} ];
-    }
+    if (this.type != 'lib' || !this.body.isEmpty())
+      return [ {code: this.body.print(ctx), namespace: ':global'} ];
     return [];
   }
 
@@ -255,7 +260,7 @@ export default class CppFile {
     if (statements.length == 0)
       return [];
     // Forward declarations are printed compact.
-    const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
+    const forward = new syntax.PrintContext('forward', 2);
     return statements.map(s => {
       const code = s.print(forward);
       const namespace = s.isExported ? undefined : ':anonymous';
@@ -268,7 +273,7 @@ export default class CppFile {
    */
   private printHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
     // If this is the main file of an exe, it requires runtime headers.
-    if (this.isMain && ctx.generationMode == 'exe')
+    if (this.type == 'exe')
       ctx.features.add('runtime');
     // Remove included headers.
     let features = ctx.features;

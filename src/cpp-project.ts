@@ -11,7 +11,7 @@ import * as syntax from './cpp-syntax';
 export default class CppProject {
   rootDir: string;
   name: string;
-  mainFileName: string;
+  mainFileName?: string;
   fileNames: string[] = [];
   compilerOptions: ts.CompilerOptions;
 
@@ -21,12 +21,11 @@ export default class CppProject {
   constructor(rootDir: string) {
     // Read project name from package.json, and use dir name as fallback.
     let projectName: string | undefined;
-    let mainFileName: string | undefined;
     try {
       const {name, main} = fs.readJsonSync(`${rootDir}/package.json`);
       projectName = name;
       if (main)
-        mainFileName = `${rootDir}/${main.replace(/\.[^.]+$/, '.ts')}`;
+        this.mainFileName = `${rootDir}/${main.replace(/\.[^.]+$/, '.ts')}`;
     } catch {}
     this.name = projectName ?? path.basename(rootDir);
     // File config file and read it.
@@ -55,7 +54,8 @@ export default class CppProject {
     // Determine the main file name.
     if (this.fileNames.length == 0)
       throw new Error(`Directory "${rootDir}" contains no TypeScript file`);
-    this.mainFileName = mainFileName ?? this.fileNames[0];
+    if (!this.mainFileName)
+      this.mainFileName = this.fileNames[0];
   }
 
   /**
@@ -90,11 +90,11 @@ export default class CppProject {
   /**
    * Yield filename and printed content at each generation.
    */
-  *getPrintedFiles(generationMode: syntax.GenerationMode): Generator<[string, string], void> {
+  *getPrintedFiles(): Generator<[string, string], void> {
     const headers = new Map<string, syntax.PrintContext>();
     for (const [ name, file ] of this.getFiles()) {
       const mode = name.endsWith('.h') ? 'header' : 'impl';
-      const ctx = new syntax.PrintContext(generationMode, mode, 2);
+      const ctx = new syntax.PrintContext(mode, 2);
       // When printing .cpp files, there is no need to print includes and
       // interfaces which were already printed in .h files.
       if (name.endsWith('.cpp')) {
@@ -113,11 +113,11 @@ export default class CppProject {
   /**
    * Create a C++ project at `target` directory.
    */
-  async writeTo(target: string, generationMode: syntax.GenerationMode) {
+  async writeTo(target: string) {
     await fs.ensureDir(target);
     const tasks: Promise<void>[] = [];
     tasks.push(this.writeGnFiles(target));
-    for (const [ name, content ] of this.getPrintedFiles(generationMode)) {
+    for (const [ name, content ] of this.getPrintedFiles()) {
       const filepath = `${target}/${name}`;
       await fs.ensureFile(filepath);
       await fs.writeFile(filepath, content);

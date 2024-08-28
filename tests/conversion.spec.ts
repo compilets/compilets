@@ -15,12 +15,14 @@ describe('Conversion', function() {
 });
 
 function testDir(root: string) {
-  // Parse the TypeScript files.
   const project = new CppProject(root);
+  // Avoid generating the main function.
+  project.mainFileName = undefined;
+  // Parse the TypeScript files.
   const parser = new Parser(project);
   parser.parse();
   // Compare the compiled results with the .h/.cpp files in dir.
-  const result = Array.from(project.getPrintedFiles('lib')).sort();
+  const result = Array.from(project.getPrintedFiles()).sort();
   const expected = fs.readdirSync(root)
                      .filter(f => f.endsWith('.h') || f.endsWith('.cpp'))
                      .map(f => [ f, fs.readFileSync(`${root}/${f}`).toString() ]);

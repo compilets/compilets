@@ -61,7 +61,7 @@ export default class Parser {
   }
 
   parseSourceFile(name: string, isMain: boolean, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(name, isMain, this.interfaceRegistry);
+    const cppFile = new CppFile(name, isMain ? 'exe' : 'lib', this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.InterfaceDeclaration:
@@ -87,15 +87,15 @@ export default class Parser {
         case ts.SyntaxKind.WhileStatement:
         case ts.SyntaxKind.ForStatement:
         case ts.SyntaxKind.ReturnStatement:
-          if (!cppFile.isMain)
+          if (cppFile.type == 'lib')
             throw new UnsupportedError(node, 'In C++ only class and function declarations can be made top-level, unless it is the main script');
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
           return;
         case ts.SyntaxKind.EndOfFileToken:
-          if (cppFile.isMain)
-            cppFile.pushVariableStatementsToMainFunction();
-          else
+          if (cppFile.type == 'lib')
             cppFile.pushVariableStatementsToDeclarations();
+          else
+            cppFile.pushVariableStatementsToMainFunction();
           return;
         case ts.SyntaxKind.EmptyStatement:
           return;
