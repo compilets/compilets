@@ -110,7 +110,8 @@ export default class CppFile {
           return [ block ];
         const last = result[result.length - 1];
         if (last.namespace === block.namespace) {
-          last.code += '\n\n' + block.code;
+          const separator = last.isForwardDeclaration && block.isForwardDeclaration ? '\n' : '\n\n';
+          last.code += separator + block.code;
           if (last.isForwardDeclaration != block.isForwardDeclaration)
             last.isForwardDeclaration = false;
         } else {
@@ -122,14 +123,14 @@ export default class CppFile {
       () => '\n\n',
       // Add namespaces when printing block.
       (block) => {
-        if (block.namespace) {
-          if (block.isForwardDeclaration)
-            return `namespace ${block.namespace} {\n${block.code}\n}`;
-          else
-            return `namespace ${block.namespace} {\n\n${block.code}\n\n}  // namespace ${block.namespace}`;
-        } else {
+        if (block.namespace === undefined || block.namespace == ':global')
           return block.code;
-        }
+        const namespace = block.namespace == ':anonymous' ? '' : ' ' + block.namespace;
+        if (block.isForwardDeclaration)
+          return `namespace${namespace} {\n${block.code}\n}`;
+        else
+          return `namespace${namespace} {\n\n${block.code}\n\n}  // namespace${namespace}`;
+        return block.code;
       }) + '\n';
   }
 
@@ -160,9 +161,11 @@ export default class CppFile {
       // whose full definition is printed in header.
       declarations = declarations.filter(d => !(d.isExported && d.type.hasTemplate()));
     }
-    if (declarations.statements.length == 0)
-      return [];
-    return [ {code: declarations.print(ctx)} ];
+    return declarations.statements.map(s => {
+      const code = s.print(ctx);
+      const namespace = s.isExported ? undefined : ':anonymous';
+      return {code, namespace};
+    });
   }
 
   /**
@@ -236,14 +239,11 @@ export default class CppFile {
       return [];
     // Put classes before functions.
     statements.sort((a, b) => {
-      if (a instanceof syntax.ClassDeclaration &&
-          b instanceof syntax.FunctionDeclaration)
+      if (a instanceof syntax.ClassDeclaration && b instanceof syntax.FunctionDeclaration)
         return -1;
-      else if (a instanceof syntax.FunctionDeclaration &&
-               b instanceof syntax.ClassDeclaration)
+      if (a instanceof syntax.FunctionDeclaration && b instanceof syntax.ClassDeclaration)
         return 1;
-      else
-        return 0;
+      return 0;
     });
     if (ctx.mode == 'header') {
       // In header only print exported forward declarations.
@@ -256,7 +256,11 @@ export default class CppFile {
       return [];
     // Forward declarations are printed compact.
     const forward = new syntax.PrintContext(ctx.generationMode, 'forward', 2);
-    return [ {code: statements.map(s => s.print(forward)).join('\n')} ];
+    return statements.map(s => {
+      const code = s.print(forward);
+      const namespace = s.isExported ? undefined : ':anonymous';
+      return {code, namespace, isForwardDeclaration: true};
+    });
   }
 
   /**
@@ -301,14 +305,14 @@ export default class CppFile {
                                                       : `#include "${h.path}"`)
                         .sort()
                         .join('\n');
-    return [ {code} ];
+    return [ {code, namespace: ':global'} ];
   }
 }
 
 // Code block wrapped by namespaces.
 interface NamespaceBlock {
   code: string;
-  namespace?: string;
+  namespace?: ':anonymous' | ':global' | string;
   isForwardDeclaration?: boolean;
 }
 

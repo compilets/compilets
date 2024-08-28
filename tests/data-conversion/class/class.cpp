@@ -1,6 +1,8 @@
 #include "runtime/object.h"
 #include "runtime/string.h"
 
+namespace {
+
 class Empty;
 class EmptyConstructor;
 class NonSimple;
@@ -40,3 +42,5 @@ void TestClass() {
   if (NonSimple::count != 1) return;
   compilets::String r = s->method();
 }
+
+}  // namespace

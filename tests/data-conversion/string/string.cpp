@@ -4,6 +4,8 @@
 #include "runtime/string.h"
 #include "runtime/union.h"
 
+namespace {
+
 void TakeString(compilets::String str);
 void TestString();
 
@@ -31,3 +33,5 @@ void TestString() {
   }
   compilets::String addLiteralToNumber = compilets::StringBuilder().Append(123).Append(u"456").Take();
 }
+
+}  // namespace

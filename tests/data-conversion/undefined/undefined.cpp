@@ -1,6 +1,8 @@
 #include "runtime/object.h"
 #include "runtime/union.h"
 
+namespace {
+
 class LinkNode;
 void TestUndefined();
 
@@ -30,3 +32,5 @@ void TestUndefined() {
   node->next = compilets::MakeObject<LinkNode>();
   node->next = nullptr;
 }
+
+}  // namespace

@@ -1,6 +1,8 @@
 #include "runtime/array.h"
 #include "runtime/union.h"
 
+namespace {
+
 class Item;
 class Collection;
 void TestArray();
@@ -44,3 +46,5 @@ void TestArray() {
   compilets::Array<compilets::Union<double, cppgc::Member<Item>>>* multiItems = c->multiItems;
   c->multiItems = multiItems;
 }
+
+}  // namespace

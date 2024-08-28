@@ -144,6 +144,7 @@ ${sources}
 
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
+  configs += [ "cpp:app_config" ]
 }
 `;
     await Promise.all([

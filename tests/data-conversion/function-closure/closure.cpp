@@ -2,6 +2,8 @@
 #include "runtime/function.h"
 #include "runtime/union.h"
 
+namespace {
+
 class MethodClosure;
 void TestFunctionClosure();
 
@@ -30,3 +32,5 @@ void TestFunctionClosure() {
     return std::get<compilets::Array<double>*>(uni);
   }, uni.GetObject());
 }
+
+}  // namespace

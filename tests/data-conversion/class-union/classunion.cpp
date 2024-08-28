@@ -2,6 +2,8 @@
 #include "runtime/string.h"
 #include "runtime/union.h"
 
+namespace {
+
 class Member;
 class WithNumber;
 class StringMember;
@@ -67,3 +69,5 @@ void TestClassUnion() {
   compilets::Union<double, Member*, compilets::String> commonMember = std::visit([](auto&& obj) -> compilets::Union<double, cppgc::Member<Member>, compilets::String> { return obj->member; }, common);
   std::visit([&](auto&& obj) -> void { return obj->method(); }, common);
 }
+
+}  // namespace

@@ -1,5 +1,7 @@
 #include "runtime/object.h"
 
+namespace {
+
 class LinkNode;
 void TestQuestionTokenInClass();
 void TakeNumber(double n);
@@ -35,3 +37,5 @@ void TestQuestionTokenInClass() {
 }
 
 void TakeNumber(double n) {}
+
+}  // namespace

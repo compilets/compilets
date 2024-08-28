@@ -1,6 +1,8 @@
 #include "runtime/array.h"
 #include "runtime/union.h"
 
+namespace {
+
 class Item;
 template<typename T, typename U>
 class Wrapper;
@@ -73,3 +75,5 @@ void TestGenericClass() {
   compilets::Union<bool, Item*, std::monostate> itemOrBoolOrNull = nested->optionalUnionMember;
   compilets::Array<cppgc::Member<Item>>* itemArray = nested->arrayMember;
 }
+
+}  // namespace

@@ -1,5 +1,7 @@
 #include "runtime/object.h"
 
+namespace {
+
 class Prop;
 class Base;
 class Derived;
@@ -50,3 +52,5 @@ class NotDerived : public compilets::Object {
 void TestInheritance() {
   Base* base = compilets::MakeObject<Derived>();
 }
+
+}  // namespace

@@ -73,6 +73,8 @@ struct Interface5 : public compilets::Object {
 
 }  // namespace compilets::generated
 
+namespace {
+
 void TestInterface() {
   compilets::generated::Interface1* hasNumber = compilets::MakeObject<compilets::generated::Interface1>(1);
   compilets::generated::Interface2* hasObject = compilets::MakeObject<compilets::generated::Interface2>(hasNumber);
@@ -84,3 +86,5 @@ void TestInterface() {
   compilets::generated::Interface4* twoNumber = compilets::MakeObject<compilets::generated::Interface4>(89, 64);
   compilets::generated::Interface6* hasLiteral = compilets::MakeObject<compilets::generated::Interface6>(compilets::MakeObject<compilets::generated::Interface5>(u"tiananmen"));
 }
+
+}  // namespace

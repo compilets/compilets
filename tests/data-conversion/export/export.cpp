@@ -1,6 +1,8 @@
 #include "export.h"
 
+namespace {
 void checkLeaks();
+}
 
 // static
 double View::count = 0;
@@ -22,6 +24,10 @@ View* createView() {
   return compilets::MakeObject<View>();
 }
 
+namespace {
+
 void checkLeaks() {
   if (View::count > 1000) {}
 }
+
+}  // namespace

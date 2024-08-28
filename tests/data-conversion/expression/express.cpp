@@ -1,5 +1,7 @@
 #include "runtime/string.h"
 
+namespace {
+
 void TestExpression() {
   if (true) {}
   std::optional<bool> optionalBoolean;
@@ -9,3 +11,5 @@ void TestExpression() {
   if (compilets::String(u"1") > 2) {}
   if (compilets::StrictEqual(1, compilets::String(u"1"))) {}
 }
+
+}  // namespace

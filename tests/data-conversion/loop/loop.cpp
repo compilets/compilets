@@ -1,3 +1,5 @@
+namespace {
+
 void TestLoop() {
   do {
     1 + 2;
@@ -13,3 +15,5 @@ void TestLoop() {
     u"str";
   }
 }
+
+}  // namespace

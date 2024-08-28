@@ -2,6 +2,8 @@
 #include "runtime/function.h"
 #include "runtime/union.h"
 
+namespace {
+
 class VariadicArgsMethod;
 void VariadicArgs(bool arg, compilets::Array<double>* args);
 void TestVariadicArgs();
@@ -21,3 +23,5 @@ void TestVariadicArgs() {
   compilets::Union<double, bool, std::monostate> a = static_cast<double>(123);
   VariadicArgs(std::get<bool>(a), compilets::MakeArray<double>({std::get<double>(a), std::get<double>(a)}));
 }
+
+}  // namespace

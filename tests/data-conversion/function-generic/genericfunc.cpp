@@ -3,6 +3,8 @@
 #include "runtime/string.h"
 #include "runtime/union.h"
 
+namespace {
+
 template<typename T>
 class Item;
 template<typename T>
@@ -59,3 +61,5 @@ void TestGenericFunction() {
   item = Passthrough<Item<compilets::String>>(itemItem->value);
   item = GetValue<Item<compilets::String>>(itemItem);
 }
+
+}  // namespace

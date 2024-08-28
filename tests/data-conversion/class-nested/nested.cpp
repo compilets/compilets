@@ -1,5 +1,7 @@
 #include "runtime/function.h"
 
+namespace {
+
 class Prop;
 class Owner;
 void TestNested();
@@ -37,3 +39,5 @@ void TestNested() {
   compilets::Function<Prop*()>* getter = o->method();
   Prop* p = getter->value()();
 }
+
+}  // namespace

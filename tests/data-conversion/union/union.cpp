@@ -1,5 +1,7 @@
 #include "runtime/union.h"
 
+namespace {
+
 void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a);
 void TakeNumber(double n);
 compilets::Union<double, bool> ReturnUnion();
@@ -28,3 +30,5 @@ void TestUnion() {
   TakeNumber(std::get<double>(bn));
   double numberCast = std::get<double>(bn);
 }
+
+}  // namespace

@@ -1,5 +1,7 @@
 #include "runtime/function.h"
 
+namespace {
+
 class SaveCallback;
 double Simple(double i);
 double OptionalArg(std::optional<double> arg);
@@ -53,3 +55,5 @@ void TestLocalFunction() {
   SaveCallback* saveFunction = compilets::MakeObject<SaveCallback>(compilets::MakeFunction<double(double)>(Simple));
   saveLambda->callback->value()(0x8964);
 }
+
+}  // namespace
