@@ -18,6 +18,9 @@ import {
   Block,
   ExpressionStatement,
 } from './cpp-syntax';
+import {
+  joinArray,
+} from './js-utils';
 
 /**
  * Return whether the members are trivially destrutible.
@@ -78,20 +81,27 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
   }
   // Do not expose in header if class is not exported.
   if (!decl.isExported && ctx.mode == 'header')
-    return '';
+    throw new Error('Can not print non-exported class in header');
   // Exported template class always live in header.
   if (decl.isExported && templateDeclaration && ctx.mode == 'impl')
-    return '';
-  // Print method declarations.
+    throw new Error('Can not print exported template class in implementation');
+  // Add empty line between methods.
+  const getSeparator = (a: ClassElement, b: ClassElement) => {
+    if (a instanceof PropertyDeclaration && !a.type.isStatic &&
+        b instanceof PropertyDeclaration && !b.type.isStatic)
+      return '\n';
+    else
+      return '\n\n';
+  };
+  // Print method definitions in .cpp file.
   if (decl.isExported && !templateDeclaration && ctx.mode == 'impl') {
-    const methods = decl.getMembers()
-                        .filter(m => m instanceof PropertyDeclaration ||
-                                     m instanceof MethodDeclaration ||
-                                     m instanceof ConstructorDeclaration ||
-                                     m instanceof DestructorDeclaration)
-                        .map(m => m.print(ctx))
-                        .filter(s => s.length > 0);
-    return methods.join('\n\n') + '\n';
+    return joinArray(
+      decl.getMembers().filter(m => {
+        // The non-static members do not need definition.
+        return !(m instanceof PropertyDeclaration && !m.type.isStatic);
+      }),
+      getSeparator,
+      (m) => m.print(ctx));
   }
   // Print class name and inheritance.
   const base = decl.type.base ? printTypeName(decl.type.base, ctx) : 'compilets::Object';
@@ -108,19 +118,24 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
   // Print members.
   if (decl.publicMembers.length > 0) {
     result += `${halfPadding}public:\n`;
-    result += decl.publicMembers.map(m => m.print(ctx) + '\n\n').join('');
+    result += joinArray(decl.publicMembers, getSeparator, (m) => m.print(ctx));
+    result += '\n';
   }
   if (decl.protectedMembers.length > 0) {
+    if (decl.publicMembers.length > 0)
+      result += '\n';
     result += `${halfPadding}protected:\n`;
-    result += decl.protectedMembers.map(m => m.print(ctx) + '\n\n').join('');
+    result += joinArray(decl.protectedMembers, getSeparator, (m) => m.print(ctx));
+    result += '\n';
   }
   if (decl.privateMembers.length > 0) {
+    if (decl.publicMembers.length > 0 || decl.protectedMembers.length > 0)
+      result += '\n';
     result += `${halfPadding}private:\n`;
-    result += decl.privateMembers.map(m => m.print(ctx) + '\n\n').join('');
+    result += joinArray(decl.privateMembers, getSeparator, (m) => m.print(ctx));
+    result += '\n';
   }
   ctx.level--;
-  if (result.endsWith('\n\n'))
-    result = result.slice(0, -1);
   result += ctx.padding + '};';
   // Print definitions for static members.
   if (ctx.mode == 'impl') {
@@ -132,11 +147,9 @@ export function printClassDeclaration(decl: ClassDeclaration, ctx: PrintContext)
       result += `${member.type.print(ctx)} ${decl.name}::${member.name}`;
       if (member.initializer)
         result += ` = ${member.initializer.print(ctx)}`;
-      result += ';\n';
+      result += ';';
     }
   }
-  if (!result.endsWith('\n'))
-    result += '\n';
   return result;
 }
 

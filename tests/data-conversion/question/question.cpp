@@ -7,7 +7,6 @@ void TakeNumber(double n);
 class LinkNode : public compilets::Object {
  public:
   std::optional<double> item;
-
   cppgc::Member<LinkNode> next;
 
   LinkNode(double item) {

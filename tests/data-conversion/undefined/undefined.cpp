@@ -7,7 +7,6 @@ void TestUndefined();
 class LinkNode : public compilets::Object {
  public:
   compilets::Union<double, bool, std::monostate> item;
-
   cppgc::Member<LinkNode> next;
 
   void Trace(cppgc::Visitor* visitor) const override {

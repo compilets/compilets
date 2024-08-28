@@ -16,6 +16,9 @@ import {
   castArguments,
   castOptional,
 } from './cpp-syntax-utils';
+import {
+  joinArray,
+} from './js-utils';
 
 export * from './cpp-syntax-type';
 
@@ -860,18 +863,14 @@ export class FunctionDeclaration extends DeclarationStatement {
     const type = this.type as FunctionType;
     type.returnType.addFeatures(ctx);
     this.parameters.forEach(p => p.type.addFeatures(ctx));
-    const templateDeclaration = printTemplateDeclaration(type);
     const returnType = type.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
+    const templateDeclaration = printTemplateDeclaration(type);
     let result = `${returnType} ${this.name}(${parameters})`;
-    if (ctx.mode == 'forward') {
+    if (ctx.mode == 'impl' || (ctx.mode == 'header' && templateDeclaration))
+      result += ' ' + this.body?.print(ctx) ?? '{}';
+    else
       result += ';';
-    } else if (ctx.mode == 'header' && !templateDeclaration) {
-      result += ';\n';
-    } else {
-      const body = this.body?.print(ctx) ?? '{}';
-      result += ` ${body}\n`;
-    }
     if (templateDeclaration)
       return templateDeclaration + '\n' + result;
     return result;
@@ -931,7 +930,15 @@ export class Paragraph<T extends Statement> extends Statement {
   }
 
   override print(ctx: PrintContext) {
-    return this.statements.map(s => s.print(ctx)).join('\n');
+    return joinArray(this.statements, (a, b) => {
+      if (a instanceof FunctionDeclaration ||
+          a instanceof ClassDeclaration ||
+          b instanceof FunctionDeclaration ||
+          b instanceof ClassDeclaration)
+        return '\n\n';
+      else
+        return '\n';
+    }, (s) => s.print(ctx));
   }
 
   filter(callback: (value: T) => boolean) {

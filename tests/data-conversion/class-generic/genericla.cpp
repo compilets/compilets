@@ -13,13 +13,9 @@ template<typename T, typename U>
 class Wrapper : public compilets::Object {
  public:
   compilets::CppgcMemberType<T> member;
-
   compilets::OptionalCppgcMemberType<T> optionalMember;
-
   compilets::Union<compilets::CppgcMemberType<T>, compilets::CppgcMemberType<U>> unionMember;
-
   compilets::Union<compilets::CppgcMemberType<T>, compilets::CppgcMemberType<U>, std::monostate> optionalUnionMember;
-
   cppgc::Member<compilets::Array<compilets::CppgcMemberType<T>>> arrayMember = compilets::MakeArray<compilets::CppgcMemberType<T>>({});
 
   virtual void method() {

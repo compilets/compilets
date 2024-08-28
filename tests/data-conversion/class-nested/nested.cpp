@@ -10,7 +10,6 @@ class Prop : public compilets::Object {
 class Owner : public compilets::Object {
  public:
   cppgc::Member<Prop> prop1;
-
   cppgc::Member<Prop> prop2;
 
   Owner(Prop* prop) {
