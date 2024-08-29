@@ -63,9 +63,6 @@ export default class Parser {
     const cppFile = new CppFile(fileName, this.project.getFileType(fileName), this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
-        case ts.SyntaxKind.InterfaceDeclaration:
-          this.parseNodeType(node);
-          return;
         case ts.SyntaxKind.ClassDeclaration:
           if (!cppFile.canAddDeclaration())
             throw new UnsupportedError(node, 'Can not add class declaration after statements');
@@ -96,6 +93,11 @@ export default class Parser {
           else
             cppFile.pushVariableStatementsToMainFunction();
           return;
+        // The interfaces are parsed on the fly when we see object literals.
+        case ts.SyntaxKind.InterfaceDeclaration:
+        // We don't need to parse type alias, typeChecker does it for us.
+        case ts.SyntaxKind.TypeAliasDeclaration:
+        // This is for the ; added on unnecessary places.
         case ts.SyntaxKind.EmptyStatement:
           return;
       }
