@@ -15,6 +15,7 @@ import {
   hasQuestionToken,
   isExternalDeclaration,
   isExportedDeclaration,
+  isModuleNamespace,
   isNodeJsDeclaration,
   isNodeJsType,
   isGlobalVariable,
@@ -63,6 +64,9 @@ export default class Parser {
     const cppFile = new CppFile(fileName, this.project.getFileType(fileName), this.interfaceRegistry);
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
+        case ts.SyntaxKind.ImportDeclaration:
+          cppFile.addImport(this.parseImportDeclaration(node as ts.ImportDeclaration));
+          return;
         case ts.SyntaxKind.ClassDeclaration:
           if (!cppFile.canAddDeclaration())
             throw new UnsupportedError(node, 'Can not add class declaration after statements');
@@ -230,14 +234,25 @@ export default class Parser {
           throw new UnimplementedError(name, 'Only identifier can be used as member name');
         if (this.isSymbolClass(expression) && name.text == 'prototype')
           throw new UnsupportedError(node, 'Can not access prototype of class');
+        const type = this.parseNodeType(node);
         const obj = this.parseExpression(expression);
-        if (!obj.type.isObject() && obj.type.category != 'string' && obj.type.category != 'union')
+        // In TypeScript accessing a module's exports is treated as accessing
+        // properties of the exported object. To translate it to C++, we treat
+        // such PropertyAccessExpression as namespace calls.
+        if (obj instanceof syntax.Identifier &&
+            obj.type.category == 'namespace') {
+          return this.parseExpression(name);
+        }
+        // In TypeScript all types can have properties, we have not implemented
+        // for all types yet.
+        if (!obj.type.isObject() &&
+            obj.type.category != 'string' &&
+            obj.type.category != 'union') {
           throw new UnimplementedError(node, 'Only support accessing properties of objects');
+        }
         if (name.text == '__proto__')
           throw new UnsupportedError(node, 'Can not access prototype of object');
-        return new syntax.PropertyAccessExpression(this.parseNodeType(node),
-                                                   obj,
-                                                   name.text);
+        return new syntax.PropertyAccessExpression(type, obj, name.text);
       }
       case ts.SyntaxKind.ElementAccessExpression: {
         // arr[0]
@@ -366,6 +381,29 @@ export default class Parser {
         throw new UnsupportedError(node, 'C++ only supports top-level functions');
     }
     throw new UnimplementedError(node, 'Unsupported statement');
+  }
+
+  parseImportDeclaration(node: ts.ImportDeclaration): syntax.ImportDeclaration {
+    const {importClause, moduleSpecifier} = node;
+    if (!ts.isStringLiteral(moduleSpecifier))
+      throw new UnsupportedError(node, 'Module name must be string literal');
+    const decl = new syntax.ImportDeclaration(moduleSpecifier.text);
+    // import 'module'
+    if (!importClause)
+      return decl;
+    const {name, namedBindings} = importClause;
+    // import * as xxx from 'module'
+    // import {A, B, C} from 'module'
+    if (namedBindings) {
+      if (ts.isNamedImports(namedBindings))
+        throw new UnimplementedError(node, 'Named imports have not been implemented');
+      decl.namespace = namedBindings.name.text;
+    }
+    // import xxx from 'module'
+    if (name) {
+      throw new UnimplementedError(node, 'Default import has not been implemented');
+    }
+    return decl;
   }
 
   parseVariableDeclarationList(node: ts.VariableDeclarationList): syntax.VariableDeclarationList {
@@ -587,7 +625,7 @@ export default class Parser {
     callee.type.name = resolvedFunctionType.name;
     callee.type.templateArguments = resolvedFunctionType.templateArguments;
     // Method is handled differently from the normal function.
-    if (ts.isPropertyAccessExpression(expression))
+    if (ts.isPropertyAccessExpression(expression) && callee.type.category == 'method')
       return new syntax.MethodCallExpression(type, callee as syntax.PropertyAccessExpression, args);
     else
       return new syntax.CallExpression(type, callee, args);
@@ -708,6 +746,9 @@ export default class Parser {
       const signature = type.getCallSignatures()[0];
       return this.parseSignatureType(signature, location, modifiers);
     }
+    // Check the namespace import.
+    if (isModuleNamespace(type))
+      return new syntax.Type(name, 'namespace');
     // Check interface.
     if (isInterface(type))
       return this.parseInterfaceType(type, location, modifiers);

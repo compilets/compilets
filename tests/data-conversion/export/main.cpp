@@ -2,6 +2,6 @@
 
 int main(int argc, const char** argv) {
   compilets::State _state;
-  double a = 1;
+  View* view = createView();
   return 0;
 }

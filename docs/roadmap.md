@@ -3,8 +3,8 @@
 ## Working on next
 
 * `export`/`import`
-* `namespace`
 * Node.js native module generation
+* `namespace`
 * `enum`
 * `switch`
 * `regex`
@@ -16,7 +16,8 @@
 * `process.argv`
 * Convert `interface` function parameters to templates
 * `try`/`catch`
-* `typeof` operator
+* `typeof`
+* `instanceof`
 
 ## Long term plans
 
@@ -34,7 +35,9 @@
 
 ## Long long term plans
 
+* `Symbol`
 * `using` declaration
 * `keyof` operator
+* `export from`
 * `node:fs` APIs
 * `node:test` APIs

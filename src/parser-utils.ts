@@ -124,6 +124,15 @@ export function isExportedDeclaration(decl: ts.ClassDeclaration | ts.FunctionDec
 }
 
 /**
+ * Return whether the type is a namespace of "import * as xxx from 'module'".
+ */
+export function isModuleNamespace(type: ts.Type): boolean {
+  if (!type.symbol || !type.symbol.valueDeclaration)
+    return false;
+  return ts.isSourceFile(type.symbol.valueDeclaration);
+}
+
+/**
  * Return whether the declaration comes from Node.js.
  */
 export function isNodeJsDeclaration(decl: ts.Declaration): boolean {

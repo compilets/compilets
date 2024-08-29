@@ -1,1 +1,3 @@
-const a = 1;
+import * as gui from './export.ts';
+
+const view = gui.createView();

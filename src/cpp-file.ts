@@ -15,6 +15,7 @@ export default class CppFile {
   name: string;
   type: CppFileType;
   interfaceRegistry: syntax.InterfaceRegistry;
+  imports = new Array<syntax.ImportDeclaration>();
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   variableStatements = new Array<syntax.VariableStatement>();
   body = new syntax.MainFunction();
@@ -23,6 +24,13 @@ export default class CppFile {
     this.name = fileName.replace(/\.ts$/, '');
     this.type = type;
     this.interfaceRegistry = interfaceRegistry;
+  }
+
+  /**
+   * Add import declarations.
+   */
+  addImport(declaration: syntax.ImportDeclaration) {
+    this.imports.push(declaration);
   }
 
   /**

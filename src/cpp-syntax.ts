@@ -543,6 +543,16 @@ export class CustomExpression extends Expression {
   }
 }
 
+export class ImportDeclaration {
+  path: string;
+  names?: string[];
+  namespace?: string;
+
+  constructor(path: string) {
+    this.path = path;
+  }
+}
+
 export abstract class Declaration {
   abstract print(ctx: PrintContext): string;
 }

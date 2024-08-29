@@ -115,7 +115,7 @@ export class PrintContextScope implements Disposable {
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'method' |
                            'class' | 'interface' | 'external' | 'super' |
-                           'template' | 'any';
+                           'namespace' | 'template' | 'any';
 export type TypeModifier = 'variadic' | 'optional' | 'property' | 'static' |
                            'external' | 'element' | 'persistent' |
                            'not-function';
