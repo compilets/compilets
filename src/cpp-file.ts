@@ -19,8 +19,8 @@ export default class CppFile {
   variableStatements = new Array<syntax.VariableStatement>();
   body = new syntax.MainFunction();
 
-  constructor(name: string, type: CppFileType, interfaceRegistry: syntax.InterfaceRegistry) {
-    this.name = name.replace(/\.ts$/, '');
+  constructor(fileName: string, type: CppFileType, interfaceRegistry: syntax.InterfaceRegistry) {
+    this.name = fileName.replace(/\.ts$/, '');
     this.type = type;
     this.interfaceRegistry = interfaceRegistry;
   }

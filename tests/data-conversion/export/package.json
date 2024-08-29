@@ -1,0 +1,8 @@
+{
+  "name": "export",
+  "compilets": {
+    "bin": {
+      "cli": "main.ts"
+    }
+  }
+}

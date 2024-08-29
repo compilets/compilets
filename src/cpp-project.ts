@@ -10,7 +10,8 @@ import * as syntax from './cpp-syntax';
  */
 export default class CppProject {
   rootDir: string;
-  name: string;
+  name!: string;
+  sourceRootDir: string;
   mainFileName?: string;
   executables?: Record<string, string>;
   fileNames: string[] = [];
@@ -20,29 +21,22 @@ export default class CppProject {
   private cppFiles = new Map<string, CppFile>();
 
   constructor(rootDir: string) {
-    // Read project name from package.json, and use dir name as fallback.
-    let projectName: string | undefined;
-    try {
-      const {name, main, bin} = fs.readJsonSync(`${rootDir}/package.json`);
-      projectName = name;
-      if (main)
-        this.mainFileName = main;
-      if (bin)
-        this.executables = bin;
-    } catch {}
-    this.name = projectName ?? path.basename(rootDir);
-    // File config file and read it.
+    this.rootDir = rootDir;
+    this.initializeWithRootDir(rootDir);
+    // Intialize TypeScript project.
     const configFileName = `${rootDir}/tsconfig.json`;
     if (fs.existsSync(configFileName)) {
       // Get the TypeScript files from config.
       const config = ts.readJsonConfigFile(configFileName, (p) => fs.readFileSync(p).toString());
       const parsed = ts.parseJsonSourceFileConfigFileContent(config, ts.sys, rootDir);
-      this.rootDir = parsed.options.rootDir ?? rootDir;
+      if (parsed?.options.strictNullChecks !== true)
+        throw new Error('The strictNullChecks is required to be set to true');
+      this.sourceRootDir = parsed.options.rootDir ?? rootDir;
       this.fileNames = parsed.fileNames;
       this.compilerOptions = parsed.options;
     } else {
       // Get the TypeScript files from the rootDir.
-      this.rootDir = rootDir;
+      this.sourceRootDir = rootDir;
       this.fileNames = fs.readdirSync(rootDir).filter(f => f.endsWith('.ts'))
                                               .map(p => `${rootDir}/${p}`);
       this.compilerOptions = {
@@ -69,6 +63,20 @@ export default class CppProject {
     if (this.cppFiles.has(name))
       throw new Error(`The file "${name}" already exists in project`);
     this.cppFiles.set(name, file);
+  }
+
+  /**
+   * Get the type of file according to 'mainFileName' and 'executables'.
+   */
+  getFileType(fileName: string) {
+    const isExecutable = this.executables &&
+                         Object.values(this.executables).includes(fileName);
+    if (this.mainFileName == fileName) {
+      if (isExecutable)
+        throw new Error('Can not specify a file as both module main script and bin script');
+      return 'napi';
+    }
+    return isExecutable ? 'exe' : 'lib';
   }
 
   /**
@@ -112,6 +120,36 @@ export default class CppProject {
   }
 
   /**
+   * Set project info from package.json file.
+   */
+  async initializeWithRootDir(rootDir: string) {
+    try {
+      const {name, compilets} = fs.readJsonSync(`${rootDir}/package.json`);
+      this.name = name;
+      // The "compilets" field stores our configurations.
+      if (typeof compilets == 'object') {
+        const {main, bin} = compilets;
+        // The entry for native module.
+        if (typeof main == 'string' && main.endsWith('.ts'))
+          this.mainFileName = main;
+        // Entries for executables.
+        if (bin) {
+          for (const [key, value] of Object.entries(bin)) {
+            if (typeof value != 'string' || !value.endsWith('.ts'))
+              continue;
+            if (!this.executables)
+              this.executables = {};
+            this.executables[key] = value;
+          }
+        }
+      }
+    } catch {}
+    // Use directory's name as fallback.
+    if (!this.name)
+      this.name = path.basename(rootDir);
+  }
+
+  /**
    * Create a C++ project at `target` directory.
    */
   async writeTo(target: string) {
@@ -130,26 +168,68 @@ export default class CppProject {
    * Create a minimal GN project at the `target` directory.
    */
   private async writeGnFiles(target: string) {
-    const sources = this.getFiles().map(([n, f]) => `    "${n}",`).join('\n');
-    const buildgn =
-`group("default") {
-  deps = [ ":${this.name}" ]
-}
-
-executable("${this.name}") {
-  deps = [ "cpp:runtime" ]
-  include_dirs = [ "." ]
+    // The common config that every target should have.
+    const commonConfig = `
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]`;
+    // Pretty print a list of files.
+    const concatFiles = (files: [string, CppFile][]) => {
+      return files.map(([ name, file ]) => `    "${name}",`).join('\n');
+    };
+    const buildgn: string[] = [];
+    const targets: string[] = [];
+    // If this is a multi-file project, create a source_set for common files.
+    const sourcesLib = this.getFiles().filter(([ name, file ]) => file.type == 'lib');
+    if (sourcesLib.length > 0) {
+      buildgn.push(
+`source_set("lib${this.name}") {
   sources = [
-${sources}
+${concatFiles(sourcesLib)}
   ]
 
-  configs -= [ "//build/config/compiler:chromium_code" ]
-  configs += [ "//build/config/compiler:no_chromium_code" ]
-  configs += [ "cpp:app_config" ]
-}
+  public_deps = [ "cpp:runtime" ]
+  public_configs = [ "cpp:app_config" ]
+${commonConfig}
+}`);
+      targets.push(`lib${this.name}`);
+    }
+    // Create executable targets.
+    if (this.executables) {
+      for (const name in this.executables) {
+        const fileName = this.executables[name].replace(/\.ts$/, '.cpp');
+        let definition =
+`executable("${name}") {
+  sources = [ "${fileName}" ]
 `;
+        // Depend on the common lib.
+        if (sourcesLib.length > 0) {
+          definition +=
+`
+  deps = [ ":lib${this.name}" ]
+`;
+        } else {
+          definition +=
+`
+  deps = [ "cpp:runtime" ]
+  configs += [ "cpp:app_config" ]
+`;
+        }
+        definition +=
+`${commonConfig}
+}`;
+        buildgn.push(definition);
+        targets.push(name);
+      }
+    }
+    // Add the default group.
+    buildgn.push(
+`group("default") {
+  deps = [
+${targets.map(t => `    ":${t}",`).join('\n')}
+  ]
+}`);
     await Promise.all([
-      fs.writeFile(`${target}/BUILD.gn`, buildgn),
+      fs.writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
       fs.copy(`${__dirname}/../cpp`, `${target}/cpp`),
       fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`),
     ]);

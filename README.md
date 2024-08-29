@@ -51,6 +51,51 @@ compilets build
 ./cpp-project/out/Debug/example
 ```
 
+## Compatibility with `tsconfig.json` and `package.json`
+
+When compiling a project, the `tsconfig.json` file under the root directory is
+used for initializing the TypeScript compiler. If such file is not present,
+following `compilerOptions` will be used:
+
+```json
+{
+  noImplicitAny: true,
+  strictNullChecks: true,
+  allowImportingTsExtensions: true
+}
+```
+
+In this case the `.ts` files under the root directory will be used for
+compilation, and the files are searched non-recursively.
+
+Also, the `compilerOptions.strictNullChecks` field must be `true` when a
+`tsconfig.json` file is provided.
+
+When a `package.json` file is found in the root directory, following rules are
+applied:
+
+* The `name` field is used as the project's name.
+* If the `compilets.main` field is a `.ts` file, a native module will be
+  created.
+* If the `compilets.bin` field is an object with values of `.ts` files,
+  executables will be created for each entry of the object.
+
+An example `package.json` file:
+
+```json
+{
+  "name": "download",
+  "compilets": {
+    "main": "lib.ts",
+    "bin": {
+      "download": "cli.ts"
+    }
+  }
+```
+
+If there is no `package.json` file, the root directory must contain only one
+`.ts` file and it will be compiled into executable.
+
 ## Developement
 
 The documentations of Oilpan GC (cppgc) can be found at:
@@ -61,7 +106,7 @@ The documentations of Oilpan GC (cppgc) can be found at:
 
 You can get familiar with TypeScript's compiler APIs with following articles:
 
-* [Gentle Introduction To Typescript Compiler API](https://january.sh/posts/gentle-introduction-to-typescript-compiler-api)
+* [Gentle Introduction To TypeScript Compiler API](https://january.sh/posts/gentle-introduction-to-typescript-compiler-api)
 * [TypeScript Transformer Handbook](https://github.com/itsdouges/typescript-transformer-handbook)
 * [Using the Compiler API](https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API)
 
