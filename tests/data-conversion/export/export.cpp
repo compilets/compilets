@@ -1,5 +1,7 @@
 #include "export.h"
 
+namespace app::export_ts {
+
 namespace {
 void checkLeaks();
 }
@@ -31,3 +33,5 @@ void checkLeaks() {
 }
 
 }  // namespace
+
+}  // namespace app::export_ts

@@ -166,10 +166,10 @@ export function printExpressionValue(expr: Expression, ctx: PrintContext) {
 /**
  * Print the template arguments..
  */
-export function printTemplateArguments(args?: Type[]): string {
-  if (!args || args.length == 0)
+export function printTemplateArguments(args: Type[], ctx: PrintContext): string {
+  if (args.length == 0)
     return '';
-  return `<${args.map(a => printTypeName(a)).join(', ')}>`;
+  return `<${args.map(a => printTypeName(a, ctx)).join(', ')}>`;
 }
 
 /**
@@ -187,13 +187,13 @@ export function printTemplateDeclaration(type: Type): string | undefined {
  *
  * It is also used for class inheritance.
  */
-export function printTypeName(type: Type, ctx?: PrintContext): string {
+export function printTypeName(type: Type, ctx: PrintContext): string {
   if (type.category == 'function' || type.category == 'method') {
     throw new Error('Raw function type should never be printed out');
   }
   // Add wrapper for array.
   if (type.category == 'array') {
-    return `compilets::Array<${printTypeNameForDeclaration(type.getElementType().noProperty())}>`;
+    return `compilets::Array<${printTypeNameForDeclaration(type.getElementType().noProperty(), ctx)}>`;
   }
   // Add wrapper for functor.
   if (type.category == 'functor') {
@@ -201,7 +201,7 @@ export function printTypeName(type: Type, ctx?: PrintContext): string {
   }
   // Add wrapper for union.
   if (type.category == 'union') {
-    const types = type.types!.map(t => printTypeNameForDeclaration(t.noProperty()));
+    const types = type.types!.map(t => printTypeNameForDeclaration(t.noProperty(), ctx));
     if (type.isOptional)
       types.push('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;
@@ -219,11 +219,14 @@ export function printTypeName(type: Type, ctx?: PrintContext): string {
   let name = type.name;
   // Add type arguments.
   if (type.category == 'class' && type.templateArguments) {
-    name += printTemplateArguments(type.templateArguments);
+    name += printTemplateArguments(type.templateArguments, ctx);
   }
   // Add namespace.
-  if (type.namespace && !(ctx?.namespace == type.namespace)) {
-    name = `${type.namespace}::${name}`;
+  if (type.namespace) {
+    if (!ctx || !ctx.namespace || !type.namespace.startsWith(ctx.namespace))
+      name = `${type.namespace}::${name}`;
+    else if (type.namespace != ctx.namespace)
+      name = `${type.namespace.substr(ctx.namespace.length)}::${name}`;
   }
   // Add optional when needed.
   if (type.isStdOptional()) {
@@ -235,7 +238,7 @@ export function printTypeName(type: Type, ctx?: PrintContext): string {
 /**
  * Print the type name used for declaration of values.
  */
-export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): string {
+export function printTypeNameForDeclaration(type: Type, ctx: PrintContext): string {
   // Template's type name is alway wrapped with type traits.
   if (type.category == 'template') {
     if (type.isCppgcMember()) {
@@ -255,7 +258,7 @@ export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): str
     let name: string;
     // The type of array used for declaration is different from the formal type.
     if (type.category == 'array')
-      name = `compilets::Array<${printTypeNameForDeclaration(type.getElementType())}>`;
+      name = `compilets::Array<${printTypeNameForDeclaration(type.getElementType(), ctx)}>`;
     else
       name = printTypeName(type, ctx);
     // Use smart pointer or raw pointer.
@@ -268,7 +271,7 @@ export function printTypeNameForDeclaration(type: Type, ctx?: PrintContext): str
   }
   // The type of union used for declaration is different from the formal type.
   if (type.category == 'union') {
-    const types = type.types!.map(t => printTypeNameForDeclaration(t));
+    const types = type.types!.map(t => printTypeNameForDeclaration(t, ctx));
     if (type.isOptional)
       types.push('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;

@@ -5,12 +5,14 @@ struct Interface1;
 struct Interface2;
 }
 
+namespace app::export_ts {
 class View;
 template<typename T>
 class Container;
 View* createView();
 template<typename T>
 Container<T>* createContainer();
+}
 
 namespace compilets::generated {
 
@@ -27,6 +29,8 @@ struct Interface2 : public compilets::Object {
 };
 
 }  // namespace compilets::generated
+
+namespace app::export_ts {
 
 class View : public compilets::Object {
  public:
@@ -61,3 +65,5 @@ template<typename T>
 Container<T>* createContainer() {
   return compilets::MakeObject<Container<T>>();
 }
+
+}  // namespace app::export_ts

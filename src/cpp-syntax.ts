@@ -80,7 +80,7 @@ export class Identifier extends RawExpression {
       return `${this.type.namespace}::${this.text}`;
     // Add template arguments for function call.
     if (this.type.category == 'function' && this.type.templateArguments)
-      return this.text + printTemplateArguments(this.type.templateArguments);
+      return this.text + printTemplateArguments(this.type.templateArguments, ctx);
     return this.text;
   }
 }
@@ -159,7 +159,8 @@ export class ExpressionWithTemplateArguments extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    return this.expression.print(ctx) + printTemplateArguments(this.templateArguments);
+    const templateArguments = this.templateArguments ? printTemplateArguments(this.templateArguments, ctx) : '';
+    return this.expression.print(ctx) + templateArguments;
   }
 }
 
@@ -427,9 +428,9 @@ export class NewExpression extends Expression {
   override print(ctx: PrintContext) {
     const args = this.args.print(ctx);
     if (this.type.isObject())
-      return `compilets::MakeObject<${printTypeName(this.type)}>(${args})`;
+      return `compilets::MakeObject<${printTypeName(this.type, ctx)}>(${args})`;
     else
-      return `new ${printTypeName(this.type)}(${args})`;
+      return `new ${printTypeName(this.type, ctx)}(${args})`;
   }
 }
 

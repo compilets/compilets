@@ -32,6 +32,8 @@
   * Implementation with `co_await`/`co_return`
   * Interoperability with [Node-API Promises](https://nodejs.org/api/n-api.html#promises)
 * Generators with `co_yield`
+* `Buffer`
+* `ArrayBuffer`
 
 ## Long long term plans
 

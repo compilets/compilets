@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 
-import CppFile, {CppFileType} from './cpp-file';
+import CppFile, {CppFileType, getNamespaceFromFileNmae} from './cpp-file';
 import CppProject from './cpp-project';
 import * as syntax from './cpp-syntax';
 
@@ -11,6 +11,7 @@ import {
   rethrowError,
   operatorToString,
   modifierToString,
+  getTypeNamespace,
   hasTypeNode,
   hasQuestionToken,
   isExternalDeclaration,
@@ -62,6 +63,10 @@ export default class Parser {
 
   parseSourceFile(fileName: string, sourceFile: ts.SourceFile): CppFile {
     const cppFile = new CppFile(fileName, this.project.getFileType(fileName), this.interfaceRegistry);
+    // For multi-file project add namespace for each file.
+    if (this.project.fileNames.length > 1)
+      cppFile.namespace = getNamespaceFromFileNmae(fileName);
+    // Parse root nodes in the file.
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
         case ts.SyntaxKind.ImportDeclaration:
@@ -809,10 +814,14 @@ export default class Parser {
                  location?: ts.Node,
                  modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
+    // For multi-file project add namespace for each file.
+    if (this.project.fileNames.length > 1)
+      cppType.namespace = getTypeNamespace(type, this.project.sourceRootDir);
     // Parse base classes.
     const base = type.getBaseTypes()?.find(isClass);
     if (base)
       cppType.base = this.parseType(base);
+    // Parse type parameters and arguments.
     if (type.typeParameters)
       cppType.types = type.typeParameters.map(p => this.parseType(p, location));
     cppType.templateArguments = type.typeArguments?.map(a => this.parseType(a, location));

@@ -1,5 +1,7 @@
+import path from 'node:path';
 import * as ts from 'typescript';
 import * as syntax from './cpp-syntax';
+import {getNamespaceFromFileNmae} from './cpp-file';
 import {uniqueArray} from './js-utils';
 
 /**
@@ -77,6 +79,19 @@ export function modifierToString(modifier: ts.ModifierLike): string {
       return 'static';
   }
   throw new Error(`Unsupported modifier: ${modifier.getText()}`);
+}
+
+/**
+ * Calculate the type's namespace according to the file it is defined.
+ */
+export function getTypeNamespace(type: ts.Type, sourceRootDir: string): string | undefined {
+  if (!type.symbol || !type.symbol.valueDeclaration)
+    return;
+  const sourceFile = type.symbol.valueDeclaration.getSourceFile();
+  if (sourceFile.isDeclarationFile)
+    throw new Error('Can not get namespace for external type');
+  const fileName = path.relative(sourceRootDir, sourceFile.fileName);
+  return getNamespaceFromFileNmae(fileName);
 }
 
 /**

@@ -1,5 +1,5 @@
 import * as syntax from './cpp-syntax';
-import {joinArray, cloneMap} from './js-utils';
+import {cloneMap} from './js-utils';
 
 /**
  * Possible types of the CppFile.
@@ -9,12 +9,21 @@ export type CppFileType = 'lib' |  // file shared between all targets
                           'napi';  // native module entry file
 
 /**
+ * Return the computed namespace from relative fileName.
+ */
+export function getNamespaceFromFileNmae(fileName: string) {
+  // Replace ./\ with _, so a/b/c/file.ts becomes app::a_b_c_file_ts .
+  return `app::${fileName.replace(/[\.\/\\]/g, '_')}`;
+}
+
+/**
  * Represent a .ts file in C++, should be translated to .h and .cpp files.
  */
 export default class CppFile {
   name: string;
   type: CppFileType;
   interfaceRegistry: syntax.InterfaceRegistry;
+  namespace?: string;
   imports = new Array<syntax.ImportDeclaration>();
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   variableStatements = new Array<syntax.VariableStatement>();
@@ -108,6 +117,7 @@ export default class CppFile {
    */
   print(ctx: syntax.PrintContext): string {
     const blocks: NamespaceBlock[] = [];
+    using scope = new syntax.PrintContextScope(ctx, {namespace: this.namespace});
     // Print declarations and main function first.
     blocks.push(...this.printDeclarations(ctx));
     blocks.push(...this.printMainFunction(ctx));
@@ -123,35 +133,7 @@ export default class CppFile {
     // Then headers.
     blocks.unshift(...this.printHeaders(ctx));
     // Concatenate results.
-    return joinArray(
-      // Merge blocks with same namespace.
-      blocks.reduce((result, block, index, blocks) => {
-        if (result.length == 0)
-          return [ block ];
-        const last = result[result.length - 1];
-        if (last.namespace === block.namespace) {
-          const separator = last.isForwardDeclaration && block.isForwardDeclaration ? '\n' : '\n\n';
-          last.code += separator + block.code;
-          if (last.isForwardDeclaration != block.isForwardDeclaration)
-            last.isForwardDeclaration = false;
-        } else {
-          result.push(block);
-        }
-        return result;
-      }, <NamespaceBlock[]>[]),
-      // Blocks have empty line between them.
-      () => '\n\n',
-      // Add namespaces when printing block.
-      (block) => {
-        if (block.namespace === undefined || block.namespace == ':global')
-          return block.code;
-        const namespace = block.namespace == ':anonymous' ? '' : ' ' + block.namespace;
-        if (block.isForwardDeclaration)
-          return `namespace${namespace} {\n${block.code}\n}`;
-        else
-          return `namespace${namespace} {\n\n${block.code}\n\n}  // namespace${namespace}`;
-        return block.code;
-      }) + '\n';
+    return printBlocks(mergeBlocks(blocks)) + '\n';
   }
 
   /**
@@ -183,7 +165,7 @@ export default class CppFile {
     }
     return declarations.statements.map(s => {
       const code = s.print(ctx);
-      const namespace = s.isExported ? undefined : ':anonymous';
+      const namespace = getDeclarationNamespace(this.namespace, s);
       return {code, namespace};
     });
   }
@@ -196,7 +178,7 @@ export default class CppFile {
     // 1) we are generating the exe main file;
     // 2) or there are statements in body.
     if (this.type != 'lib' || !this.body.isEmpty())
-      return [ {code: this.body.print(ctx), namespace: ':global'} ];
+      return [ {code: this.body.print(ctx), namespace: '|global'} ];
     return [];
   }
 
@@ -261,10 +243,10 @@ export default class CppFile {
     if (statements.length == 0)
       return [];
     // Forward declarations are printed compact.
-    const forward = new syntax.PrintContext('forward', 2);
+    using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
     return statements.map(s => {
-      const code = s.print(forward);
-      const namespace = s.isExported ? undefined : ':anonymous';
+      const code = s.print(ctx);
+      const namespace = getDeclarationNamespace(this.namespace, s);
       return {code, namespace, isForwardDeclaration: true};
     });
   }
@@ -311,21 +293,113 @@ export default class CppFile {
                                                       : `#include "${h.path}"`)
                         .sort()
                         .join('\n');
-    return [ {code, namespace: ':global'} ];
+    return [ {code, namespace: '|global'} ];
   }
 }
 
 // Code block wrapped by namespaces.
 interface NamespaceBlock {
   code: string;
-  namespace?: ':anonymous' | ':global' | string;
+  namespace?: '|anonymous' | '|global' | string;
   isForwardDeclaration?: boolean;
+  before?: NamespaceBlock[];
+  after?: NamespaceBlock[];
 }
 
 // Represent the #include directive in C++.
 interface IncludeDirective {
   type: 'bracket' | 'quoted';
   path: string;
+}
+
+// Merge blocks with same namespace.
+function mergeBlocks(blocks: NamespaceBlock[]): NamespaceBlock[] {
+  const addBlock = (arr: NamespaceBlock[], block: NamespaceBlock) => {
+    if (arr.length == 0) {
+      arr.push(block);
+      return;
+    }
+    // If two blocks have the same namespace, merge to one.
+    const last = arr[arr.length - 1];
+    if (last.namespace === block.namespace) {
+      const separator = last.isForwardDeclaration && block.isForwardDeclaration ? '\n' : '\n\n';
+      last.code += separator + block.code;
+      if (last.isForwardDeclaration != block.isForwardDeclaration)
+        last.isForwardDeclaration = false;
+      return;
+    }
+    if (last.namespace && block.namespace) {
+      // If new block's namespace is a child of previous one, merge it to its
+      // child blocks.
+      if (block.namespace.startsWith(last.namespace)) {
+        if (!last.after)
+          last.after = [];
+        block.namespace = block.namespace.substr(last.namespace.length + 2);
+        addBlock(last.after, block);
+        return;
+      }
+      // If previous block's namespace is a child of new one, move previous one
+      // to the new block's child blocks.
+      if (last.namespace.startsWith(block.namespace)) {
+        arr.splice(arr.length - 1, 1);
+        block.before = [];
+        last.namespace = last.namespace.substr(block.namespace.length + 2);
+        addBlock(block.before, last);
+      }
+    }
+    arr.push(block);
+  };
+  const result: NamespaceBlock[] = [];
+  for (const block of blocks)
+    addBlock(result, block);
+  return result;
+}
+
+// Print the blocks.
+function printBlocks(blocks: NamespaceBlock[]) {
+  const print = (block: NamespaceBlock) => {
+    let result = '';
+    // Add namespace prefix.
+    if (block.namespace && block.namespace != '|global') {
+      if (block.namespace == '|anonymous')
+        result += 'namespace {\n';
+      else
+        result += `namespace ${block.namespace} {\n`;
+      if (!block.isForwardDeclaration)
+        result += '\n';
+    }
+    // Print code.
+    const text = [ block.code ];
+    if (block.before)
+      text.unshift(printBlocks(block.before));
+    if (block.after)
+      text.push(printBlocks(block.after));
+    result += text.join('\n\n');
+    // Add namespace suffix.
+    if (block.namespace && block.namespace != '|global') {
+      if (block.isForwardDeclaration) {
+        result += '\n}';
+      } else {
+        result += '\n';
+        if (block.namespace == '|anonymous')
+          result += '\n}  // namespace';
+        else
+          result += `\n}  // namespace ${block.namespace}`;
+      }
+    }
+    return result;
+  };
+  return blocks.map(print).join('\n\n');
+}
+
+// Return the namespace according to the declaration's isExported state.
+function getDeclarationNamespace(namespace: string | undefined, decl: syntax.DeclarationStatement): string | undefined {
+  if (decl.isExported)
+    return namespace;
+  if (namespace)
+    return namespace + '::' + '|anonymous';
+  else
+    return '|anonymous';
 }
 
 // Whether the features includes classes that inherits from object.
