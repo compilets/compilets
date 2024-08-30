@@ -545,11 +545,13 @@ export class CustomExpression extends Expression {
 }
 
 export class ImportDeclaration {
+  fileName: string;
   namespace: string;
   alias?: string;
   names?: string[];
 
-  constructor(namespace: string) {
+  constructor(fileName: string, namespace: string) {
+    this.fileName = fileName;
     this.namespace = namespace;
   }
 }

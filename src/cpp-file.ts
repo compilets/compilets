@@ -127,7 +127,8 @@ export default class CppFile {
       blocks.unshift(...this.printInterfaces(ctx));
     }
     // Then headers.
-    blocks.unshift(...this.printHeaders(ctx));
+    blocks.unshift(...this.printImportHeaders(ctx));
+    blocks.unshift(...this.printRuntimeHeaders(ctx));
     // Concatenate results.
     return printBlocks(mergeBlocks(blocks)) + '\n';
   }
@@ -248,9 +249,30 @@ export default class CppFile {
   }
 
   /**
-   * Print required headers for this file.
+   * Print headers introduced by imports.
    */
-  private printHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printImportHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
+    if (this.imports.length == 0)
+      return [];
+    // Include the headers of imported files.
+    const headers = this.imports.map(i => <IncludeDirective>{
+      type: 'quoted',
+      path: i.fileName.replace(/\.ts$/, '.h'),
+    });
+    // For namespace imports, create namespace aliases.
+    const aliases = this.imports.filter(i => i.alias)
+                                .map(i => `namespace ${i.alias} = ${i.namespace};`)
+                                .join('\n');
+    return [
+      printIncludes(headers),
+      {code: aliases, namespace: '|global'},
+    ];
+  }
+
+  /**
+   * Print required runtime headers for this file.
+   */
+  private printRuntimeHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
     // If this is the main file of an exe, it requires runtime headers.
     if (this.type == 'exe')
       ctx.features.add('runtime');
@@ -285,11 +307,7 @@ export default class CppFile {
       headers.push({type: 'quoted', path: 'runtime/object.h'});
     if (features.has('type-traits') && !hasHeadersUsingTypeTraits(allFeatures))
       headers.push({type: 'quoted', path: 'runtime/type_traits.h'});
-    const code = headers.map(h => h.type == 'bracket' ? `#include <${h.path}>`
-                                                      : `#include "${h.path}"`)
-                        .sort()
-                        .join('\n');
-    return [ {code, namespace: '|global'} ];
+    return [ printIncludes(headers) ];
   }
 }
 
@@ -300,12 +318,6 @@ interface NamespaceBlock {
   isForwardDeclaration?: boolean;
   before?: NamespaceBlock[];
   after?: NamespaceBlock[];
-}
-
-// Represent the #include directive in C++.
-interface IncludeDirective {
-  type: 'bracket' | 'quoted';
-  path: string;
 }
 
 // Merge blocks with same namespace.
@@ -386,6 +398,21 @@ function printBlocks(blocks: NamespaceBlock[]) {
     return result;
   };
   return blocks.map(print).join('\n\n');
+}
+
+// Represent the #include directive in C++.
+interface IncludeDirective {
+  type: 'bracket' | 'quoted';
+  path: string;
+}
+
+// Print the headers.
+function printIncludes(includes: IncludeDirective[]): NamespaceBlock {
+  const code = includes.map(i => i.type == 'bracket' ? `#include <${i.path}>`
+                                                     : `#include "${i.path}"`)
+                       .sort()
+                       .join('\n');
+  return {code, namespace: '|global'};
 }
 
 // Return the namespace according to the declaration's isExported state.

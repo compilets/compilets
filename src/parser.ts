@@ -11,6 +11,7 @@ import {
   rethrowError,
   operatorToString,
   modifierToString,
+  getFileNameFromModuleSpecifier,
   getNamespaceFromNode,
   getNamespaceFromFileName,
   hasTypeNode,
@@ -394,7 +395,8 @@ export default class Parser {
     const {importClause, moduleSpecifier} = node;
     if (!ts.isStringLiteral(moduleSpecifier))
       throw new UnsupportedError(node, 'Module name must be string literal');
-    const decl = new syntax.ImportDeclaration(getNamespaceFromFileName(moduleSpecifier.text));
+    const fileName = getFileNameFromModuleSpecifier(moduleSpecifier.text);
+    const decl = new syntax.ImportDeclaration(fileName, getNamespaceFromFileName(fileName));
     // import 'module'
     if (!importClause)
       return decl;

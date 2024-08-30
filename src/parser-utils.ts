@@ -81,6 +81,23 @@ export function modifierToString(modifier: ts.ModifierLike): string {
 }
 
 /**
+ * Resolve the module name to formal fileName.
+ *
+ * For example, returns "export.ts" from "./export".
+ */
+export function getFileNameFromModuleSpecifier(specifier: string): string {
+  // Remove the ./ prefix.
+  if (specifier.startsWith('./'))
+    specifier = specifier.substr(2);
+  // Make sure the extension is .ts .
+  if (/\.[\w]+$/.test(specifier))
+    specifier = specifier.replace(/\.[\w]+$/, '.ts');
+  else
+    specifier += '.ts';
+  return specifier;
+}
+
+/**
  * Calculate the node's namespace according to the file it is defined.
  */
 export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): string | undefined {
@@ -102,12 +119,6 @@ export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): str
  * Return the computed namespace from relative fileName.
  */
 export function getNamespaceFromFileName(fileName: string) {
-  // Remove the ./ prefix.
-  if (fileName.startsWith('./'))
-    fileName = fileName.substr(2);
-  // Add .ts suffix if it has no extension.
-  if (!/\.[\w]+$/.test(fileName))
-    fileName += '.ts';
   // Replace ./\ with _, so a/b/c/file.ts becomes app::a_b_c_file_ts .
   return `app::${fileName.replace(/[\.\/\\]/g, '_')}`;
 }
