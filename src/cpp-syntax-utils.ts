@@ -221,7 +221,11 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   if (type.namespace) {
     name = addNamespace(name, type.namespace, ctx);
     // Resolve type alias, only types with namespaces need this.
-    name = ctx.typeAliases.get(name) ?? name;
+    if (ctx.typeAliases.has(name)) {
+      name = ctx.typeAliases.get(name)!;
+      if (ctx.namespace && name.startsWith(ctx.namespace))
+        name = name.substr(ctx.namespace.length + 2);
+    }
   }
   // Add type arguments.
   if (type.category == 'class' && type.templateArguments) {

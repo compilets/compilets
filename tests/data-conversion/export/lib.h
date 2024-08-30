@@ -3,10 +3,10 @@
 
 #include "base.h"
 
+namespace app::lib_ts {
+
 using app::base_ts::Container;
 using MyView = app::base_ts::View;
-
-namespace app::lib_ts {
 
 MyView* createView();
 template<typename T>

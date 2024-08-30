@@ -112,7 +112,7 @@ export default class CppFile {
     // Set the namespace for the PrintContext.
     using scope = new syntax.PrintContextScope(ctx, {
       namespace: this.namespace,
-      ...getImportAliases(this.imports),
+      ...getImportAliases(this.imports, this.namespace),
     });
     // Print declarations and main function first.
     blocks.push(...this.printDeclarations(ctx));
@@ -181,8 +181,13 @@ export default class CppFile {
     // It is only printed when:
     // 1) we are generating the exe main file;
     // 2) or there are statements in body.
-    if (this.type != 'lib' || !this.body.isEmpty())
-      return [ {code: this.body.print(ctx), namespace: '|global'} ];
+    if (this.type != 'lib' || !this.body.isEmpty()) {
+      const result = [ {code: this.body.print(ctx), namespace: '|global'} ];
+      // The code in main function share the same namespace scope with the file.
+      if (this.namespace)
+        result.unshift({code: `using namespace ${this.namespace};`, namespace: '|global'});
+      return result;
+    }
     return [];
   }
 
@@ -248,11 +253,11 @@ export default class CppFile {
       return [];
     // Forward declarations are printed compact.
     using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
-    return statements.map(s => {
+    return mergeBlocks(statements.map(s => {
       const code = s.print(ctx);
       const namespace = getDeclarationNamespace(this.namespace, s);
       return {code, namespace, isForwardDeclaration: true};
-    });
+    }));
   }
 
   /**
@@ -270,7 +275,7 @@ export default class CppFile {
     const directives = this.imports.map(i => i.print(ctx)).join('\n');
     return [
       printIncludes(headers),
-      {code: directives, namespace: '|global'},
+      {code: directives, namespace: ctx.namespace},
     ];
   }
 
@@ -422,20 +427,21 @@ function printIncludes(includes: IncludeDirective[]): NamespaceBlock {
 }
 
 // Return the alias settings from imports.
-function getImportAliases(imports: syntax.ImportDeclaration[]): Partial<syntax.PrintContext> {
+function getImportAliases(imports: syntax.ImportDeclaration[], currentNamespace?: string): Partial<syntax.PrintContext> {
+  const current = currentNamespace ? `${currentNamespace}::` : '';
   const namespaceAliases = new Map<string, string>();
   const typeAliases = new Map<string, string>();
   for (const i of imports) {
     if (i.namespaceAlias) {
-      namespaceAliases.set(i.namespace, i.namespaceAlias);
+      namespaceAliases.set(i.namespace, current + i.namespaceAlias);
     }
     if (i.names) {
       for (const name of i.names)
-        typeAliases.set(`${i.namespace}::${name}`, name);
+        typeAliases.set(`${i.namespace}::${name}`, current + name);
     }
     if (i.aliases) {
       for (const [ name, alias ] of i.aliases)
-        typeAliases.set(`${i.namespace}::${name}`, alias);
+        typeAliases.set(`${i.namespace}::${name}`, current + alias);
     }
   }
   return {namespaceAliases, typeAliases};
