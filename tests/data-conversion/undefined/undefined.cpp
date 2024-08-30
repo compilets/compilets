@@ -3,9 +3,6 @@
 
 namespace {
 
-class LinkNode;
-void TestUndefined();
-
 class LinkNode : public compilets::Object {
  public:
   compilets::Union<double, bool, std::monostate> item;

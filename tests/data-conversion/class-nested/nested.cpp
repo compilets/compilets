@@ -2,10 +2,6 @@
 
 namespace {
 
-class Prop;
-class Owner;
-void TestNested();
-
 class Prop : public compilets::Object {
 };
 

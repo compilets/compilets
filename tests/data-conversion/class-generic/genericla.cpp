@@ -3,11 +3,6 @@
 
 namespace {
 
-class Item;
-template<typename T, typename U>
-class Wrapper;
-void TestGenericClass();
-
 class Item : public compilets::Object {
 };
 

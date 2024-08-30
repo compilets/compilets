@@ -6,16 +6,6 @@
 namespace {
 
 template<typename T>
-class Item;
-template<typename T>
-compilets::ValueType<T> Passthrough(compilets::ValueType<T> value);
-template<typename U>
-compilets::ValueType<U> GetValue(Item<U>* item);
-template<typename U>
-compilets::Array<cppgc::Member<Item<U>>>* CreateItems();
-void TestGenericFunction();
-
-template<typename T>
 class Item : public compilets::Object {
  public:
   compilets::OptionalCppgcMemberType<T> value;

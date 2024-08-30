@@ -2,12 +2,6 @@
 
 namespace {
 
-class Prop;
-class Base;
-class Derived;
-class NotDerived;
-void TestInheritance();
-
 class Prop : public compilets::Object {
 };
 

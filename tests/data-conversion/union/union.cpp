@@ -2,11 +2,6 @@
 
 namespace {
 
-void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a);
-void TakeNumber(double n);
-compilets::Union<double, bool> ReturnUnion();
-void TestUnion();
-
 void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a) {
   if (!compilets::IsTrue(a)) {}
 }

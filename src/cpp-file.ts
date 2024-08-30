@@ -115,12 +115,13 @@ export default class CppFile {
       ...getImportAliases(this.imports, this.namespace),
     });
     // Print declarations and main function first.
-    blocks.push(...this.printDeclarations(ctx));
+    const [ fullDeclarations, forwardDeclarations ] = this.printDeclarations(ctx);
+    blocks.push(...fullDeclarations);
     blocks.push(...this.printMainFunction(ctx));
     // Then interfaces.
     blocks.unshift(...this.printInterfaces(ctx));
     // Then forward declarations.
-    blocks.unshift(...this.printForwardDeclarations(ctx));
+    blocks.unshift(...forwardDeclarations);
     // Then forward declarations of interfaces.
     {
       using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
@@ -137,7 +138,7 @@ export default class CppFile {
     const guard = ctx.namespace.replace(/::/g, '_')
                                .replace(/_ts$/, '_h')
                                .toUpperCase() + '_';
-    return `#ifndef ${guard}\n#define ${guard}\n\n${code}\n\n#endif  // ${guard}`;
+    return `#ifndef ${guard}\n#define ${guard}\n\n${code}\n\n#endif  // ${guard}\n`;
   }
 
   /**
@@ -156,22 +157,41 @@ export default class CppFile {
   /**
    * Print declarations for all the function and class declarations.
    */
-  private printDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printDeclarations(ctx: syntax.PrintContext): [NamespaceBlock[], NamespaceBlock[]] {
     let declarations = this.declarations;
     if (ctx.mode == 'header') {
-      // In header print exported declarations except for non-template function,
-      // which is printed in forward declarations.
-      declarations = declarations.filter(d => d.isExported && !(d instanceof syntax.FunctionDeclaration && !d.type.hasTemplate()));
+      // In header print exported declarations.
+      declarations = declarations.filter(d => d.isExported);
     } else if (ctx.mode == 'impl') {
       // In impl print everything except for exported template class/function,
       // whose full definition is printed in header.
       declarations = declarations.filter(d => !(d.isExported && d.type.hasTemplate()));
     }
-    return declarations.statements.map(s => {
-      const code = s.print(ctx);
-      const namespace = getDeclarationNamespace(this.namespace, s);
-      return {code, namespace};
-    });
+    const fullDeclarations: NamespaceBlock[] = [];
+    const forwardDeclarations: NamespaceBlock[] = [];
+    // Iterate and print all declarations.
+    const declaredTypes = new Set<string>();
+    const forwardDeclaredTypes = new Set<string>();
+    for (const statement of declarations.statements) {
+      // Get the namespace string for NamespaceBlock.
+      const namespace = getDeclarationNamespace(this.namespace, statement);
+      // Print full declaration first.
+      declaredTypes.add(`${statement.type.namespace ?? ''},${statement.type.name}`);
+      fullDeclarations.push({code: statement.print(ctx), namespace});
+      // Print its forward declaration if it was used before declaration.
+      if (forwardDeclaredTypes.has(statement.type.name)) {
+        using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
+        forwardDeclarations.push({code: statement.print(ctx), namespace, isForwardDeclaration: true});
+      }
+      // Check the used but undeclared types.
+      for (const value of ctx.usedTypes.difference(declaredTypes)) {
+        // Save the undeclared types belong to this file.
+        const [ namespace, name ] = value.split(',');
+        if (namespace == (this.namespace ?? ''))
+          forwardDeclaredTypes.add(name);
+      }
+    }
+    return [ fullDeclarations, forwardDeclarations ];
   }
 
   /**
@@ -221,43 +241,6 @@ export default class CppFile {
     return declarations.map((code) => {
       return {code, namespace: ctx.namespace, isForwardDeclaration};
     });
-  }
-
-  /**
-   * Print forward declarations for all the function and class declarations.
-   */
-  private printForwardDeclarations(ctx: syntax.PrintContext): NamespaceBlock[] {
-    let {statements} = this.declarations;
-    // Only function/class need forward declaration.
-    statements = statements.filter(d => d instanceof syntax.ClassDeclaration ||
-                                        d instanceof syntax.FunctionDeclaration);
-    // If only one declaration, then there is no need for forward declaration.
-    if (statements.length <= 1)
-      return [];
-    // Put classes before functions.
-    statements.sort((a, b) => {
-      if (a instanceof syntax.ClassDeclaration && b instanceof syntax.FunctionDeclaration)
-        return -1;
-      if (a instanceof syntax.FunctionDeclaration && b instanceof syntax.ClassDeclaration)
-        return 1;
-      return 0;
-    });
-    if (ctx.mode == 'header') {
-      // In header only print exported forward declarations.
-      statements = statements.filter(s => s.isExported);
-    } else if (ctx.mode == 'impl') {
-      // In impl only print for non-exported.
-      statements = statements.filter(s => !s.isExported);
-    }
-    if (statements.length == 0)
-      return [];
-    // Forward declarations are printed compact.
-    using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
-    return mergeBlocks(statements.map(s => {
-      const code = s.print(ctx);
-      const namespace = getDeclarationNamespace(this.namespace, s);
-      return {code, namespace, isForwardDeclaration: true};
-    }));
   }
 
   /**

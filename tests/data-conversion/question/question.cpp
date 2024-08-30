@@ -2,8 +2,6 @@
 
 namespace {
 
-class LinkNode;
-void TestQuestionTokenInClass();
 void TakeNumber(double n);
 
 class LinkNode : public compilets::Object {

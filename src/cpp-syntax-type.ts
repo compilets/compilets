@@ -54,6 +54,10 @@ export class PrintContext {
    */
   typeAliases = new Map<string, string>();
   /**
+   * Used class/function type names when printing.
+   */
+  usedTypes = new Set<string>();
+  /**
    * Used C++ features when printing.
    */
   features = new Set<Feature>();
@@ -359,13 +363,20 @@ export class Type {
   /**
    * Check the C++ features used in this type and add them to `ctx.features`.
    */
-  addFeatures(ctx: PrintContext) {
-    if (this.category == 'string') {
-      ctx.features.add('string');
-    } else if (this.category == 'union') {
-      ctx.features.add('union');
-    } else if (this.category == 'array') {
-      ctx.features.add('array');
+  markUsed(ctx: PrintContext) {
+    switch (this.category) {
+      case 'functor':
+        ctx.features.add('function');
+        break;
+      case 'string':
+      case 'union':
+      case 'array':
+        ctx.features.add(this.category);
+        break;
+      case 'function':
+      case 'class':
+        ctx.usedTypes.add(`${this.namespace ?? ''},${this.name}`);
+        break;
     }
     if (this.isStdOptional()) {
       ctx.features.add('type-traits');
@@ -378,7 +389,7 @@ export class Type {
         ctx.features.add('process');
     }
     for (const type of this.types) {
-      type.addFeatures(ctx);
+      type.markUsed(ctx);
     }
   }
 
@@ -470,13 +481,9 @@ export class FunctionType extends Type {
     this.parameters = parameters;
     // Use full C++ signature as type name, which will also be used to test the
     // equality between two functions.
+    // For function declarations, the name will be replaced with its function
+    // name by parser.
     this.name = this.getSignature();
-  }
-
-  override print(ctx: PrintContext): string {
-    if (!this.isExternal)
-      ctx.features.add('function');
-    return super.print(ctx);
   }
 
   override overwriteWith(other: FunctionType): this {
@@ -490,6 +497,14 @@ export class FunctionType extends Type {
     const newType = new FunctionType(this.category, this.returnType, this.parameters);
     newType.overwriteWith(this);
     return newType;
+  }
+
+  override markUsed(ctx: PrintContext) {
+    super.markUsed(ctx);
+    if (!this.isExternal) {
+      this.returnType.markUsed(ctx);
+      this.parameters.forEach(p => p.markUsed(ctx));
+    }
   }
 
   /**
@@ -515,7 +530,6 @@ export class InterfaceType extends Type {
   }
 
   override print(ctx: PrintContext): string {
-    ctx.features.add('object');
     ctx.interfaces.add(this.name);
     return super.print(ctx);
   }

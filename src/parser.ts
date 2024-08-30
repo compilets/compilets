@@ -802,6 +802,9 @@ export default class Parser {
     const parameters = this.parseSignatureParameters(signature.parameters, location);
     // Create the FunctionType.
     const cppType = new syntax.FunctionType(category, returnType, parameters, modifiers);
+    // For function declarations use function name as type name.
+    if (declaration && ts.isFunctionDeclaration(declaration) && declaration.name)
+      cppType.name = declaration.name.text;
     cppType.namespace = namespace;
     if (signature.typeParameters)
       cppType.types = signature.typeParameters.map(p => this.parseType(p));

@@ -6,9 +6,6 @@
 
 namespace {
 
-void TakeString(compilets::String str);
-void TestString();
-
 void TakeString(compilets::String str) {}
 
 void TestString() {

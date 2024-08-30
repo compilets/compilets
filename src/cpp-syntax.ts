@@ -356,9 +356,7 @@ export class FunctionExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    ctx.features.add('function');
-    this.returnType.addFeatures(ctx);
-    this.parameters.forEach(p => p.type.addFeatures(ctx));
+    this.type.markUsed(ctx);
     const returnType = this.returnType.print(ctx);
     const fullParameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const shortParameters = this.parameters.map(p => p.type.print(ctx)).join(', ');
@@ -393,7 +391,7 @@ export class CallExpression extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    this.callee.type.addFeatures(ctx);
+    this.callee.type.markUsed(ctx);
     let callee = printExpressionValue(this.callee, ctx);
     if (this.callee.type.category == 'functor')
       callee = `${callee}->value()`;
@@ -488,7 +486,7 @@ export class PropertyAccessExpression extends Expression {
   override print(ctx: PrintContext) {
     // Accessing a type's property means we must know the type's declaration.
     const {type} = this.expression;
-    type.addFeatures(ctx);
+    type.markUsed(ctx);
     // Accessing union's property requires using std::visit.
     if (type.category == 'union') {
       const expression = this.expression.print(ctx);
@@ -600,7 +598,7 @@ export class VariableDeclaration extends Declaration {
   }
 
   override print(ctx: PrintContext) {
-    this.type.addFeatures(ctx);
+    this.type.markUsed(ctx);
     if (this.initializer)
       return `${this.identifier} = ${this.initializer.print(ctx)}`;
     else
@@ -761,7 +759,7 @@ export class PropertyDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    this.type.addFeatures(ctx);
+    this.type.markUsed(ctx);
     const {isFullDeclaraion, isMethodDeclaration} = this.getPrintMode(ctx);
     const isStatic = this.modifiers.includes('static');
     if (!isStatic && isMethodDeclaration)
@@ -794,8 +792,7 @@ export class MethodDeclaration extends ClassElement {
   }
 
   override print(ctx: PrintContext) {
-    this.type.returnType.addFeatures(ctx);
-    this.parameters.forEach(p => p.type.addFeatures(ctx));
+    this.type.markUsed(ctx);
     const {isFullDeclaraion, isMethodDeclaration, isClassDeclaration} = this.getPrintMode(ctx);
     let result = ctx.prefix;
     if (isClassDeclaration && this.modifiers.includes('virtual'))
@@ -892,8 +889,7 @@ export class FunctionDeclaration extends DeclarationStatement {
 
   override print(ctx: PrintContext) {
     const type = this.type as FunctionType;
-    type.returnType.addFeatures(ctx);
-    this.parameters.forEach(p => p.type.addFeatures(ctx));
+    type.markUsed(ctx);
     const returnType = type.returnType.print(ctx);
     const parameters = ParameterDeclaration.printParameters(ctx, this.parameters);
     const templateDeclaration = printTemplateDeclaration(type);

@@ -9,8 +9,6 @@ using app::base_ts::Container;
 using MyView = app::base_ts::View;
 
 MyView* createView();
-template<typename T>
-Container<T>* createContainer();
 
 template<typename T>
 Container<T>* createContainer() {

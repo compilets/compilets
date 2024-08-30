@@ -3,10 +3,6 @@
 
 namespace {
 
-class Item;
-class Collection;
-void TestArray();
-
 class Item : public compilets::Object {
 };
 

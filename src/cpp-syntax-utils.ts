@@ -63,7 +63,7 @@ export function createTraceMethod(type: Type, members: ClassElement[]): MethodDe
   const visitorType = new Type('cppgc::Visitor*', 'external');
   const visitor = new ParameterDeclaration('visitor', visitorType);
   // Create the method.
-  const methodType = new FunctionType('function', Type.createVoidType(), [ visitorType ]);
+  const methodType = new FunctionType('method', Type.createVoidType(), [ visitorType ]);
   return new MethodDeclaration(methodType, 'Trace', [ 'public', 'override', 'const' ], [ visitor ], body);
 }
 
@@ -344,7 +344,8 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   if (source.category == 'function' && target.category == 'functor') {
     return new CustomExpression(target, (ctx) => {
       ctx.features.add('function');
-      return `compilets::MakeFunction<${target.name}>(${expr.print(ctx)})`;
+      const signature = (target as FunctionType).getSignature();
+      return `compilets::MakeFunction<${signature}>(${expr.print(ctx)})`;
     });
   }
   // Convert between primitive types.

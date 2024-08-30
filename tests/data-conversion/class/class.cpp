@@ -3,11 +3,6 @@
 
 namespace {
 
-class Empty;
-class EmptyConstructor;
-class NonSimple;
-void TestClass();
-
 class Empty : public compilets::Object {
 };
 

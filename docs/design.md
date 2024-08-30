@@ -1,4 +1,4 @@
-# Design
+# A design of translating TypeScript to C++
 
 Modern C++ has evolved to support fancy syntax which you could only find in
 scripting languages before. In this document we discuss how TypeScript code can

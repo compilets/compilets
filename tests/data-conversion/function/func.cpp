@@ -2,12 +2,6 @@
 
 namespace {
 
-class SaveCallback;
-double Simple(double i);
-double OptionalArg(std::optional<double> arg);
-compilets::Function<double()>* TakeCallback(double input, compilets::Function<double(double)>* callback);
-void TestLocalFunction();
-
 double Simple(double i) {
   return i;
 }

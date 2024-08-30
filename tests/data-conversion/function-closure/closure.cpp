@@ -4,9 +4,6 @@
 
 namespace {
 
-class MethodClosure;
-void TestFunctionClosure();
-
 class MethodClosure : public compilets::Object {
  public:
   double prop = 8964;

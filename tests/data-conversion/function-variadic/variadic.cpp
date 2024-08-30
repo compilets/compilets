@@ -4,10 +4,6 @@
 
 namespace {
 
-class VariadicArgsMethod;
-void VariadicArgs(bool arg, compilets::Array<double>* args);
-void TestVariadicArgs();
-
 class VariadicArgsMethod : public compilets::Object {
  public:
   virtual void method(compilets::Array<double>* args) {}
