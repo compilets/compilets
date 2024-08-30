@@ -7,6 +7,6 @@ namespace gui = app::export_ts;
 int main(int argc, const char** argv) {
   compilets::State _state;
   gui::View* view = gui::createView();
-  gui::Container<gui::View>* container = gui::createContainer();
+  gui::Container<gui::View>* container = gui::createContainer<gui::View>();
   return 0;
 }

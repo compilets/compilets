@@ -75,13 +75,15 @@ export class Identifier extends RawExpression {
   }
 
   override print(ctx: PrintContext) {
+    let result = this.text;
     // Add namespace prefix.
     if (this.namespace)
-      return addNamespace(this.text, this.namespace, ctx);
+      result = addNamespace(result, this.namespace, ctx);
     // Add template arguments for function call.
-    if (this.type.category == 'function' && this.type.templateArguments)
-      return this.text + printTemplateArguments(this.type.templateArguments, ctx);
-    return this.text;
+    if (this.type.templateArguments &&
+        (this.type.category == 'function' || this.type.category == 'method'))
+      result += printTemplateArguments(this.type.templateArguments, ctx);
+    return result;
   }
 }
 
