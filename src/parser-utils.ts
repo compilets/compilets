@@ -1,7 +1,6 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 import * as syntax from './cpp-syntax';
-import {getNamespaceFromFileName} from './cpp-file';
 import {uniqueArray} from './js-utils';
 
 /**
@@ -97,6 +96,20 @@ export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): str
   }
   const fileName = path.relative(sourceRootDir, sourceFile.fileName);
   return getNamespaceFromFileName(fileName);
+}
+
+/**
+ * Return the computed namespace from relative fileName.
+ */
+export function getNamespaceFromFileName(fileName: string) {
+  // Remove the ./ prefix.
+  if (fileName.startsWith('./'))
+    fileName = fileName.substr(2);
+  // Add .ts suffix if it has no extension.
+  if (!/\.[\w]+$/.test(fileName))
+    fileName += '.ts';
+  // Replace ./\ with _, so a/b/c/file.ts becomes app::a_b_c_file_ts .
+  return `app::${fileName.replace(/[\.\/\\]/g, '_')}`;
 }
 
 /**

@@ -1,26 +1,11 @@
 import * as syntax from './cpp-syntax';
-import {cloneMap} from './js-utils';
 
 /**
  * Possible types of the CppFile.
  */
-export type CppFileType = 'lib' |  // file shared between all targets
-                          'exe' |  // executable entry file
-                          'napi';  // native module entry file
-
-/**
- * Return the computed namespace from relative fileName.
- */
-export function getNamespaceFromFileName(fileName: string) {
-  // Remove the ./ prefix.
-  if (fileName.startsWith('./'))
-    fileName = fileName.substr(2);
-  // Add .ts suffix if it has no extension.
-  if (!/\.[\w]+$/.test(fileName))
-    fileName += '.ts';
-  // Replace ./\ with _, so a/b/c/file.ts becomes app::a_b_c_file_ts .
-  return `app::${fileName.replace(/[\.\/\\]/g, '_')}`;
-}
+type CppFileType = 'lib' |  // file shared between all targets
+                   'exe' |  // executable entry file
+                   'napi';  // native module entry file
 
 /**
  * Represent a .ts file in C++, should be translated to .h and .cpp files.

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 
-import CppFile, {CppFileType, getNamespaceFromFileName} from './cpp-file';
+import CppFile from './cpp-file';
 import CppProject from './cpp-project';
 import * as syntax from './cpp-syntax';
 
@@ -12,6 +12,7 @@ import {
   operatorToString,
   modifierToString,
   getNamespaceFromNode,
+  getNamespaceFromFileName,
   hasTypeNode,
   hasQuestionToken,
   isExternalDeclaration,
