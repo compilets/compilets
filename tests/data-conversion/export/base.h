@@ -1,3 +1,6 @@
+#ifndef APP_BASE_H_
+#define APP_BASE_H_
+
 #include "runtime/array.h"
 
 namespace compilets::generated {
@@ -5,13 +8,10 @@ struct Interface1;
 struct Interface2;
 }
 
-namespace app::export_ts {
+namespace app::base_ts {
 class View;
 template<typename T>
 class Container;
-View* createView();
-template<typename T>
-Container<T>* createContainer();
 }
 
 namespace compilets::generated {
@@ -30,7 +30,7 @@ struct Interface2 : public compilets::Object {
 
 }  // namespace compilets::generated
 
-namespace app::export_ts {
+namespace app::base_ts {
 
 class View : public compilets::Object {
  public:
@@ -61,9 +61,6 @@ class Container : public compilets::Object {
   virtual ~Container() = default;
 };
 
-template<typename T>
-Container<T>* createContainer() {
-  return compilets::MakeObject<Container<T>>();
-}
+}  // namespace app::base_ts
 
-}  // namespace app::export_ts
+#endif  // APP_BASE_H_

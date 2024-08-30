@@ -1,12 +1,14 @@
 #include "runtime/runtime.h"
 
-#include "export.h"
+#include "base.h"
+#include "lib.h"
 
-namespace gui = app::export_ts;
+namespace gui = app::lib_ts;
+using app::base_ts::View;
 
 int main(int argc, const char** argv) {
   compilets::State _state;
-  gui::View* view = gui::createView();
-  gui::Container<gui::View>* container = gui::createContainer<gui::View>();
+  View* view = gui::createView();
+  app::base_ts::Container<View>* container = gui::createContainer<View>();
   return 0;
 }

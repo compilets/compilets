@@ -50,6 +50,10 @@ export class PrintContext {
    */
   namespaceAliases = new Map<string, string>();
   /**
+   * Type names get aliases with "import {x as y}".
+   */
+  typeAliases = new Map<string, string>();
+  /**
    * Used C++ features when printing.
    */
   features = new Set<Feature>();

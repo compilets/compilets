@@ -401,16 +401,23 @@ export default class Parser {
     if (!importClause)
       return decl;
     const {name, namedBindings} = importClause;
-    // import * as xxx from 'module'
-    // import {A, B, C} from 'module'
-    if (namedBindings) {
-      if (ts.isNamedImports(namedBindings))
-        throw new UnimplementedError(node, 'Named imports have not been implemented');
-      decl.alias = namedBindings.name.text;
-    }
+    if (!name && !namedBindings)
+      throw new UnimplementedError(node, 'Import module without names is not supported');
     // import xxx from 'module'
-    if (name) {
+    if (name)
       throw new UnimplementedError(node, 'Default import has not been implemented');
+    if (namedBindings) {
+      if (ts.isNamedImports(namedBindings)) {
+        // import {A, B, C} from 'module'
+        const {elements} = namedBindings;
+        decl.names = elements.filter(e => !e.propertyName)
+                             .map(e => e.name.text);
+        decl.aliases = elements.filter(e => e.propertyName)
+                               .map(e => [ e.propertyName!.text, e.name.text ]);
+      } else {
+        // import * as xxx from 'module'
+        decl.namespaceAlias = namedBindings.name.text;
+      }
     }
     return decl;
   }

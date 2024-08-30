@@ -6,6 +6,7 @@
 * Node.js native module generation
 * `namespace`
 * `enum`
+* `export default`
 * `switch`
 * `regex`
 * tuple
@@ -21,7 +22,13 @@
 
 ## Long term plans
 
+* Spread operator
+  * in array
+  * in function call
+  * in object
 * Optional chaining (`?.`)
+* Nullish coalescing operator (`??`)
+* type-only `import`
 * [Iteration protocols](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)
 * Containers
   * `Record`
@@ -41,5 +48,6 @@
 * `using` declaration
 * `keyof` operator
 * `export from`
+* cyclic `import`
 * `node:fs` APIs
 * `node:test` APIs

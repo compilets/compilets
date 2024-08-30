@@ -1,4 +1,5 @@
-import * as gui from './export';
+import * as gui from './lib';
+import {View} from './base';
 
-const view = gui.createView();
-const container = gui.createContainer<gui.View>();
+let view = gui.createView();
+let container = gui.createContainer<View>();

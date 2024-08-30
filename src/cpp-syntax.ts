@@ -549,12 +549,28 @@ export class CustomExpression extends Expression {
 export class ImportDeclaration {
   fileName: string;
   namespace: string;
-  alias?: string;
+  namespaceAlias?: string;
   names?: string[];
+  aliases?: [string, string][];
 
   constructor(fileName: string, namespace: string) {
     this.fileName = fileName;
     this.namespace = namespace;
+  }
+
+  print(ctx: PrintContext): string {
+    // For namespace imports, create namespace alias.
+    if (this.namespaceAlias)
+      return `namespace ${this.namespaceAlias} = ${this.namespace};`;
+    let result: string[] = [];
+    // For named imports, create using directive.
+    if (this.names && this.names.length > 0)
+      result.push(...this.names.map(name => `using ${this.namespace}::${name};`));
+    if (this.aliases && this.aliases.length > 0)
+      result.push(...this.aliases.map(([ name, alias ]) => `using ${alias} = ${this.namespace}::${name};`));
+    if (result.length == 0)
+      throw new Error('Nothing to print for the ImportDeclaration');
+    return result.join('\n');
   }
 }
 

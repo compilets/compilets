@@ -1,4 +1,5 @@
 import * as syntax from './cpp-syntax';
+import {uniqueArray} from './js-utils';
 
 /**
  * Possible types of the CppFile.
@@ -111,8 +112,7 @@ export default class CppFile {
     // Set the namespace for the PrintContext.
     using scope = new syntax.PrintContextScope(ctx, {
       namespace: this.namespace,
-      namespaceAliases: new Map(this.imports.filter(i => i.alias)
-                                    .map(i => [ i.namespace, i.alias! ])),
+      ...getImportAliases(this.imports),
     });
     // Print declarations and main function first.
     blocks.push(...this.printDeclarations(ctx));
@@ -130,7 +130,14 @@ export default class CppFile {
     blocks.unshift(...this.printImportHeaders(ctx));
     blocks.unshift(...this.printRuntimeHeaders(ctx));
     // Concatenate results.
-    return printBlocks(mergeBlocks(blocks)) + '\n';
+    const code = printBlocks(mergeBlocks(blocks));
+    if (ctx.mode != 'header' || !ctx.namespace)
+      return code + '\n';
+    // Add header guard.
+    const guard = ctx.namespace.replace(/::/g, '_')
+                               .replace(/_ts$/, '_h')
+                               .toUpperCase() + '_';
+    return `#ifndef ${guard}\n#define ${guard}\n\n${code}\n\n#endif  // ${guard}`;
   }
 
   /**
@@ -252,20 +259,18 @@ export default class CppFile {
    * Print headers introduced by imports.
    */
   private printImportHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
-    if (this.imports.length == 0)
+    if (this.imports.length == 0 || (ctx.mode == 'impl' && this.hasExports()))
       return [];
     // Include the headers of imported files.
     const headers = this.imports.map(i => <IncludeDirective>{
       type: 'quoted',
       path: i.fileName.replace(/\.ts$/, '.h'),
     });
-    // For namespace imports, create namespace aliases.
-    const aliases = this.imports.filter(i => i.alias)
-                                .map(i => `namespace ${i.alias} = ${i.namespace};`)
-                                .join('\n');
+    // Print the import directives.
+    const directives = this.imports.map(i => i.print(ctx)).join('\n');
     return [
       printIncludes(headers),
-      {code: aliases, namespace: '|global'},
+      {code: directives, namespace: '|global'},
     ];
   }
 
@@ -408,11 +413,32 @@ interface IncludeDirective {
 
 // Print the headers.
 function printIncludes(includes: IncludeDirective[]): NamespaceBlock {
+  includes = uniqueArray(includes, (a, b) => a.type == b.type && a.path == b.path);
   const code = includes.map(i => i.type == 'bracket' ? `#include <${i.path}>`
                                                      : `#include "${i.path}"`)
                        .sort()
                        .join('\n');
   return {code, namespace: '|global'};
+}
+
+// Return the alias settings from imports.
+function getImportAliases(imports: syntax.ImportDeclaration[]): Partial<syntax.PrintContext> {
+  const namespaceAliases = new Map<string, string>();
+  const typeAliases = new Map<string, string>();
+  for (const i of imports) {
+    if (i.namespaceAlias) {
+      namespaceAliases.set(i.namespace, i.namespaceAlias);
+    }
+    if (i.names) {
+      for (const name of i.names)
+        typeAliases.set(`${i.namespace}::${name}`, name);
+    }
+    if (i.aliases) {
+      for (const [ name, alias ] of i.aliases)
+        typeAliases.set(`${i.namespace}::${name}`, alias);
+    }
+  }
+  return {namespaceAliases, typeAliases};
 }
 
 // Return the namespace according to the declaration's isExported state.

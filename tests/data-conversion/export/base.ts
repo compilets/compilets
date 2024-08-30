@@ -17,17 +17,3 @@ export class Container<T> {
   layout(options: {redraw: boolean}) {
   }
 }
-
-export function createView() {
-  checkLeaks();
-  return new View();
-}
-
-export function createContainer<T>() {
-  return new Container<T>();
-}
-
-function checkLeaks() {
-  if (View.count > 1000) {
-  }
-}

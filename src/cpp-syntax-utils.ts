@@ -217,13 +217,15 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   }
   // The remainings are class and primitive types.
   let name = type.name;
-  // Add type arguments.
-  if (type.category == 'class' && type.templateArguments) {
-    name += printTemplateArguments(type.templateArguments, ctx);
-  }
   // Add namespace.
   if (type.namespace) {
     name = addNamespace(name, type.namespace, ctx);
+    // Resolve type alias, only types with namespaces need this.
+    name = ctx.typeAliases.get(name) ?? name;
+  }
+  // Add type arguments.
+  if (type.category == 'class' && type.templateArguments) {
+    name += printTemplateArguments(type.templateArguments, ctx);
   }
   // Add optional when needed.
   if (type.isStdOptional()) {
