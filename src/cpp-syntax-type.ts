@@ -375,6 +375,7 @@ export class Type {
         break;
       case 'function':
       case 'class':
+      case 'interface':
         ctx.usedTypes.add(`${this.namespace ?? ''},${this.name}`);
         break;
     }
@@ -558,6 +559,12 @@ export class InterfaceType extends Type {
     const newType = new InterfaceType(this.name);
     newType.overwriteWith(this);
     return newType;
+  }
+
+  override markUsed(ctx: PrintContext) {
+    super.markUsed(ctx);
+    for (const type of this.properties.values())
+      type.markUsed(ctx);
   }
 
   /**

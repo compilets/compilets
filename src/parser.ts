@@ -857,7 +857,7 @@ export default class Parser {
       throw new Error('Empty interface means any and is not supported');
     const cppType = new syntax.InterfaceType(type.symbol.name, modifiers);
     cppType.properties = createMapFromArray(type.getProperties(), (p) => {
-      const type = this.parseSymbolType(p, location, [ 'property', ...modifiers ]);
+      const type = this.parseSymbolType(p, location, [ 'property' ]);
       return [ p.name, type ];
     });
     return this.interfaceRegistry.register(cppType);
@@ -1156,7 +1156,7 @@ export default class Parser {
       // Ignore symbols without definition.
       const symbol = this.typeChecker.getSymbolAtLocation(node);
       if (!symbol)
-        throw new UnimplementedError(node, 'An identifier in function without symbol');
+        throw new UnimplementedError(node, `Identifier "${node.getText()}" has no symbol`);
       const {valueDeclaration} = symbol;
       if (!valueDeclaration)
         continue;

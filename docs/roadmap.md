@@ -9,6 +9,7 @@
 * `switch`
 * `regex`
 * tuple
+* ommit optional parameters in functional call
 * destructuring assignment
 * `Array` methods
 * `String` methods
