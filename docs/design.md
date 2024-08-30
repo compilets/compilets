@@ -209,8 +209,96 @@ following strategy is taken:
 * Inheritance relationship between interfaces is not translated, if an interface
   extends another, it simply gets all the base type's properties.
 
-Many cases do not compile under this strategy, for example:
+Many cases do not compile under this strategy though, for example:
 
 * An object with excess properties can not satisfy an interface with less
   properties.
 * An instance of class does not satisfy any interface.
+
+A solution to partially solve these cases is to turn functions accepting
+interfaces into template functions, with interface parameters becoming template
+parameters. We might try this solution if requests for it are popular.
+
+## Module
+
+C++20 introduced a modules system for C++, but it is not powerful enough to
+translate the module system of TypeScript. Luckily the `namespace` of C++ can
+almost perfectly implement the semantics of TypeScript's `import` and `export`.
+
+When exporting a symbol, the C++ code is generated with following rules:
+
+* The code in each file lives in an unique namespace.
+* The declarations of exported symbols are put in the `.h` file.
+* The definitions of all the symbols (except for template class and function)
+  live in the `.cpp` files, and unexported symbols are put in an anonymous
+  namespace.
+
+These rules ensure that the symbols in one file will never conflict with symbols
+of other files.
+
+```typescript
+// view.ts
+function internalCreateView() {
+}
+
+export function createView() {
+  return internalCreateView();
+}
+```
+
+```c++
+// view.h
+namespace app::view {
+
+void createView();
+
+}  // namespace app:view
+```
+
+```c++
+// view.cpp
+#include "view.h"
+
+namespace app::view {
+
+namespace {
+
+void internalCreateView() {
+}
+
+}  // namespace
+
+void createView() {
+  return internalCreateView();
+}
+
+}  // namespace app:view
+```
+
+And when importing a symbol:
+
+* The imported module's `.h` file is `#include`d.
+* For namespace import like `import * as gui from 'module'`, a namespace alias
+  is created with `namespace gui = app::module_namespace`.
+* For named import like `import {View} from 'module'`, the type is imported to
+  current namespace with `using app::module_namespace::View`;
+* For named import with alias like `import {View as MyView} from 'module'`, a
+  type alias is created with `using MyView = app::module_namespace::View;`;
+
+Note that the alias rules are not really required for generating correct C++
+code, we can always access exported symbols with full namespaces specifiers. But
+for the purpose of generating readable C++ code, the `import`s are translated to
+match their semantics in TypeScript.
+
+```typescript
+import * as gui from './module';
+import {Container, View as MyView} from './module';
+```
+
+```c++
+#include "module.h"
+
+namespace gui = app::module_namespace;
+using MyView = app::module_namespace::View;
+using app::module_namespace::Container;
+```

@@ -2,7 +2,6 @@
 
 ## Working on next
 
-* `export`/`import`
 * Node.js native module generation
 * `namespace`
 * `enum`
