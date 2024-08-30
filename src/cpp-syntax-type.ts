@@ -46,6 +46,10 @@ export class PrintContext {
    */
   level = 0;
   /**
+   * Namespaces get aliases with "import * as name".
+   */
+  namespaceAliases = new Map<string, string>();
+  /**
    * Used C++ features when printing.
    */
   features = new Set<Feature>();

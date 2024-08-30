@@ -223,10 +223,7 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   }
   // Add namespace.
   if (type.namespace) {
-    if (!ctx || !ctx.namespace || !type.namespace.startsWith(ctx.namespace))
-      name = `${type.namespace}::${name}`;
-    else if (type.namespace != ctx.namespace)
-      name = `${type.namespace.substr(ctx.namespace.length)}::${name}`;
+    name = addNamespace(name, type.namespace, ctx);
   }
   // Add optional when needed.
   if (type.isStdOptional()) {
@@ -278,6 +275,18 @@ export function printTypeNameForDeclaration(type: Type, ctx: PrintContext): stri
   }
   // Other types are the same with their formal C++ type name.
   return printTypeName(type, ctx);
+}
+
+/**
+ * Add namespace to the identifier according to current context.
+ */
+export function addNamespace(identifier: string, namespace: string, ctx: PrintContext) {
+  const alias = ctx.namespaceAliases.get(namespace) ?? namespace;
+  if (!ctx || !ctx.namespace || !alias.startsWith(ctx.namespace))
+    return `${alias}::${identifier}`;
+  if (alias != ctx.namespace)
+    return `${alias.substr(ctx.namespace.length)}::${identifier}`;
+  return identifier;
 }
 
 /**

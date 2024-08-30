@@ -11,7 +11,13 @@ export type CppFileType = 'lib' |  // file shared between all targets
 /**
  * Return the computed namespace from relative fileName.
  */
-export function getNamespaceFromFileNmae(fileName: string) {
+export function getNamespaceFromFileName(fileName: string) {
+  // Remove the ./ prefix.
+  if (fileName.startsWith('./'))
+    fileName = fileName.substr(2);
+  // Add .ts suffix if it has no extension.
+  if (!/\.[\w]+$/.test(fileName))
+    fileName += '.ts';
   // Replace ./\ with _, so a/b/c/file.ts becomes app::a_b_c_file_ts .
   return `app::${fileName.replace(/[\.\/\\]/g, '_')}`;
 }
@@ -117,7 +123,12 @@ export default class CppFile {
    */
   print(ctx: syntax.PrintContext): string {
     const blocks: NamespaceBlock[] = [];
-    using scope = new syntax.PrintContextScope(ctx, {namespace: this.namespace});
+    // Set the namespace for the PrintContext.
+    using scope = new syntax.PrintContextScope(ctx, {
+      namespace: this.namespace,
+      namespaceAliases: new Map(this.imports.filter(i => i.alias)
+                                    .map(i => [ i.namespace, i.alias! ])),
+    });
     // Print declarations and main function first.
     blocks.push(...this.printDeclarations(ctx));
     blocks.push(...this.printMainFunction(ctx));

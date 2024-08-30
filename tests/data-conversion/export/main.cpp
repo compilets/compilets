@@ -2,6 +2,7 @@
 
 int main(int argc, const char** argv) {
   compilets::State _state;
-  app::export_ts::View* view = createView();
+  gui::View* view = gui::createView();
+  gui::Container<gui::View>* container = gui::createContainer();
   return 0;
 }

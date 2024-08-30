@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 
-import CppFile, {CppFileType, getNamespaceFromFileNmae} from './cpp-file';
+import CppFile, {CppFileType, getNamespaceFromFileName} from './cpp-file';
 import CppProject from './cpp-project';
 import * as syntax from './cpp-syntax';
 
@@ -11,7 +11,7 @@ import {
   rethrowError,
   operatorToString,
   modifierToString,
-  getTypeNamespace,
+  getNamespaceFromNode,
   hasTypeNode,
   hasQuestionToken,
   isExternalDeclaration,
@@ -65,7 +65,7 @@ export default class Parser {
     const cppFile = new CppFile(fileName, this.project.getFileType(fileName), this.interfaceRegistry);
     // For multi-file project add namespace for each file.
     if (this.project.fileNames.length > 1)
-      cppFile.namespace = getNamespaceFromFileNmae(fileName);
+      cppFile.namespace = getNamespaceFromFileName(fileName);
     // Parse root nodes in the file.
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {
@@ -135,8 +135,7 @@ export default class Parser {
       case ts.SyntaxKind.Identifier: {
         const type = this.parseNodeType(node);
         const text = type.category == 'null' ? 'nullptr' : node.getText();
-        const isExternal = this.getOriginalDeclarations(node)?.some(isExternalDeclaration);
-        return new syntax.Identifier(type, text, !!isExternal);
+        return new syntax.Identifier(type, text, this.getNodeNamespace(node));
       }
       case ts.SyntaxKind.TemplateExpression: {
         // `prefix${value}`
@@ -246,7 +245,9 @@ export default class Parser {
         // such PropertyAccessExpression as namespace calls.
         if (obj instanceof syntax.Identifier &&
             obj.type.category == 'namespace') {
-          return this.parseExpression(name);
+          const identifier = this.parseExpression(name) as syntax.Identifier;
+          identifier.namespace = obj.text;
+          return identifier;
         }
         // In TypeScript all types can have properties, we have not implemented
         // for all types yet.
@@ -392,7 +393,7 @@ export default class Parser {
     const {importClause, moduleSpecifier} = node;
     if (!ts.isStringLiteral(moduleSpecifier))
       throw new UnsupportedError(node, 'Module name must be string literal');
-    const decl = new syntax.ImportDeclaration(moduleSpecifier.text);
+    const decl = new syntax.ImportDeclaration(getNamespaceFromFileName(moduleSpecifier.text));
     // import 'module'
     if (!importClause)
       return decl;
@@ -402,7 +403,7 @@ export default class Parser {
     if (namedBindings) {
       if (ts.isNamedImports(namedBindings))
         throw new UnimplementedError(node, 'Named imports have not been implemented');
-      decl.namespace = namedBindings.name.text;
+      decl.alias = namedBindings.name.text;
     }
     // import xxx from 'module'
     if (name) {
@@ -768,8 +769,10 @@ export default class Parser {
                      modifiers?: syntax.TypeModifier[]): syntax.FunctionType {
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
+    let namespace: string | undefined;
     const {declaration} = signature;
     if (declaration) {
+      namespace = this.getNodeNamespace(declaration);
       if (ts.isFunctionExpression(declaration) ||
           ts.isArrowFunction(declaration) ||
           ts.isFunctionTypeNode(declaration)) {
@@ -789,6 +792,7 @@ export default class Parser {
     const parameters = this.parseSignatureParameters(signature.parameters, location);
     // Create the FunctionType.
     const cppType = new syntax.FunctionType(category, returnType, parameters, modifiers);
+    cppType.namespace = namespace;
     if (signature.typeParameters)
       cppType.types = signature.typeParameters.map(p => this.parseType(p));
     cppType.templateArguments = this.getTypeArgumentsOfSignature(signature)?.map(p => this.parseType(p));
@@ -814,9 +818,9 @@ export default class Parser {
                  location?: ts.Node,
                  modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
-    // For multi-file project add namespace for each file.
+    // For multi-file project class types have namespaces.
     if (this.project.fileNames.length > 1)
-      cppType.namespace = getTypeNamespace(type, this.project.sourceRootDir);
+      cppType.namespace = getNamespaceFromNode(this.project.sourceRootDir, type.symbol.valueDeclaration);
     // Parse base classes.
     const base = type.getBaseTypes()?.find(isClass);
     if (base)
@@ -994,6 +998,28 @@ export default class Parser {
       }
     }
     return [ decl ];
+  }
+
+  /**
+   * Get the namespace for the node.
+   */
+  private getNodeNamespace(node: ts.Node): string | undefined {
+    // Find out the original declaration of the node, for example for the
+    // "process" variable it should be "@node/types/process.d.ts".
+    const decls = this.getOriginalDeclarations(node);
+    if (decls) {
+      // When there are multiple declarations, make sure the ones from DOM are
+      // ignored, which happens a lot for "console".
+      if (decls.length == 1)
+        node = decls[0];
+      else if (decls.length > 1)
+        node = decls.find(d => !d.getSourceFile().fileName.endsWith('typescript/lib/lib.dom.d.ts')) ?? node;
+    }
+    // If the node comes from the only file in the project, it does not have
+    // a namespace.
+    if (this.project.fileNames.length == 1 && !node.getSourceFile().isDeclarationFile)
+      return;
+    return getNamespaceFromNode(this.project.sourceRootDir, node);
   }
 
   /**

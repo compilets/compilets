@@ -12,6 +12,7 @@ import {
   printTemplateArguments,
   printTemplateDeclaration,
   printTypeName,
+  addNamespace,
   castExpression,
   castArguments,
   castOptional,
@@ -66,18 +67,17 @@ export class NullKeyword extends RawExpression {
 }
 
 export class Identifier extends RawExpression {
-  // Whether the identifier itself comes from external .d.ts file.
-  isExternal: boolean;
+  namespace?: string;
 
-  constructor(type: Type, text: string, isExternal: boolean) {
+  constructor(type: Type, text: string, namespace?: string) {
     super(type, text);
-    this.isExternal = isExternal;
+    this.namespace = namespace;
   }
 
   override print(ctx: PrintContext) {
     // Add namespace prefix.
-    if (this.type.namespace && this.isExternal && this.type.isExternal)
-      return `${this.type.namespace}::${this.text}`;
+    if (this.namespace)
+      return addNamespace(this.text, this.namespace, ctx);
     // Add template arguments for function call.
     if (this.type.category == 'function' && this.type.templateArguments)
       return this.text + printTemplateArguments(this.type.templateArguments, ctx);
@@ -545,12 +545,12 @@ export class CustomExpression extends Expression {
 }
 
 export class ImportDeclaration {
-  path: string;
+  namespace: string;
+  alias?: string;
   names?: string[];
-  namespace?: string;
 
-  constructor(path: string) {
-    this.path = path;
+  constructor(namespace: string) {
+    this.namespace = namespace;
   }
 }
 

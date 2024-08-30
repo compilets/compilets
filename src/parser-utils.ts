@@ -1,7 +1,7 @@
 import path from 'node:path';
 import * as ts from 'typescript';
 import * as syntax from './cpp-syntax';
-import {getNamespaceFromFileNmae} from './cpp-file';
+import {getNamespaceFromFileName} from './cpp-file';
 import {uniqueArray} from './js-utils';
 
 /**
@@ -82,16 +82,21 @@ export function modifierToString(modifier: ts.ModifierLike): string {
 }
 
 /**
- * Calculate the type's namespace according to the file it is defined.
+ * Calculate the node's namespace according to the file it is defined.
  */
-export function getTypeNamespace(type: ts.Type, sourceRootDir: string): string | undefined {
-  if (!type.symbol || !type.symbol.valueDeclaration)
+export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): string | undefined {
+  if (!node)
     return;
-  const sourceFile = type.symbol.valueDeclaration.getSourceFile();
-  if (sourceFile.isDeclarationFile)
-    throw new Error('Can not get namespace for external type');
+  const sourceFile = node.getSourceFile();
+  if (sourceFile.isDeclarationFile) {
+    const {fileName} = sourceFile;
+    if (fileName.includes('node_modules/@types/node') ||
+        fileName.endsWith('typescript/lib/lib.dom.d.ts'))
+      return 'compilets::nodejs';
+    throw new Error(`Can not get namespace for declaration file "${fileName}"`);
+  }
   const fileName = path.relative(sourceRootDir, sourceFile.fileName);
-  return getNamespaceFromFileNmae(fileName);
+  return getNamespaceFromFileName(fileName);
 }
 
 /**
