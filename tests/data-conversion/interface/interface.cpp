@@ -3,11 +3,6 @@
 
 namespace compilets::generated {
 
-struct Interface1;
-struct Interface2;
-struct Interface3;
-struct Interface4;
-struct Interface6;
 struct Interface5;
 
 struct Interface1 : public compilets::Object {

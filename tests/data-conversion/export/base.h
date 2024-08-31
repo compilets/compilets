@@ -5,9 +5,6 @@
 
 namespace compilets::generated {
 
-struct Interface1;
-struct Interface2;
-
 struct Interface1 : public compilets::Object {
   Interface1(bool force) : force(force) {}
 

@@ -115,18 +115,15 @@ export default class CppFile {
       ...getImportAliases(this.imports, this.namespace),
     });
     // Print declarations and main function first.
-    const [ fullDeclarations, forwardDeclarations ] = this.printDeclarations(ctx);
+    const [ fullDeclarations, forwardDeclarations, usedInterfaces ] = this.printDeclarations(ctx);
     blocks.push(...fullDeclarations);
     blocks.push(...this.printMainFunction(ctx));
     // Then interfaces.
-    blocks.unshift(...this.printInterfaces(ctx));
+    const [ interfaceDeclarations, forwardInterfaceDeclarations ] = this.printInterfaces(ctx, usedInterfaces);
+    blocks.unshift(...interfaceDeclarations);
     // Then forward declarations.
     blocks.unshift(...forwardDeclarations);
-    // Then forward declarations of interfaces.
-    {
-      using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
-      blocks.unshift(...this.printInterfaces(ctx));
-    }
+    blocks.unshift(...forwardInterfaceDeclarations);
     // Then headers.
     blocks.unshift(...this.printImportHeaders(ctx));
     blocks.unshift(...this.printRuntimeHeaders(ctx));
@@ -157,7 +154,7 @@ export default class CppFile {
   /**
    * Print declarations for all the function and class declarations.
    */
-  private printDeclarations(ctx: syntax.PrintContext): [NamespaceBlock[], NamespaceBlock[]] {
+  private printDeclarations(ctx: syntax.PrintContext): [NamespaceBlock[], NamespaceBlock[], Set<string>] {
     let declarations = this.declarations;
     if (ctx.mode == 'header') {
       // In header print exported declarations.
@@ -169,6 +166,7 @@ export default class CppFile {
     }
     const fullDeclarations: NamespaceBlock[] = [];
     const forwardDeclarations: NamespaceBlock[] = [];
+    let usedInterfaces = new Set<string>();
     // Iterate and print all declarations.
     const declaredTypes = new Set<string>();
     const forwardDeclaredTypes = new Set<string>();
@@ -180,8 +178,10 @@ export default class CppFile {
       fullDeclarations.push({code: statement.print(ctx), namespace});
       // Print its forward declaration if it was used before declaration.
       if (forwardDeclaredTypes.has(statement.type.name)) {
-        using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
+        using scope = new syntax.PrintContextScope(ctx, {mode: 'forward', interfaces: new Set<string>()});
         forwardDeclarations.push({code: statement.print(ctx), namespace, isForwardDeclaration: true});
+        // Save the interfaces used when printing forward declaration.
+        usedInterfaces = usedInterfaces.union(ctx.interfaces);
       }
       // Check the used but undeclared types.
       for (const value of ctx.usedTypes.difference(declaredTypes)) {
@@ -191,7 +191,7 @@ export default class CppFile {
           forwardDeclaredTypes.add(name);
       }
     }
-    return [ fullDeclarations, forwardDeclarations ];
+    return [ fullDeclarations, forwardDeclarations, usedInterfaces ];
   }
 
   /**
@@ -214,33 +214,50 @@ export default class CppFile {
   /**
    * Print used interfaces.
    */
-  private printInterfaces(ctx: syntax.PrintContext): NamespaceBlock[] {
-    // Remove skipped interfaces.
+  private printInterfaces(ctx: syntax.PrintContext, forwardDeclaredInterfaces: Set<string>): [ NamespaceBlock[], NamespaceBlock[] ] {
+    // Remove interfaces already included.
     let interfaces = ctx.interfaces;
     if (ctx.includedInterfaces)
       interfaces = interfaces.difference(ctx.includedInterfaces);
     if (interfaces.size == 0)
-      return [];
-    using scope = new syntax.PrintContextScope(ctx, {namespace: 'compilets::generated'});
+      return [ [], [] ];
+    const fullDeclarations: NamespaceBlock[] = [];
+    const forwardDeclarations: NamespaceBlock[] = [];
     // As interfaces are being generated while printing, keep printing until
     // there is no more generated.
-    const declarations: string[] = [];
-    const printed = new Set<string>();
-    while (interfaces.size > printed.size) {
-      for (const name of interfaces.difference(printed)) {
+    using scope = new syntax.PrintContextScope(ctx, {namespace: 'compilets::generated'});
+    const declaredInterfaces = new Set<string>();
+    while (interfaces.size > declaredInterfaces.size) {
+      // Iterate through the newly generated interfaces.
+      for (const name of interfaces.difference(declaredInterfaces)) {
+        declaredInterfaces.add(name);
+        // Enter a new scope to collect used interfaces when printing this interface.
+        using scope = new syntax.PrintContextScope(ctx, {interfaces: new Set<string>()});
+        // Print the full declaration first.
         const type = this.interfaceRegistry.get(name);
-        declarations.push(type.printDeclaration(ctx));
-        printed.add(name);
+        fullDeclarations.push({
+          code: type.printDeclaration(ctx),
+          namespace: ctx.namespace,
+        });
+        // Print its forward declaration if it was used before declaration.
+        if (forwardDeclaredInterfaces.has(name)) {
+          using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
+          forwardDeclarations.push({
+            code: type.printDeclaration(ctx),
+            namespace: ctx.namespace,
+            isForwardDeclaration: true,
+          });
+        }
+        // Get used but undeclared interfaces.
+        let usedInterfaces = ctx.interfaces.difference(declaredInterfaces);
+        if (ctx.includedInterfaces)
+          usedInterfaces = usedInterfaces.difference(ctx.includedInterfaces);
+        // Add them to the collections.
+        interfaces = interfaces.union(usedInterfaces);
+        forwardDeclaredInterfaces = forwardDeclaredInterfaces.union(usedInterfaces);
       }
-      if (ctx.includedInterfaces)
-        interfaces = ctx.interfaces.difference(ctx.includedInterfaces);
     }
-    ctx.interfaces = printed;
-    // Print the collected interfaces.
-    const isForwardDeclaration = ctx.mode == 'forward';
-    return declarations.map((code) => {
-      return {code, namespace: ctx.namespace, isForwardDeclaration};
-    });
+    return [ fullDeclarations, forwardDeclarations ];
   }
 
   /**

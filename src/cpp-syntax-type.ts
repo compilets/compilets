@@ -375,7 +375,6 @@ export class Type {
         break;
       case 'function':
       case 'class':
-      case 'interface':
         ctx.usedTypes.add(`${this.namespace ?? ''},${this.name}`);
         break;
     }
