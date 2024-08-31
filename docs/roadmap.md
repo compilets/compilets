@@ -3,9 +3,6 @@
 ## Working on next
 
 * Node.js native module generation
-* `namespace`
-* `enum`
-* `export default`
 * `switch`
 * `regex`
 * tuple
@@ -22,6 +19,9 @@
 
 ## Long term plans
 
+* `namespace`
+* `enum`
+* `export default`
 * Spread operator
   * in array
   * in function call
@@ -45,9 +45,11 @@
 ## Long long term plans
 
 * `Symbol`
+* `global`
 * `using` declaration
 * `keyof` operator
 * `export from`
 * cyclic `import`
 * `node:fs` APIs
 * `node:test` APIs
+* Declaration file for C++ libraries

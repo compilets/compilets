@@ -159,7 +159,7 @@ export default class CppProject {
     for (const [ name, content ] of this.getPrintedFiles()) {
       const filepath = `${target}/${name}`;
       await fs.ensureFile(filepath);
-      await fs.writeFile(filepath, content);
+      await writeFile(filepath, content);
     }
     return Promise.all(tasks);
   }
@@ -229,9 +229,32 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
   ]
 }`);
     await Promise.all([
-      fs.writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
-      fs.copy(`${__dirname}/../cpp`, `${target}/cpp`),
-      fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`),
+      writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
+      fs.copy(`${__dirname}/../cpp`, `${target}/cpp`, {filter}),
+      fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`, {filter}),
     ]);
   }
+}
+
+// Only write file when content has changed.
+async function writeFile(target: string, content: string) {
+  try {
+    const oldContent = await fs.readFile(target);
+    if (oldContent.toString() == content)
+      return;
+  } catch {}
+  await fs.writeFile(target, content);
+}
+
+// Filter function used by fs.copy to only write when content has changed.
+async function filter(source: string, target: string) {
+  try {
+    const newContent = await fs.readFile(source);
+    const oldContent = await fs.readFile(target);
+    if (newContent.toString() == oldContent.toString())
+      return false;
+  } catch {
+    return true;
+  }
+  return true;
 }
