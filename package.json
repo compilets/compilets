@@ -30,6 +30,7 @@
     "tsx": "4.16.2"
   },
   "dependencies": {
+    "@compilets/untar-url": "0.1.0",
     "@compilets/unzip-url": "1.0.3",
     "clipanion": "4.0.0-rc.3",
     "fs-extra": "11.2.0",

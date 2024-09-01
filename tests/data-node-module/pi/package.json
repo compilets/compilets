@@ -1,0 +1,7 @@
+{
+  "name": "pi",
+  "main": "index.js",
+  "compilets": {
+    "main": "pi.ts"
+  }
+}

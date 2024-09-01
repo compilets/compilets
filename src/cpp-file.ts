@@ -201,7 +201,7 @@ export default class CppFile {
     // It is only printed when:
     // 1) we are generating the exe main file;
     // 2) or there are statements in body.
-    if (this.type != 'lib' || !this.body.isEmpty()) {
+    if (this.type == 'exe' || !this.body.isEmpty()) {
       const result = [ {code: this.body.print(ctx), namespace: '|global'} ];
       // The code in main function share the same namespace scope with the file.
       if (this.namespace)

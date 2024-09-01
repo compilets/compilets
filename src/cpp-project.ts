@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as ts from 'typescript';
 
 import CppFile from './cpp-file';
+import {downloadNodeHeaders} from './gn-utils';
 import * as syntax from './cpp-syntax';
 
 /**
@@ -172,17 +173,24 @@ export default class CppProject {
     const commonConfig = `
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]`;
-    // Pretty print a list of files.
-    const concatFiles = (files: [string, CppFile][]) => {
-      return files.map(([ name, file ]) => `    "${name}",`).join('\n');
-    };
     const buildgn: string[] = [];
     const targets: string[] = [];
-    // If this is a multi-file project, create a source_set for common files.
-    const sourcesLib = this.getFiles().filter(([ name, file ]) => file.type == 'lib');
-    if (sourcesLib.length > 0) {
+    const libname = `lib${this.name}`;
+    const sourcesLib = this.getFiles().filter(([ name, file ]) => file.type == 'lib')
+                                      .map(([ name, file ]) => name);
+    // Pretty print a list of files.
+    const concatFiles = (fileNames: string[]) => {
+      return fileNames.map(name => `    "${name}",`).join('\n');
+    };
+    // If this is a multi-file project with multiple executables, create a
+    // source_set for common files.
+    const hasSourceSet = sourcesLib.length > 0 &&
+                         this.executables &&
+                         Object.keys(this.executables).length > 1;
+    if (hasSourceSet) {
+      targets.push(libname);
       buildgn.push(
-`source_set("lib${this.name}") {
+`source_set("${libname}") {
   sources = [
 ${concatFiles(sourcesLib)}
   ]
@@ -191,34 +199,51 @@ ${concatFiles(sourcesLib)}
   public_configs = [ "cpp:app_config" ]
 ${commonConfig}
 }`);
-      targets.push(`lib${this.name}`);
+    }
+    // Create native module target.
+    if (this.mainFileName) {
+      const name = this.mainFileName.replace(/\.ts$/, '');
+      targets.push(name);
+      buildgn.push(
+`loadable_module("${name}") {
+  output_name = "${name}"
+  output_extension = "node"
+  output_prefix_override = true  # do not add "lib" prefix
+
+  defines = [ "NODE_GYP_MODULE_NAME=$output_name" ]
+
+  sources = [ "${name}.cpp" ]
+
+  if (is_linux && is_component_build) {
+    configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+  }
+${commonConfig}
+}`);
     }
     // Create executable targets.
     if (this.executables) {
       for (const name in this.executables) {
         const fileName = this.executables[name].replace(/\.ts$/, '.cpp');
-        let definition =
-`executable("${name}") {
-  sources = [ "${fileName}" ]
-`;
-        // Depend on the common lib.
-        if (sourcesLib.length > 0) {
-          definition +=
-`
-  deps = [ ":lib${this.name}" ]
-`;
+        let executableConfig = '';
+        if (hasSourceSet) {
+          executableConfig +=
+`  sources = [ "${fileName}" ]
+  deps = [ ":${libname}" ]`;
         } else {
-          definition +=
-`
+          executableConfig +=
+`  sources = [
+${concatFiles([fileName, ...sourcesLib])}
+  ]
+
   deps = [ "cpp:runtime" ]
-  configs += [ "cpp:app_config" ]
-`;
+  configs += [ "cpp:app_config" ]`;
         }
-        definition +=
-`${commonConfig}
-}`;
-        buildgn.push(definition);
         targets.push(name);
+        buildgn.push(
+`executable("${name}") {
+${executableConfig}
+${commonConfig}
+}`);
       }
     }
     // Add the default group.
@@ -228,11 +253,24 @@ ${commonConfig}
 ${targets.map(t => `    ":${t}",`).join('\n')}
   ]
 }`);
-    await Promise.all([
+    // Copy C++ dependencies.
+    const deps = [ 'BUILD.gn', 'runtime', 'fastfloat', 'simdutf' ];
+    if (this.executables) {
+      deps.push('cppgc');
+    }
+    const tasks = [
       writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
-      fs.copy(`${__dirname}/../cpp`, `${target}/cpp`, {filter}),
       fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`, {filter}),
-    ]);
+      ...deps.map(dep => fs.copy(`${__dirname}/../cpp/${dep}`, `${target}/cpp/${dep}`, {filter})),
+    ];
+    if (this.mainFileName) {
+      // Download node headers and copy them to target directory.
+      tasks.push((async () => {
+        const headersDir = await downloadNodeHeaders();
+        await fs.copy(headersDir, `${target}/cpp/node-headers`, {filter});
+      })());
+    }
+    await Promise.all(tasks);
   }
 }
 

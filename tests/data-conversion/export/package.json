@@ -2,7 +2,7 @@
   "name": "export",
   "compilets": {
     "bin": {
-      "cli": "main.ts"
+      "cli": "cli.ts"
     }
   }
 }

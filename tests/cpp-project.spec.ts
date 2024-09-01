@@ -15,7 +15,7 @@ describe('CppProject', function() {
   // First time compilation can be very slow.
   this.timeout(10 * 60 * 1000);
 
-  it('simple-generation', async () => {
+  it('project-generation', async () => {
     using target = tempDirSync(`${__dirname}/build-`);
     const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path);
     assert.deepStrictEqual(fs.readdirSync(target.path),
@@ -27,12 +27,20 @@ describe('CppProject', function() {
     assert.doesNotThrow(() => execFileSync(exe));
   });
 
-  describe('build-and-run', () => {
+  describe('executables', () => {
     // Every data-cpp-project/run-* subdir is a subtest.
     const dirs = fs.readdirSync(`${__dirname}/data-cpp-project`)
                    .filter(f => f.startsWith('run-'));
     for (const dir of dirs) {
       it(dir, () => runDir(`${__dirname}/data-cpp-project/${dir}`));
+    }
+  });
+
+  describe('node-modules', () => {
+    // Every data-node-module/* subdir is a subtest.
+    const dirs = fs.readdirSync(`${__dirname}/data-node-module`);
+    for (const dir of dirs) {
+      it(dir, () => runNodeDir(`${__dirname}/data-node-module/${dir}`));
     }
   });
 });
@@ -45,4 +53,10 @@ async function runDir(root: string) {
   if (process.platform == 'win32')
     exe += '.exe';
   assert.doesNotThrow(() => execFileSync(exe));
+}
+
+async function runNodeDir(root: string) {
+  using target = tempDirSync(`${__dirname}/build-`);
+  const project = await generateCppProject(root, target.path);
+  await ninjaBuild(target.path, {config: 'Debug'});
 }
