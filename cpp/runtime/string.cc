@@ -1,7 +1,6 @@
 #include "runtime/string.h"
 
 #include <compare>
-#include <format>
 
 #include "fastfloat/fast_float.h"
 #include "simdutf/simdutf.h"
@@ -29,8 +28,11 @@ std::string UTF16ToUTF8(const char16_t* str, size_t length) {
 }  // namespace
 
 std::u16string ValueToString(double value) {
-  std::string str = std::format("{}", value);
-  return UTF8ToUTF16(str.c_str(), str.length());
+  // Having 16 decimal digits is enough for double.
+  // https://stackoverflow.com/questions/9999221
+  char buffer[16] = {0};
+  snprintf(buffer, sizeof(buffer), "%g", value);
+  return UTF8ToUTF16(buffer, strlen(buffer));
 }
 
 String::String()
