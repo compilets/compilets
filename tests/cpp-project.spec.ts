@@ -38,6 +38,17 @@ describe('CppProject', function() {
   });
 
   describe('node-modules', () => {
+    // Skip this test on Windows as linking fails for missing symbols:
+    // lld-link: error: undefined symbol: __declspec(dllimport) public: static class v8::SourceLocation __cdecl v8::SourceLocation::Current(char const *, char const *, unsigned __int64)
+    // lld-link: error: undefined symbol: __declspec(dllimport) private: static unsigned short cppgc::internal::EnsureGCInfoIndexTrait::EnsureGCInfoIndex(struct std::atomic<unsigned short> &, void (__cdecl *)(class cppgc::Visitor *, void const *))
+    // Which is result of official node binary being compiled with MSVC while
+    // the module is compiled with clang, and the symbols have some modifiers
+    // that affected by the compiler.
+    // The easist fix, is waiting for a release of Node.js built with clang:
+    // https://github.com/nodejs/node/issues/52809
+    if (process.platform == 'win32') {
+      before(function() { this.skip() });
+    }
     // Every data-node-module/* subdir is a subtest.
     const dirs = fs.readdirSync(`${__dirname}/data-node-module`);
     for (const dir of dirs) {
