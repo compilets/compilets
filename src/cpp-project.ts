@@ -212,20 +212,13 @@ ${commonConfig}
 
   sources = [ "${name}.cpp" ]
   if (is_win) {
-    sources += [ "cpp/delay_load_hook_win.cc" ]
+    sources += [ "cpp/runtime/delay_load_hook_win.cc" ]
   }
 
   deps = [ "cpp:runtime_node" ]
   configs += [ "cpp:app_config" ]
 
   defines = [ "NODE_GYP_MODULE_NAME=$output_name" ]
-
-  # Linking settings.
-  if (is_mac) {
-    ldflags = [ "-undefined", "dynamic_lookup" ]
-  } else if (is_win) {
-    libs = [ "cpp/node-headers/node.lib" ]
-  }
 ${commonConfig}
 }`);
     }

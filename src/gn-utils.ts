@@ -101,7 +101,8 @@ export async function downloadNodeHeaders(): Promise<string> {
     const response = await fetch(nodelib);
     if (!response.ok || !response.body)
       throw new Error(`Failed to download node.lib, status code: ${response.status}`);
-    await finished(Readable.fromWeb(response.body).pipe(fs.createWriteStream(`${headersDir}/node.lib`)));
+    await fs.mkdir(`${headersDir}/${process.arch}`);
+    await finished(Readable.fromWeb(response.body).pipe(fs.createWriteStream(`${headersDir}/${process.arch}/node.lib`)));
   }
   await fs.writeFile(`${headersDir}/.version`, version);
   return headersDir;
@@ -142,7 +143,7 @@ function getCacheDir(): string {
  */
 function hasCcache(): boolean {
   try {
-    execSync('ccache -s');
+    execSync('ccache -s', {stdio: 'ignore'});
     return true;
   } catch (error) {
     return false;
