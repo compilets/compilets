@@ -137,7 +137,7 @@ function getCacheDir(): string {
 /**
  * Return whether ccache is available.
  */
-function hasCcache(): boolean {
+export function hasCcache(): boolean {
   try {
     execSync('ccache -s', {stdio: 'ignore'});
     return true;

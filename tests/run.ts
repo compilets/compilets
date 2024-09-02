@@ -2,6 +2,12 @@ import fs from 'node:fs';
 import util from 'node:util';
 import Mocha from 'mocha';
 
+import {hasCcache} from '../src/gn-utils';
+
+if (!hasCcache()) {
+  console.error(util.styleText('bold', '\nPlease install ccache, otherwise tests will be super slow!'));
+}
+
 const argv = require('yargs')
   .string('g').alias('g', 'grep')
   .boolean('i').alias('i', 'invert')
