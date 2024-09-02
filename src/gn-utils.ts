@@ -1,6 +1,9 @@
 import fs from 'fs-extra';
 import os from 'node:os';
+import {Readable} from 'node:stream';
+import {finished} from 'node:stream/promises';
 import {spawn, execSync, SpawnOptions} from 'node:child_process';
+
 import {unzip} from '@compilets/unzip-url';
 import {untar} from '@compilets/untar-url';
 
@@ -92,6 +95,14 @@ export async function downloadNodeHeaders(): Promise<string> {
   await untar(url, headersDir, {filter: (name) => !name.includes('openssl')});
   await fs.move(`${headersDir}/node-${version}/include`, `${headersDir}/include`);
   await fs.remove(`${headersDir}/node-${version}`);
+  // Download node.lib for Windows.
+  if (process.platform == 'win32') {
+    const nodelib = `https://nodejs.org/dist/${version}/win-${process.arch}/node.lib`;
+    const response = await fetch(nodelib);
+    if (!response.ok || !response.body)
+      throw new Error(`Failed to download node.lib, status code: ${response.status}`);
+    await finished(Readable.fromWeb(response.body).pipe(fs.createWriteStream(`${headersDir}/node.lib`)));
+  }
   await fs.writeFile(`${headersDir}/.version`, version);
   return headersDir;
 }

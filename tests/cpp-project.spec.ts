@@ -59,4 +59,7 @@ async function runNodeDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
   const project = await generateCppProject(root, target.path);
   await ninjaBuild(target.path, {config: 'Debug'});
+  const binary = `${target.path}/out/Debug/${project.name}.node`;
+  const module = {exports: {}};
+  assert.doesNotThrow(() => process.dlopen(module, binary));
 }

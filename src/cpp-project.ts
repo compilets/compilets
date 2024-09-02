@@ -211,14 +211,20 @@ ${commonConfig}
   output_prefix_override = true  # do not add "lib" prefix
 
   sources = [ "${name}.cpp" ]
+  if (is_win) {
+    sources += [ "cpp/delay_load_hook_win.cc" ]
+  }
 
   deps = [ "cpp:runtime_node" ]
   configs += [ "cpp:app_config" ]
 
   defines = [ "NODE_GYP_MODULE_NAME=$output_name" ]
 
-  if (is_linux && is_component_build) {
-    configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+  # Linking settings.
+  if (is_mac) {
+    ldflags = [ "-undefined", "dynamic_lookup" ]
+  } else if (is_win) {
+    libs = [ "cpp/node-headers/node.lib" ]
   }
 ${commonConfig}
 }`);
@@ -288,7 +294,7 @@ async function filter(source: string, target: string) {
   try {
     const newContent = await fs.readFile(source);
     const oldContent = await fs.readFile(target);
-    if (newContent.toString() == oldContent.toString())
+    if (Buffer.compare(newContent, oldContent) == 0)
       return false;
   } catch {
     return true;

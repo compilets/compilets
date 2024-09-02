@@ -104,6 +104,8 @@ export default class CppFile {
    * Return whether this file contains exported declarations.
    */
   hasExports(): boolean {
+    if (this.type != 'lib')
+      return false;
     return this.declarations.statements.some(d => d.isExported);
   }
 
@@ -132,13 +134,15 @@ export default class CppFile {
     blocks.unshift(...this.printRuntimeHeaders(ctx));
     // Concatenate results.
     const code = printBlocks(mergeBlocks(blocks));
-    if (ctx.mode != 'header' || !ctx.namespace)
-      return code + '\n';
     // Add header guard.
-    const guard = ctx.namespace.replace(/::/g, '_')
-                               .replace(/_ts$/, '_h')
-                               .toUpperCase() + '_';
-    return `#ifndef ${guard}\n#define ${guard}\n\n${code}\n\n#endif  // ${guard}\n`;
+    if (ctx.mode == 'header' && ctx.namespace) {
+      const guard = ctx.namespace.replace(/::/g, '_')
+                                 .replace(/_ts$/, '_h')
+                                 .toUpperCase() + '_';
+      return `#ifndef ${guard}\n#define ${guard}\n\n${code}\n\n#endif  // ${guard}\n`;
+    }
+    // We prefer files ending with a new line.
+    return code + '\n';
   }
 
   /**
@@ -203,10 +207,14 @@ export default class CppFile {
   private printMainFunction(ctx: syntax.PrintContext): NamespaceBlock[] {
     // It is only printed when we are generating the exe/napi main file.
     if (this.body) {
-      const result = [ {code: this.body.print(ctx), namespace: '|global'} ];
+      const namespace = '|global';
+      const result = [ {code: this.body.print(ctx), namespace} ];
       // The code in main function share the same namespace scope with the file.
       if (this.namespace)
-        result.unshift({code: `using namespace ${this.namespace};`, namespace: '|global'});
+        result.unshift({code: `using namespace ${this.namespace};`, namespace});
+      // For native module we need to use NAPI_MODULE macro.
+      if (this.type == 'napi')
+        result.push({code: 'NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)', namespace});
       return result;
     }
     return [];
