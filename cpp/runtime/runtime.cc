@@ -5,13 +5,13 @@ namespace compilets {
 namespace nodejs {
 
 void gc() {
-  StateExe::Get()->PreciseGC();
+  State::Get()->PreciseGC();
 }
 
 }  // namespace nodejs
 
 cppgc::AllocationHandle& GetAllocationHandle() {
-  return StateExe::Get()->GetAllocationHandle();
+  return State::Get()->GetAllocationHandle();
 }
 
 }  // namespace compilets

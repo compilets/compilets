@@ -917,35 +917,6 @@ export class VariableStatement extends DeclarationStatement {
   }
 }
 
-// A special declaration for putting the top-level statements of the entry
-// script into the "main" function.
-export class MainFunction extends FunctionDeclaration {
-  constructor() {
-    const intType = new Type('int', 'primitive');
-    const argvType = new Type('const char**', 'external');
-    const body = new Block([
-      new VariableStatement(new VariableDeclarationList([
-        new VariableDeclaration('_state', new Type('compilets::State', 'external')),
-      ])),
-      new ReturnStatement(new RawExpression(intType, '0')),
-    ]);
-    super(new FunctionType('function', intType, [ intType, argvType ]),
-          false /* isExported */,
-          'main',
-          [ new ParameterDeclaration('argc', intType),
-            new ParameterDeclaration('argv', argvType) ],
-          body);
-  }
-
-  addStatement(...statement: Statement[]) {
-    this.body!.statements.splice(this.body!.statements.length - 1, 0, ...statement);
-  }
-
-  isEmpty() {
-    return this.body!.statements.length <= 2;
-  }
-}
-
 // Multiple statements without {}, this is used for convenient internal
 // implementations where one JS statement maps to multiple C++ ones.
 export class Paragraph<T extends Statement> extends Statement {
@@ -1089,5 +1060,55 @@ export class ReturnStatement extends Statement {
       return `${ctx.prefix}return ${this.expression.print(ctx)};`;
     else
       return `${ctx.prefix}return;`;
+  }
+}
+
+// A special declaration for putting the top-level statements of the entry
+// script into the "main" function.
+export class MainFunction extends FunctionDeclaration {
+  addStatement(...statement: Statement[]) {
+    this.body!.statements.splice(this.body!.statements.length - 1, 0, ...statement);
+  }
+
+  isEmpty() {
+    return this.body!.statements.length <= 2;
+  }
+}
+
+export class MainFunctionExe extends MainFunction {
+  constructor() {
+    const intType = new Type('int', 'primitive');
+    const argvType = new Type('const char**', 'external');
+    const body = new Block([
+      new VariableStatement(new VariableDeclarationList([
+        new VariableDeclaration('_state', new Type('compilets::StateExe', 'external')),
+      ])),
+      new ReturnStatement(new RawExpression(intType, '0')),
+    ]);
+    super(new FunctionType('function', intType, [ intType, argvType ]),
+          false /* isExported */,
+          'main',
+          [ new ParameterDeclaration('argc', intType),
+            new ParameterDeclaration('argv', argvType) ],
+          body);
+  }
+}
+
+export class MainFunctionNode extends MainFunction {
+  constructor() {
+    const envType = new Type('napi_env', 'external');
+    const valueType = new Type('napi_value', 'external');
+    const body = new Block([
+      new VariableStatement(new VariableDeclarationList([
+        new VariableDeclaration('_state', new Type('compilets::StateNode', 'external')),
+      ])),
+      new ReturnStatement(new RawExpression(valueType, 'nullptr')),
+    ]);
+    super(new FunctionType('function', valueType, [ envType, valueType ]),
+          false /* isExported */,
+          'Init',
+          [ new ParameterDeclaration('env', envType),
+            new ParameterDeclaration('exports', valueType) ],
+          body);
   }
 }

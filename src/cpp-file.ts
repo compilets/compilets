@@ -19,12 +19,16 @@ export default class CppFile {
   imports = new Array<syntax.ImportDeclaration>();
   declarations = new syntax.Paragraph<syntax.DeclarationStatement>();
   variableStatements = new Array<syntax.VariableStatement>();
-  body = new syntax.MainFunction();
+  body?: syntax.MainFunction;
 
   constructor(fileName: string, type: CppFileType, interfaceRegistry: syntax.InterfaceRegistry) {
     this.name = fileName.replace(/\.ts$/, '');
     this.type = type;
     this.interfaceRegistry = interfaceRegistry;
+    if (type == 'exe')
+      this.body = new syntax.MainFunctionExe();
+    else if (type == 'napi')
+      this.body = new syntax.MainFunctionNode();
   }
 
   /**
@@ -50,9 +54,9 @@ export default class CppFile {
    */
   addVariableStatement(statement: syntax.VariableStatement) {
     // For non-main function top-level variable declaration is static variable.
-    if (this.type == 'lib')
+    if (!this.body)
       return this.addDeclaration(statement);
-    // If the function has been created, treat it as local variable.
+    // If the main function has been created, treat it as local variable.
     if (!this.body.isEmpty())
       return this.addStatement(statement);
     // Otherwise keep the declarations and wait for following statements.
@@ -65,9 +69,8 @@ export default class CppFile {
   addStatement(statement: syntax.Statement) {
     // When adding a statement to main function, the variable statements before
     // should belong to the main function.
-    if (this.type != 'lib')
-      this.pushVariableStatementsToMainFunction();
-    this.body.addStatement(statement);
+    this.pushVariableStatementsToMainFunction();
+    this.body!.addStatement(statement);
   }
 
   /**
@@ -76,7 +79,7 @@ export default class CppFile {
   pushVariableStatementsToMainFunction() {
     if (this.variableStatements.length == 0)
       return;
-    this.body.addStatement(...this.variableStatements);
+    this.body!.addStatement(...this.variableStatements);
     this.variableStatements = [];
   }
 
@@ -94,7 +97,7 @@ export default class CppFile {
    * Return whether top-level declarations can be added to this file.
    */
   canAddDeclaration(): boolean {
-    return this.type == 'lib' || this.body.isEmpty();
+    return !this.body || this.body.isEmpty();
   }
 
   /**
@@ -198,10 +201,8 @@ export default class CppFile {
    * Print main function.
    */
   private printMainFunction(ctx: syntax.PrintContext): NamespaceBlock[] {
-    // It is only printed when:
-    // 1) we are generating the exe main file;
-    // 2) or there are statements in body.
-    if (this.type == 'exe' || !this.body.isEmpty()) {
+    // It is only printed when we are generating the exe/napi main file.
+    if (this.body) {
       const result = [ {code: this.body.print(ctx), namespace: '|global'} ];
       // The code in main function share the same namespace scope with the file.
       if (this.namespace)
@@ -284,7 +285,7 @@ export default class CppFile {
    */
   private printRuntimeHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
     // If this is the main file of an exe, it requires runtime headers.
-    if (this.type == 'exe')
+    if (this.type != 'lib')
       ctx.features.add('runtime');
     // Remove included headers.
     let features = ctx.features;

@@ -3,31 +3,22 @@
 
 #include "cppgc/default-platform.h"
 #include "cppgc/heap.h"
-#include "cppgc/persistent.h"
+#include "runtime/state.h"
 
 namespace compilets {
 
-namespace nodejs {
-class Console;
-class Process;
-}
-
-class StateExe {
+class StateExe : public State {
  public:
-  static StateExe* Get();
-
   StateExe();
   ~StateExe();
 
-  void PreciseGC();
-
-  cppgc::AllocationHandle& GetAllocationHandle();
+  // State:
+  void PreciseGC() override;
+  cppgc::AllocationHandle& GetAllocationHandle() override;
 
  private:
   std::shared_ptr<cppgc::DefaultPlatform> platform_;
   std::unique_ptr<cppgc::Heap> heap_;
-  cppgc::Persistent<nodejs::Console> console_;
-  cppgc::Persistent<nodejs::Process> process_;
 };
 
 }  // namespace compilets

@@ -8,30 +8,68 @@ config("app_config") {
   ]
 }
 
-config("runtime_config") {
+config("runtime_exe_config") {
   include_dirs = [ "." ]
+  defines = [ "COMPILETS_BUILDING_EXE" ]
 }
 
-source_set("runtime") {
-  public_configs = [ ":runtime_config" ]
+config("runtime_node_config") {
+  include_dirs = [ "." ]
+  defines = [ "COMPILETS_BUILDING_NODE_MODULE" ]
+
+  # Config for building Node.js module.
+  include_dirs += [
+    "node-headers/include",
+    "node-headers/include/node",
+  ]
+  defines += [
+    "USING_UV_SHARED=1",
+    "USING_V8_SHARED=1",
+    "BUILDING_NODE_EXTENSION",
+  ]
+  if (is_mac) {
+    ldflags = [ "-undefined", "dynamic_lookup", ]
+  } else if (is_win) {
+    libs = [ "node-headers/" + current_cpu + "/node.lib", ]
+  }
+}
+
+common_runtime_files = [
+  "runtime/array.h",
+  "runtime/console.cc",
+  "runtime/console.h",
+  "runtime/function.h",
+  "runtime/object.h",
+  "runtime/process.cc",
+  "runtime/process.h",
+  "runtime/runtime.cc",
+  "runtime/runtime.h",
+  "runtime/state.cc",
+  "runtime/state.h",
+  "runtime/string.cc",
+  "runtime/string.h",
+  "runtime/type_traits.h",
+  "runtime/union.h",
+]
+
+source_set("runtime_exe") {
+  public_configs = [ ":runtime_exe_config" ]
   public_deps = [ "cppgc" ]
   deps = [ "simdutf" ]
-  sources = [
-    "runtime/array.h",
-    "runtime/console.cc",
-    "runtime/console.h",
+  sources = common_runtime_files
+  sources += [
     "runtime/exe/state_exe.cc",
     "runtime/exe/state_exe.h",
-    "runtime/function.h",
-    "runtime/object.h",
-    "runtime/process.cc",
-    "runtime/process.h",
-    "runtime/runtime.cc",
-    "runtime/runtime.h",
-    "runtime/string.cc",
-    "runtime/string.h",
-    "runtime/type_traits.h",
-    "runtime/union.h",
+  ]
+}
+
+source_set("runtime_node") {
+  public_configs = [ ":runtime_node_config" ]
+  deps = [ "simdutf" ]
+  sources = common_runtime_files
+  sources += [
+    "runtime/node/state_node.cc",
+    "runtime/node/state_node.h",
   ]
 }
 
@@ -47,7 +85,7 @@ test("cpp_unittests") {
   cflags_cc = [ "-Wno-uninitialized-const-reference" ]
 
   deps = [
-    ":runtime",
+    ":runtime_exe",
     "//testing/gtest",
   ]
 }

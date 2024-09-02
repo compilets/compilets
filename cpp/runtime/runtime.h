@@ -1,8 +1,15 @@
 #ifndef CPP_RUNTIME_RUNTIME_H_
 #define CPP_RUNTIME_RUNTIME_H_
 
-#include "cppgc/allocation.h"
+#if defined(COMPILETS_BUILDING_NODE_MODULE)
+#include "node/node_api.h"
+#endif
+
+#if defined(COMPILETS_BUILDING_EXE)
 #include "runtime/exe/state_exe.h"
+#elif defined(COMPILETS_BUILDING_NODE_MODULE)
+#include "runtime/node/state_node.h"
+#endif
 
 namespace compilets {
 
@@ -13,8 +20,7 @@ extern Process* process;
 void gc();
 }
 
-using State = StateExe;
-
+// Get the AllocationHandle from the current state.
 cppgc::AllocationHandle& GetAllocationHandle();
 
 }  // namespace compilets

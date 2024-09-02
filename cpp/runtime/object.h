@@ -1,6 +1,7 @@
 #ifndef CPP_RUNTIME_OBJECT_H_
 #define CPP_RUNTIME_OBJECT_H_
 
+#include "cppgc/allocation.h"
 #include "cppgc/garbage-collected.h"
 #include "cppgc/prefinalizer.h"
 #include "runtime/runtime.h"

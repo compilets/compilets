@@ -195,7 +195,7 @@ export default class CppProject {
 ${concatFiles(sourcesLib)}
   ]
 
-  public_deps = [ "cpp:runtime" ]
+  public_deps = [ "cpp:runtime_exe" ]
   public_configs = [ "cpp:app_config" ]
 ${commonConfig}
 }`);
@@ -210,9 +210,12 @@ ${commonConfig}
   output_extension = "node"
   output_prefix_override = true  # do not add "lib" prefix
 
-  defines = [ "NODE_GYP_MODULE_NAME=$output_name" ]
-
   sources = [ "${name}.cpp" ]
+
+  deps = [ "cpp:runtime_node" ]
+  configs += [ "cpp:app_config" ]
+
+  defines = [ "NODE_GYP_MODULE_NAME=$output_name" ]
 
   if (is_linux && is_component_build) {
     configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
@@ -235,7 +238,7 @@ ${commonConfig}
 ${concatFiles([fileName, ...sourcesLib])}
   ]
 
-  deps = [ "cpp:runtime" ]
+  deps = [ "cpp:runtime_exe" ]
   configs += [ "cpp:app_config" ]`;
         }
         targets.push(name);
@@ -254,14 +257,10 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
   ]
 }`);
     // Copy C++ dependencies.
-    const deps = [ 'BUILD.gn', 'runtime', 'fastfloat', 'simdutf' ];
-    if (this.executables) {
-      deps.push('cppgc');
-    }
     const tasks = [
       writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
+      fs.copy(`${__dirname}/../cpp`, `${target}/cpp`, {filter}),
       fs.copy(`${__dirname}/../cpp/.gn`, `${target}/.gn`, {filter}),
-      ...deps.map(dep => fs.copy(`${__dirname}/../cpp/${dep}`, `${target}/cpp/${dep}`, {filter})),
     ];
     if (this.mainFileName) {
       // Download node headers and copy them to target directory.
