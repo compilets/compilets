@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert';
+import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {tempDirSync} from '@compilets/using-temp-dir';
 
@@ -59,7 +60,10 @@ async function runNodeDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
   const project = await generateCppProject(root, target.path);
   await ninjaBuild(target.path, {config: 'Debug'});
-  const binary = `${target.path}/out/Debug/${project.name}.node`;
-  const module = {exports: {}};
-  assert.doesNotThrow(() => process.dlopen(module, binary));
+  const binary = `./out/Debug/${project.name}.node`;
+  assert.doesNotThrow(() => {
+    // Require the module in a sub-process to avoid holding the binary from
+    // getting removed.
+    execFileSync(process.execPath, [ '-e', `require("${binary}")` ], {cwd: target.path});
+  });
 }

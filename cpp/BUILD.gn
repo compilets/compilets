@@ -3,9 +3,11 @@ import("//testing/test.gni")
 # This config will be applied on generated app code.
 config("app_config") {
   include_dirs = [ ".." ]
-  cflags_cc = [
-    "-Wno-unused-function",
-  ]
+  if (is_clang || !is_win) {
+    cflags_cc = [
+      "-Wno-unused-function",
+    ]
+  }
 }
 
 config("runtime_exe_config") {

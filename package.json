@@ -4,6 +4,9 @@
   "description": "Compile TypeScript to C++ Executables",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
   "bin": {
     "compilets": "dist/cli.js"
   },
@@ -14,6 +17,7 @@
   },
   "author": "zcbenz",
   "license": "MIT",
+  "keywords": [ "C++", "TypeScript", "compiler" ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/compilets/compilets.git"

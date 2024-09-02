@@ -61,7 +61,7 @@ export async function ninjaBuild(targetDir: string, options: NinjaBuildOptions) 
  * @returns The directory of GN.
  */
 export async function downloadGn(): Promise<string> {
-  const version = 'v0.11.1';
+  const version = 'v0.11.2';
   const gnDir = `${getCacheDir()}/build-gn`;
   if (await versionMatch(gnDir, version))
     return gnDir;

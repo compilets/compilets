@@ -1,6 +1,7 @@
 #include "runtime/string.h"
 
 #include <compare>
+#include <iostream>
 
 #include "fastfloat/fast_float.h"
 #include "simdutf/simdutf.h"
