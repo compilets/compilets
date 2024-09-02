@@ -31,7 +31,6 @@ export async function gnGen(targetDir: string, options: GnGenOptions) {
   const args = [
     `is_debug=${options.config == 'Debug'}`,
     'is_component_build=false',
-    'clang_use_chrome_plugins=false',
   ];
   if (options.ccWrapper)
     args.push(`cc_wrapper="${options.ccWrapper}"`);
@@ -74,9 +73,6 @@ export async function downloadGn(): Promise<string> {
   } as Record<string, string>)[process.platform as string];
   const url = `https://github.com/yue/build-gn/releases/download/${version}/gn_${version}_${platform}_${process.arch}.zip`;
   await unzip(url, gnDir);
-  // Download clang.
-  const python = process.platform == 'darwin' ? 'python3' : 'python';
-  await spawnAsync(python, [ 'tools/clang/scripts/update.py' ], {cwd: gnDir});
   await fs.writeFile(`${gnDir}/.version`, version);
   return gnDir;
 }

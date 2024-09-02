@@ -1,7 +1,1 @@
 use_chromium_config = true
-
-default_args = {
-  # Use downloaded clang binary.
-  is_clang = true
-  use_xcode_clang = false
-}
