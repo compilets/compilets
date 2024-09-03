@@ -16,9 +16,12 @@
 * `try`/`catch`
 * `typeof`
 * `instanceof`
+* [Parameter Properties](https://www.typescriptlang.org/docs/handbook/2/classes.html#parameter-properties)
 
 ## Long term plans
 
+* Differentiate `null` and `undefined`
+* Optional fields in `interface`
 * `namespace`
 * `enum`
 * `export default`
@@ -44,6 +47,7 @@
 
 ## Long long term plans
 
+* Function overloads
 * `Symbol`
 * `global`
 * `using` declaration

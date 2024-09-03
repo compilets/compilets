@@ -1017,9 +1017,9 @@ export default class Parser {
    * Get the namespace for the node.
    */
   private getNodeNamespace(node: ts.Node): string | undefined {
-    // Find out the original declaration of the node, for example for the
-    // "process" variable it should be "@node/types/process.d.ts".
-    const decls = this.getOriginalDeclarations(node);
+    // Find out the declaration of the node, for example for the "process"
+    // variable it should be "@node/types/process.d.ts".
+    const decls = this.getNodeDeclarations(node);
     if (decls) {
       // When there are multiple declarations, make sure the ones from DOM are
       // ignored, which happens a lot for "console".
@@ -1060,17 +1060,33 @@ export default class Parser {
   }
 
   /**
-   * Get the original declarations of a node.
+   * Get the declarations of a node.
    *
    * This is the declaration where the node's symbol is declared. Usually there
    * is only one declaration for most nodes, exceptions could be external APIs
    * of Node.js, or property of unions.
    */
-  private getOriginalDeclarations(node: ts.Node): ts.Declaration[] | undefined {
+  private getNodeDeclarations(node: ts.Node): ts.Declaration[] | undefined {
     const symbol = this.typeChecker.getSymbolAtLocation(node);
     if (!symbol || !symbol.declarations || symbol.declarations.length == 0)
       return;
     return symbol.declarations;
+  }
+
+  /**
+   * Like getNodeDeclarations, but also digs across imports.
+   */
+  private getOriginalDeclarations(node: ts.Node): ts.Declaration[] | undefined {
+    const declarations = this.getNodeDeclarations(node);
+    // If the declaration comes from "import", try to find its declaration from
+    // the imported file.
+    if (declarations?.every(d => ts.isImportSpecifier(d))) {
+      const type = this.typeChecker.getTypeAtLocation(node);
+      if (!type.symbol.valueDeclaration || type.symbol.valueDeclaration === node)
+        return;
+      return [ type.symbol.valueDeclaration ];
+    }
+    return declarations;
   }
 
   /**

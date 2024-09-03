@@ -561,6 +561,7 @@ export class InterfaceType extends Type {
   }
 
   override markUsed(ctx: PrintContext) {
+    ctx.interfaces.add(this.name);
     super.markUsed(ctx);
     for (const type of this.properties.values())
       type.markUsed(ctx);

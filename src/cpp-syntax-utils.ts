@@ -220,12 +220,6 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   // Add namespace.
   if (type.namespace) {
     name = addNamespace(name, type.namespace, ctx);
-    // Resolve type alias, only types with namespaces need this.
-    if (ctx.typeAliases.has(name)) {
-      name = ctx.typeAliases.get(name)!;
-      if (ctx.namespace && name.startsWith(ctx.namespace))
-        name = name.substr(ctx.namespace.length + 2);
-    }
   }
   // Add type arguments.
   if (type.category == 'class' && type.templateArguments) {
@@ -287,11 +281,18 @@ export function printTypeNameForDeclaration(type: Type, ctx: PrintContext): stri
  * Add namespace to the identifier according to current context.
  */
 export function addNamespace(identifier: string, namespace: string, ctx: PrintContext) {
+  // Get the alias of the namespace.
   const alias = ctx.namespaceAliases.get(namespace) ?? namespace;
+  // Add namespace to identifier according to context's namespace.
   if (!ctx || !ctx.namespace || !alias.startsWith(ctx.namespace))
-    return `${alias}::${identifier}`;
-  if (alias != ctx.namespace)
-    return `${alias.substr(ctx.namespace.length)}::${identifier}`;
+    identifier = `${alias}::${identifier}`;
+  else if (alias != ctx.namespace)
+    identifier = `${alias.substr(ctx.namespace.length)}::${identifier}`;
+  // Get the type alias when available.
+  identifier = ctx.typeAliases.get(identifier) ?? identifier;
+  // Shorten the namespace according to context's namespace.
+  if (ctx.namespace && identifier.startsWith(ctx.namespace))
+    identifier = identifier.substr(ctx.namespace.length + 2);
   return identifier;
 }
 
@@ -360,8 +361,12 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   if (target.assignableWith(source)) {
     return expr;
   }
+  // In C++ interfaces are not compatible with other types.
+  if (source.category == 'interface' || target.category == 'interface')
+    throw new Error('Can not convert type from/to interfaces');
   // Use the universal Cast function.
   return new CustomExpression(target, (ctx) => {
+    expr.type.markUsed(ctx);
     return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
   });
 }

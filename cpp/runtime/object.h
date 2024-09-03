@@ -42,6 +42,14 @@ inline std::u16string ValueToString(Object* value) {
   return u"<object>";
 }
 
+// Only enable casting pointers when they have inheritance relationship.
+template<typename Target, typename T>
+inline Target* Cast(T* value) {
+  static_assert(std::is_base_of_v<Target, T> || std::is_base_of_v<T, Target>,
+                "Pointers being casted must have inheritance relationship");
+  return static_cast<Target*>(value);
+}
+
 // Check the cppgc pointer for true evaluation.
 template<typename T>
 inline bool IsTrue(const cppgc::Member<T>& value) {
