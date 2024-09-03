@@ -19,6 +19,13 @@ config("runtime_node_config") {
   include_dirs = [ "." ]
   defines = [ "COMPILETS_BUILDING_NODE_MODULE" ]
 
+  # Config for using kizunapi.
+  include_dirs += [ "kizunapi" ]
+  defines += [ "NAPI_VERSION=9" ]
+  if (is_clang) {
+    cflags_cc = [ "-Wno-misleading-indentation" ]
+  }
+
   # Config for building Node.js module.
   include_dirs += [
     "node-headers/include",

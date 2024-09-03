@@ -7,3 +7,6 @@
 [submodule "cpp/fastfloat"]
 	path = cpp/fastfloat
 	url = https://github.com/compilets/fastfloat.git
+[submodule "cpp/kizunapi"]
+	path = cpp/kizunapi
+	url = https://github.com/yue/kizunapi.git

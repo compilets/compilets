@@ -2,7 +2,7 @@
 #define CPP_RUNTIME_RUNTIME_H_
 
 #if defined(COMPILETS_BUILDING_NODE_MODULE)
-#include "node/node_api.h"
+#include "kizunapi/kizunapi.h"
 #endif
 
 #if defined(COMPILETS_BUILDING_EXE)
