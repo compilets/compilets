@@ -439,8 +439,12 @@ export function castUnion(expr: Expression, target: Type, source: Type): Express
   // From union to non-union.
   if (source.category == 'union' && target.category != 'union') {
     const subtype = source.types.find(t => t.equal(target));
-    if (!subtype)
-      throw new Error('The union does not contain the target type');
+    if (!subtype) {
+      // When casting to types like size_t, convert to double and try again.
+      if (target.isNonJsPrimitive())
+        return castUnion(expr, Type.createNumberType(), source);
+      throw new Error(`The union "${source.name}" does not contain the target type "${target.name}"`);
+    }
     return new CustomExpression(subtype, (ctx) => {
       return `std::get<${subtype.print(ctx)}>(${expr.print(ctx)})`;
     });
@@ -466,9 +470,9 @@ export function castOptional(expr: Expression, target: Type, source: Type): Expr
       return expr;
     return new CustomExpression(target, (ctx) => 'std::nullopt');
   }
-  // Add .value() when accessing value.
+  // Get the optional value first before converting to other types.
   if (source.isStdOptional() && !target.isStdOptional()) {
-    return new CustomExpression(target, (ctx) => {
+    return new CustomExpression(source.noOptional(), (ctx) => {
       return `${printExpressionValue(expr, ctx)}.value()`;
     });
   }

@@ -25,9 +25,9 @@ void TestArray() {
   compilets::Array<double>* a = nullptr;
   a = compilets::MakeArray<double>({8964});
   double element = a->value()[0];
-  std::optional<double> indexOptional;
+  std::optional<double> indexOptional = 0;
   element = a->value()[static_cast<size_t>(indexOptional.value())];
-  compilets::Union<double, bool> indexUnion = static_cast<double>(123);
+  compilets::Union<double, bool> indexUnion = static_cast<double>(0);
   element = a->value()[static_cast<size_t>(std::get<double>(indexUnion))];
   compilets::Array<double>* numArr = compilets::MakeArray<double>({1, 2, 3, 4});
   compilets::Array<cppgc::Member<Item>>* eleArr = compilets::MakeArray<cppgc::Member<Item>>({compilets::MakeObject<Item>(), compilets::MakeObject<Item>()});

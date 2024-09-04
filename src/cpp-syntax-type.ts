@@ -463,6 +463,17 @@ export class Type {
     return (this.isObject() || this.category == 'template') &&
            (this.isProperty || this.isElement);
   }
+
+  /**
+   * Whether this is a primitive type other than bool and double.
+   *
+   * C++ integer types like size_t return true for this method.
+   */
+  isNonJsPrimitive() {
+    if (this.category != 'primitive')
+      return false;
+    return this.name != 'bool' && this.name != 'double';
+  }
 }
 
 /**
