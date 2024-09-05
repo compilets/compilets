@@ -16,6 +16,8 @@ inline std::u16string ValueToString(const T& value) {
   return u"<value>";
 }
 
+std::u16string ValueToString(double value);
+
 // Convert value from one type to another.
 template<typename T>
 inline T Cast(T value) {

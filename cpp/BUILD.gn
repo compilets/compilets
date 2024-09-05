@@ -57,6 +57,7 @@ common_runtime_files = [
   "runtime/state.h",
   "runtime/string.cc",
   "runtime/string.h",
+  "runtime/type_traits.cc",
   "runtime/type_traits.h",
   "runtime/union.h",
 ]
@@ -70,6 +71,7 @@ source_set("runtime_exe") {
     "runtime/exe/state_exe.cc",
     "runtime/exe/state_exe.h",
   ]
+  configs -= [ "//build/config/compiler:no_exceptions" ]
 }
 
 source_set("runtime_node") {
@@ -80,6 +82,7 @@ source_set("runtime_node") {
     "runtime/node/state_node.cc",
     "runtime/node/state_node.h",
   ]
+  configs -= [ "//build/config/compiler:no_exceptions" ]
 }
 
 test("cpp_unittests") {
@@ -98,4 +101,5 @@ test("cpp_unittests") {
     ":runtime_exe",
     "//testing/gtest",
   ]
+  configs -= [ "//build/config/compiler:no_exceptions" ]
 }

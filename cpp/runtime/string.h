@@ -10,8 +10,6 @@
 
 namespace compilets {
 
-std::u16string ValueToString(double value);
-
 // Immutable string.
 class String {
  public:

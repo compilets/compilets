@@ -171,7 +171,10 @@ export default class CppProject {
   private async writeGnFiles(target: string) {
     // The common config that every target should have.
     const commonConfig = `
-  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs -= [
+    "//build/config/compiler:chromium_code",
+    "//build/config/compiler:no_exceptions",
+  ]
   configs += [ "//build/config/compiler:no_chromium_code" ]`;
     const buildgn: string[] = [];
     const targets: string[] = [];

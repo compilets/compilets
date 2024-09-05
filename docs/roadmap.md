@@ -7,8 +7,8 @@
 * `regex`
 * tuple
 * ommit optional parameters in functional call
+* `Array` methods with callbacks
 * destructuring assignment
-* `Array` methods
 * `String` methods
 * `console.time`
 * `process.argv`
