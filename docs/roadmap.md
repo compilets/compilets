@@ -57,3 +57,4 @@
 * `node:fs` APIs
 * `node:test` APIs
 * Declaration file for C++ libraries
+* Sparse array

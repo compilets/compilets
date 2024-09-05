@@ -85,9 +85,10 @@ source_set("runtime_node") {
 test("cpp_unittests") {
   sources = [
     "runtime/tests/run_all.cc",
+    "runtime/tests/array_unittest.cc",
     "runtime/tests/stack_unittest.cc",
-    "runtime/tests/string_unittests.cc",
-    "runtime/tests/union_unittests.cc",
+    "runtime/tests/string_unittest.cc",
+    "runtime/tests/union_unittest.cc",
   ]
 
   include_dirs = [ "cppgc" ]

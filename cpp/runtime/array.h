@@ -11,9 +11,45 @@ namespace compilets {
 template<typename T>
 class ArrayBase : public Object {
  public:
+  // Default constructor with length of 0.
+  ArrayBase() = default;
+
+  // When there is only on parameter, whether it is length or a single element
+  // depends on the type of parameter.
+  template<typename N,
+           typename = std::enable_if_t<std::is_arithmetic_v<N>>>
+  ArrayBase(N n) {
+    if constexpr (std::is_integral_v<N>) {
+      length = n;
+      arr_ = std::vector<T>(static_cast<size_t>(n));
+    } else {
+      length = 1;
+      arr_ = {static_cast<T>(n)};
+    }
+  }
+
+  // When there are multiple number parameters, do static_cast implicitly.
+  template<typename... U,
+           typename = std::enable_if_t<std::is_arithmetic_v<T> &&
+                                       (std::is_arithmetic_v<U> && ...)>>
+  ArrayBase(U... args)
+      : length(sizeof...(U)),
+        arr_({static_cast<T>(args)...}) {}
+
+  // For other types, just do normal move.
+  template<typename... U,
+           typename = std::enable_if_t<!(std::is_arithmetic_v<T> &&
+                                         (std::is_arithmetic_v<U> && ...))>>
+  ArrayBase(U&&... args)
+      : length(sizeof...(U)),
+        arr_({std::move(args)...}) {}
+
+  // Used by helpers.
   ArrayBase(std::vector<T> elements) : arr_(std::move(elements)) {}
 
   virtual ~ArrayBase() = default;
+
+  double length = 0;
 
   const std::vector<T>& value() const { return arr_; }
 
@@ -58,6 +94,8 @@ inline std::u16string ValueToString(Array<T>* value) {
 // Convert one array to another.
 template<typename Target, typename T>
 inline Array<Target>* Cast(Array<T>* arr) {
+  if constexpr (std::is_same_v<Target, T>)
+    return arr;
   std::vector<Target> elements;
   for (const T& element : arr->value())
     elements.push_back(Cast<Target>(element));
