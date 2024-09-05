@@ -8,11 +8,11 @@ class UnionTest : public testing::Test {
 };
 
 // Verify that IsCppgcMember utility actually works.
-static_assert(IsCppgcMember<double>::value == false);
-static_assert(IsCppgcMember<cppgc::Member<double>>::value == true);
-static_assert(IsCppgcMember<Union<double, bool>>::value == false);
+static_assert(HasCppgcMember<double>::value == false);
+static_assert(HasCppgcMember<cppgc::Member<double>>::value == true);
+static_assert(HasCppgcMember<Union<double, bool>>::value == false);
 static_assert(
-    IsCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
+    HasCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
 
 TEST_F(UnionTest, Equal) {
   Union<String, double> n = 123.;

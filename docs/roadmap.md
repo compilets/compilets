@@ -2,13 +2,13 @@
 
 ## Working on next
 
+* `Array` methods
 * Node.js native module generation
 * `switch`
 * `regex`
 * tuple
 * ommit optional parameters in functional call
 * destructuring assignment
-* `Array` methods
 * `String` methods
 * `console.time`
 * `process.argv`
@@ -33,6 +33,7 @@
 * Nullish coalescing operator (`??`)
 * type-only `import`
 * [Iteration protocols](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)
+  * `Array.from`
 * Containers
   * `Record`
   * `Set`/`Map`

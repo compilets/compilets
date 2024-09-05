@@ -33,7 +33,7 @@ inline void TraceMember(cppgc::Visitor* visitor,
 // nothing for them, this is used for unknown types.
 template<typename T>
 inline void TracePossibleMember(cppgc::Visitor* visitor, const T& value) {
-  if constexpr (IsCppgcMember<T>::value)
+  if constexpr (HasCppgcMember<T>::value)
     TraceMember(visitor, value);
 }
 
@@ -48,6 +48,16 @@ inline Target* Cast(T* value) {
   static_assert(std::is_base_of_v<Target, T> || std::is_base_of_v<T, Target>,
                 "Pointers being casted must have inheritance relationship");
   return static_cast<Target*>(value);
+}
+
+// Allow passing pointers to MatchTraits for objects.
+template<template<typename...>typename Traits, typename U,
+         typename = std::enable_if_t<std::is_base_of_v<Object, U>>>
+inline bool MatchTraits(const U* arg) {
+  if (arg)
+    return MatchTraits<Traits>(*arg);
+  else
+    return MatchTraits<Traits>(nullptr);
 }
 
 // Check the cppgc pointer for true evaluation.

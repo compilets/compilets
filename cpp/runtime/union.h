@@ -55,7 +55,7 @@ struct IsUnionMember<U, Union<Ts...>>
 template<typename... Ts>
 inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
   std::visit([visitor](auto&& arg) {
-    if constexpr (IsCppgcMember<decltype(arg)>::value) {
+    if constexpr (HasCppgcMember<decltype(arg)>::value) {
       TraceMember(visitor, arg);
     }
   }, member);
@@ -65,6 +65,12 @@ inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
 template<typename... Ts>
 inline std::u16string ValueToString(const Union<Ts...>& value) {
   return u"<variant>";
+}
+
+// Pass the current held type of union to MatchTraits.
+template<template<typename...>typename Traits, typename... Us>
+inline bool MatchTraits(const Union<Us...>& arg) {
+  return std::visit([](auto&& i) { return MatchTraits<Traits>(i); }, arg);
 }
 
 // Whether union evaluates to true depends on its subtypes and monostate.
@@ -120,10 +126,10 @@ struct CppgcMember<Union<Ts...>> {
   using Type = Union<CppgcMemberType<Ts>...>;
 };
 
-// Extend IsCppgcMember to check members inside a variant.
+// Extend HasCppgcMember to check members inside a variant.
 template<typename... Ts>
-struct IsCppgcMember<Union<Ts...>>
-    : std::disjunction<IsCppgcMember<Ts>...> {};
+struct HasCppgcMember<Union<Ts...>>
+    : std::disjunction<HasCppgcMember<Ts>...> {};
 
 // Ordering for union.
 template<typename... Ts, typename U>

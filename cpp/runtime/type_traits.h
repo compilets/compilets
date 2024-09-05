@@ -39,6 +39,12 @@ template<typename T>
 constexpr bool IsNonDoubleNumericV = std::is_arithmetic_v<T> &&
                                      !std::is_same_v<T, double>;
 
+// Check if a type is cppgc::Member.
+template<typename T>
+struct IsCppgcMember : std::false_type {};
+template<typename T>
+struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
+
 // Read value from optional.
 template<typename T>
 inline T GetOptionalValue(T value) {
@@ -46,6 +52,25 @@ inline T GetOptionalValue(T value) {
     return std::move(value.value());
   else
     return std::move(value);
+}
+
+// Test if the type of arg matches the traits.
+template<template<typename...>typename Traits, typename U,
+         typename = std::enable_if_t<!std::is_pointer_v<U>>>
+inline bool MatchTraits(const U& arg) {
+  if constexpr (IsOptional<U>::value) {
+    if (arg)
+      return MatchTraits<Traits>(arg.value());
+    else
+      return MatchTraits<Traits>(std::nullopt);
+  }
+  if constexpr (IsCppgcMember<U>::value) {
+    if (arg)
+      return MatchTraits<Traits>(*arg);
+    else
+      return MatchTraits<Traits>(nullptr);
+  }
+  return Traits<U>::value;
 }
 
 // Determine whether an value should evaluate to true in conditions.
@@ -151,11 +176,9 @@ struct OptionalCppgcMember {
 template<typename T, typename enable = void>
 using OptionalCppgcMemberType = OptionalCppgcMember<T, enable>::Type;
 
-// Check if a type is cppgc::Member.
+// Check if a type is cppgc::Member or contains one.
 template<typename T>
-struct IsCppgcMember : std::false_type {};
-template<typename T>
-struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
+struct HasCppgcMember : IsCppgcMember<T> {};
 
 }  // namespace compilets
 

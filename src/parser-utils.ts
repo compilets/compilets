@@ -109,6 +109,8 @@ export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): str
     if (fileName.includes('node_modules/@types/node') ||
         fileName.endsWith('typescript/lib/lib.dom.d.ts'))
       return 'compilets::nodejs';
+    if (fileName.match(/node_modules\/typescript\/lib\/lib\.es.*\.d\.ts$/))
+      return 'compilets';
     throw new Error(`Can not get namespace for declaration file "${fileName}"`);
   }
   const fileName = path.relative(sourceRootDir, sourceFile.fileName);
@@ -168,9 +170,9 @@ export function isExportedDeclaration(decl: ts.ClassDeclaration | ts.FunctionDec
 }
 
 /**
- * Return whether the type is a namespace of "import * as xxx from 'module'".
+ * Return whether the type is the "xxx" of "import * as xxx from 'module'".
  */
-export function isModuleNamespace(type: ts.Type): boolean {
+export function isModuleImports(type: ts.Type): boolean {
   if (!type.symbol || !type.symbol.valueDeclaration)
     return false;
   return ts.isSourceFile(type.symbol.valueDeclaration);
@@ -205,6 +207,13 @@ export function isNodeJsType(type: ts.Type): boolean {
 }
 
 /**
+ * Return if the type is a constructor function.
+ */
+export function isConstructor(type: ts.Type): type is ts.GenericType {
+  return type.getConstructSignatures().length > 0;
+}
+
+/**
  * Whether the node is a function type.
  */
 export type FunctionLikeNode = ts.FunctionDeclaration |
@@ -224,6 +233,8 @@ export function isFunctionLikeNode(node: ts.Node): node is FunctionLikeNode {
  * Return whether the type is a function.
  */
 export function isFunction(type: ts.Type): boolean {
+  if (isConstructor(type))
+    return false;
   return type.getCallSignatures().length > 0;
 }
 
@@ -240,6 +251,8 @@ export function isTemplateFunctor(type: syntax.Type): boolean {
  * generic class.
  */
 export function isClass(type: ts.Type): type is ts.GenericType {
+  if (isConstructor(type))
+    return true;
   if (!(type.flags & ts.TypeFlags.Object))
     return false;
   return ((type as ts.ObjectType).objectFlags & (ts.ObjectFlags.Class | ts.ObjectFlags.Reference)) != 0;

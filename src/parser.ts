@@ -18,10 +18,11 @@ import {
   hasQuestionToken,
   isExternalDeclaration,
   isExportedDeclaration,
-  isModuleNamespace,
+  isModuleImports,
   isNodeJsDeclaration,
   isNodeJsType,
   isGlobalVariable,
+  isConstructor,
   FunctionLikeNode,
   isFunctionLikeNode,
   isFunction,
@@ -233,34 +234,7 @@ export default class Parser {
       }
       case ts.SyntaxKind.PropertyAccessExpression: {
         // obj.prop
-        const {expression, name, questionDotToken} = node as ts.PropertyAccessExpression;
-        if (questionDotToken)
-          throw new UnimplementedError(node, 'The ?. operator is not supported');
-        if (!ts.isIdentifier(name))
-          throw new UnimplementedError(name, 'Only identifier can be used as member name');
-        if (this.isSymbolClass(expression) && name.text == 'prototype')
-          throw new UnsupportedError(node, 'Can not access prototype of class');
-        const type = this.parseNodeType(node);
-        const obj = this.parseExpression(expression);
-        // In TypeScript accessing a module's exports is treated as accessing
-        // properties of the exported object. To translate it to C++, we treat
-        // such PropertyAccessExpression as namespace calls.
-        if (obj instanceof syntax.Identifier &&
-            obj.type.category == 'namespace') {
-          const identifier = this.parseExpression(name) as syntax.Identifier;
-          identifier.namespace = obj.text;
-          return identifier;
-        }
-        // In TypeScript all types can have properties, we have not implemented
-        // for all types yet.
-        if (!obj.type.isObject() &&
-            obj.type.category != 'string' &&
-            obj.type.category != 'union') {
-          throw new UnimplementedError(node, 'Only support accessing properties of objects');
-        }
-        if (name.text == '__proto__')
-          throw new UnsupportedError(node, 'Can not access prototype of object');
-        return new syntax.PropertyAccessExpression(type, obj, name.text);
+        return this.parsePropertyAccessExpression(node as ts.PropertyAccessExpression);
       }
       case ts.SyntaxKind.ElementAccessExpression: {
         // arr[0]
@@ -624,6 +598,38 @@ export default class Parser {
                                     initializers);
   }
 
+  parsePropertyAccessExpression(node: ts.PropertyAccessExpression): syntax.Expression {
+    const {expression, name, questionDotToken} = node;
+    if (questionDotToken)
+      throw new UnimplementedError(node, 'The ?. operator is not supported');
+    if (!ts.isIdentifier(name))
+      throw new UnimplementedError(name, 'Only identifier can be used as member name');
+    if (this.isSymbolClass(expression) && name.text == 'prototype')
+      throw new UnsupportedError(node, 'Can not access prototype of class');
+    // In TypeScript accessing a module's exports is treated as accessing
+    // properties of the exported object. To translate it to C++, we treat
+    // such PropertyAccessExpression as namespace calls.
+    if (ts.isIdentifier(expression) &&
+        isModuleImports(this.typeChecker.getTypeAtLocation(expression))) {
+      const identifier = this.parseExpression(name) as syntax.Identifier;
+      identifier.namespace = expression.text;
+      return identifier;
+    }
+    // In TypeScript all types can have properties, we have not implemented
+    // for all types yet.
+    const obj = this.parseExpression(expression);
+    if (!obj.type.isObject() &&
+        obj.type.category != 'string' &&
+        obj.type.category != 'union') {
+      throw new UnimplementedError(node, 'Only support accessing properties of objects');
+    }
+    if (name.text == '__proto__')
+      throw new UnsupportedError(node, 'Can not access prototype of object');
+    return new syntax.PropertyAccessExpression(this.parseNodeType(node),
+                                               obj,
+                                               name.text);
+  }
+
   parseCallExpression(node: ts.CallExpression): syntax.Expression {
     const {expression, questionDotToken} = node;
     if (questionDotToken)
@@ -763,7 +769,7 @@ export default class Parser {
       return this.parseSignatureType(signature, location, modifiers);
     }
     // Check the namespace import.
-    if (isModuleNamespace(type))
+    if (isModuleImports(type))
       return new syntax.Type(name, 'namespace');
     // Check interface.
     if (isInterface(type))
@@ -776,7 +782,7 @@ export default class Parser {
    */
   parseSignatureType(signature: ts.Signature,
                      location: ts.Node,
-                     modifiers?: syntax.TypeModifier[]): syntax.FunctionType {
+                     modifiers: syntax.TypeModifier[] = []): syntax.FunctionType {
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
     let namespace: string | undefined;
@@ -790,6 +796,11 @@ export default class Parser {
       } else if (ts.isMethodDeclaration(declaration) ||
                  ts.isMethodSignature(declaration)) {
         category = 'method';
+        // If the method's parent is a constructor, then the method is static.
+        if (declaration.parent &&
+            isConstructor(this.typeChecker.getTypeAtLocation(declaration.parent))) {
+          modifiers.push('static');
+        }
       } else {
         category = 'function';
       }
@@ -831,9 +842,7 @@ export default class Parser {
                  location?: ts.Node,
                  modifiers?: syntax.TypeModifier[]): syntax.Type {
     const cppType = new syntax.Type(type.symbol.name, 'class', modifiers);
-    // For multi-file project class types have namespaces.
-    if (this.project.fileNames.length > 1)
-      cppType.namespace = getNamespaceFromNode(this.project.sourceRootDir, type.symbol.valueDeclaration);
+    cppType.namespace = this.getTypeNamespace(type);
     // Parse base classes.
     const base = type.getBaseTypes()?.find(isClass);
     if (base)
@@ -959,7 +968,7 @@ export default class Parser {
     }
     if (ts.isPropertyDeclaration(decl)) {
       modifiers.push('property');
-      if ((decl as ts.PropertyDeclaration).modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+      if (decl.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
         modifiers.push('static');
     }
     if (ts.isParameter(decl) && decl.dotDotDotToken) {
@@ -1020,14 +1029,31 @@ export default class Parser {
     // Find out the declaration of the node, for example for the "process"
     // variable it should be "@node/types/process.d.ts".
     const decls = this.getNodeDeclarations(node);
-    if (decls) {
-      // When there are multiple declarations, make sure the ones from DOM are
-      // ignored, which happens a lot for "console".
-      if (decls.length == 1)
-        node = decls[0];
-      else if (decls.length > 1)
-        node = decls.find(d => !d.getSourceFile().fileName.endsWith('typescript/lib/lib.dom.d.ts')) ?? node;
-    }
+    return this.getNamespaceFromDeclarations(decls ?? [ node ]);
+  }
+
+  /**
+   * Get the namespace for the type.
+   */
+  private getTypeNamespace(type: ts.Type): string | undefined {
+    if (!type.symbol || !type.symbol.declarations)
+      return;
+    return this.getNamespaceFromDeclarations(type.symbol.declarations);
+  }
+
+  /**
+   * Get the namespace from the declarations.
+   */
+  private getNamespaceFromDeclarations(decls: ts.Node[]): string | undefined {
+    // When there are multiple declarations, make sure the ones from DOM are
+    // ignored, which happens a lot for "console".
+    let node: ts.Node | undefined;
+    if (decls.length == 1)
+      node = decls[0];
+    else if (decls.length > 1)
+      node = decls.find(d => !d.getSourceFile().fileName.endsWith('typescript/lib/lib.dom.d.ts'));
+    if (!node)
+      return;
     // If the node comes from the only file in the project, it does not have
     // a namespace.
     if (this.project.fileNames.length == 1 && !node.getSourceFile().isDeclarationFile)

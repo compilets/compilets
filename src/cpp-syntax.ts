@@ -505,7 +505,13 @@ export class PropertyAccessExpression extends Expression {
     } else {
       dot = '.';
     }
-    return printExpressionValue(this.expression, ctx) + dot + this.member;
+    // When accessing static property, use the type name.
+    let obj: string;
+    if (this.type.isStatic)
+      obj = printTypeName(type, ctx);
+    else
+      obj = printExpressionValue(this.expression, ctx);
+    return obj + dot + this.member;
   }
 }
 

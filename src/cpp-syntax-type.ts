@@ -172,7 +172,7 @@ export class Type {
     this.name = name;
     this.category = category;
     if (modifiers) {
-      if (this.category == 'any' && !modifiers.includes('external'))
+      if (this.category == 'any' && !modifiers.some(m => m == 'external' || m == 'element'))
         throw new Error('The "any" type is not supported');
       if (this.category == 'function' && modifiers.includes('not-function'))
         this.category = 'functor';

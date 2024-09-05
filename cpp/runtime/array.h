@@ -8,8 +8,28 @@
 
 namespace compilets {
 
+class ArrayConstructor;
+
+// Type traits to determine whether a type is array.
+template<typename T, typename Enable = void>
+struct IsArrayTrait : std::false_type {};
 template<typename T>
-class ArrayBase : public Object {
+struct IsArrayTrait<T, std::enable_if_t<std::is_base_of_v<ArrayConstructor, T>>>
+    : std::true_type {};
+
+// In TypeScript there is no Array class but ArrayConstructor interface, we use
+// it to put all the static methods..
+class ArrayConstructor : public Object {
+ public:
+  template<typename T>
+  static inline bool isArray(const T& arg) {
+    return MatchTraits<IsArrayTrait>(arg);
+  }
+};
+
+// The base class holding common Array constructors and methods.
+template<typename T>
+class ArrayBase : public ArrayConstructor {
  public:
   // Default constructor with length of 0.
   ArrayBase() = default;
@@ -66,7 +86,7 @@ class Array final : public ArrayBase<T> {
 
 // Array type for GCed types.
 template<typename T>
-class Array<T, std::enable_if_t<IsCppgcMember<T>::value>> final
+class Array<T, std::enable_if_t<HasCppgcMember<T>::value>> final
     : public ArrayBase<T> {
  public:
   using ArrayBase<T>::ArrayBase;
