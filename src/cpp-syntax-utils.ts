@@ -164,10 +164,19 @@ export function printExpressionValue(expr: Expression, ctx: PrintContext) {
 }
 
 /**
- * Print the template arguments..
+ * Print the template arguments for the type.
  */
-export function printTemplateArguments(args: Type[], ctx: PrintContext): string {
-  if (args.length == 0)
+export function printTypeTemplateArguments(type: Type, ctx: PrintContext): string {
+  if (type.category == 'function' || type.category == 'method')
+    return printTemplateArguments(type.templateArguments, ctx);
+  return '';
+}
+
+/**
+ * Print the template arguments.
+ */
+export function printTemplateArguments(args: Type[] | undefined, ctx: PrintContext): string {
+  if (!args || args.length == 0)
     return '';
   return `<${args.map(a => printTypeName(a, ctx)).join(', ')}>`;
 }

@@ -9,6 +9,10 @@
 namespace compilets {
 
 class ArrayConstructor;
+template<typename, typename = void>
+class Array;
+template<typename T>
+Array<T>* MakeArray(std::vector<T> elements);
 
 // Type traits to determine whether a type is array.
 template<typename T, typename Enable = void>
@@ -24,6 +28,14 @@ class ArrayConstructor : public Object {
   template<typename T>
   static inline bool isArray(const T& arg) {
     return MatchTraits<IsArrayTrait>(arg);
+  }
+
+  template<typename T, typename... Args>
+  static inline Array<T>* of(Args&&... args) {
+    if constexpr (std::is_arithmetic_v<T>)
+      return MakeArray<T>({static_cast<T>(args)...});
+    else
+      return MakeArray<T>({std::forward<Args>(args)...});
   }
 };
 
@@ -65,7 +77,9 @@ class ArrayBase : public ArrayConstructor {
         arr_({std::move(args)...}) {}
 
   // Used by helpers.
-  ArrayBase(std::vector<T> elements) : arr_(std::move(elements)) {}
+  ArrayBase(std::vector<T> elements)
+      : length(elements.size()),
+        arr_(std::move(elements)) {}
 
   virtual ~ArrayBase() = default;
 
@@ -78,7 +92,7 @@ class ArrayBase : public ArrayConstructor {
 };
 
 // Array type for primitive types.
-template<typename T, typename Enable = void>
+template<typename T, typename Enable>
 class Array final : public ArrayBase<T> {
  public:
   using ArrayBase<T>::ArrayBase;

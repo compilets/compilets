@@ -9,6 +9,7 @@ import {
   createTraceMethod,
   printClassDeclaration,
   printExpressionValue,
+  printTypeTemplateArguments,
   printTemplateArguments,
   printTemplateDeclaration,
   printTypeName,
@@ -79,11 +80,7 @@ export class Identifier extends RawExpression {
     // Add namespace prefix.
     if (this.namespace)
       result = addNamespace(result, this.namespace, ctx);
-    // Add template arguments for function call.
-    if (this.type.templateArguments &&
-        (this.type.category == 'function' || this.type.category == 'method'))
-      result += printTemplateArguments(this.type.templateArguments, ctx);
-    return result;
+    return result + printTypeTemplateArguments(this.type, ctx);
   }
 }
 
@@ -161,8 +158,7 @@ export class ExpressionWithTemplateArguments extends Expression {
   }
 
   override print(ctx: PrintContext) {
-    const templateArguments = this.templateArguments ? printTemplateArguments(this.templateArguments, ctx) : '';
-    return this.expression.print(ctx) + templateArguments;
+    return this.expression.print(ctx) + printTemplateArguments(this.templateArguments, ctx);
   }
 }
 
@@ -511,7 +507,7 @@ export class PropertyAccessExpression extends Expression {
       obj = printTypeName(type, ctx);
     else
       obj = printExpressionValue(this.expression, ctx);
-    return obj + dot + this.member;
+    return obj + dot + this.member + printTypeTemplateArguments(this.type, ctx);
   }
 }
 

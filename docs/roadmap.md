@@ -2,13 +2,13 @@
 
 ## Working on next
 
-* `Array` methods
 * Node.js native module generation
 * `switch`
 * `regex`
 * tuple
 * ommit optional parameters in functional call
 * destructuring assignment
+* `Array` methods
 * `String` methods
 * `console.time`
 * `process.argv`
