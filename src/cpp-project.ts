@@ -176,7 +176,10 @@ export default class CppProject {
     "//build/config/compiler:chromium_code",
     "//build/config/compiler:no_exceptions",
   ]
-  configs += [ "//build/config/compiler:no_chromium_code" ]`;
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+    "//build/config/compiler:exceptions",
+  ]`;
     const buildgn: string[] = [];
     const targets: string[] = [];
     const libname = `lib${this.name}`;

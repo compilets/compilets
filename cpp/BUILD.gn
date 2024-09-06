@@ -74,6 +74,7 @@ source_set("runtime_exe") {
     "runtime/exe/state_exe.h",
   ]
   configs -= [ "//build/config/compiler:no_exceptions" ]
+  configs += [ "//build/config/compiler:exceptions"]
 }
 
 source_set("runtime_node") {
@@ -86,6 +87,7 @@ source_set("runtime_node") {
     "runtime/node/state_node.h",
   ]
   configs -= [ "//build/config/compiler:no_exceptions" ]
+  configs += [ "//build/config/compiler:exceptions"]
 }
 
 test("cpp_unittests") {
@@ -105,4 +107,5 @@ test("cpp_unittests") {
     "//testing/gtest",
   ]
   configs -= [ "//build/config/compiler:no_exceptions" ]
+  configs += [ "//build/config/compiler:exceptions"]
 }

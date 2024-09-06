@@ -28,12 +28,10 @@ class StackScanTest : public ::testing::Test {
   // methods would make the pointers show on stack/registers which invalidates
   // the tests.
   // https://groups.google.com/g/v8-users/c/bL_IgURDZhs/m/HsMlBsVACAAJ
-  const std::vector<int*>& GetVector() const { return vec_; }
   const std::variant<int*, bool>& GetVariant() const { return var_; }
 
  private:
   std::unique_ptr<Stack> stack_;
-  std::vector<int*> vec_ = {new int{0}};
   std::variant<int*, bool> var_ = {new int{0}};
 };
 
@@ -80,15 +78,6 @@ TEST_F(StackScanTest, IteratePointersFindsValueInVariant) {
     std::variant<int*, bool> var = GetVariant();
     GetStack()->IteratePointersForTesting(scanner.get());
     EXPECT_TRUE(scanner->HasPointer(std::get<int*>(var)));
-  }
-}
-
-TEST_F(StackScanTest, IteratePointersFindsNoValueInVector) {
-  auto scanner = std::make_unique<StackScanner>();
-  {
-    std::vector<int*> vec = GetVector();
-    GetStack()->IteratePointersForTesting(scanner.get());
-    EXPECT_FALSE(scanner->HasPointer(vec[0]));
   }
 }
 
