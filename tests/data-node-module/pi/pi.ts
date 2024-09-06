@@ -1,3 +1,3 @@
 export function computePi(): number {
-  return 3.14;
+  return Math.PI;
 }

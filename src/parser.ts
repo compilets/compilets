@@ -21,6 +21,7 @@ import {
   isModuleImports,
   isNodeJsDeclaration,
   isNodeJsType,
+  isMathInterface,
   isGlobalVariable,
   isConstructor,
   FunctionLikeNode,
@@ -782,7 +783,7 @@ export default class Parser {
    */
   parseSignatureType(signature: ts.Signature,
                      location: ts.Node,
-                     modifiers: syntax.TypeModifier[] = []): syntax.FunctionType {
+                     modifiers?: syntax.TypeModifier[]): syntax.FunctionType {
     // Tell whether this is a function or functor.
     let category: syntax.TypeCategory;
     let namespace: string | undefined;
@@ -796,11 +797,9 @@ export default class Parser {
       } else if (ts.isMethodDeclaration(declaration) ||
                  ts.isMethodSignature(declaration)) {
         category = 'method';
-        // If the method's parent is a constructor, then the method is static.
-        if (declaration.parent &&
-            isConstructor(this.typeChecker.getTypeAtLocation(declaration.parent))) {
-          modifiers.push('static');
-        }
+        // We need to know whether the method is static.
+        if (!modifiers)
+          modifiers = this.getTypeModifiers(declaration);
       } else {
         category = 'function';
       }
@@ -962,13 +961,20 @@ export default class Parser {
       return modifiers;
     if (ts.isVariableDeclaration(decl) ||
         ts.isPropertyDeclaration(decl) ||
+        ts.isPropertySignature(decl) ||
         ts.isParameter(decl)) {
       // Convert function to functor when the node is a variable.
       modifiers.push('not-function');
     }
-    if (ts.isPropertyDeclaration(decl)) {
+    if (ts.isPropertyDeclaration(decl) ||
+        ts.isPropertySignature(decl)) {
       modifiers.push('property');
-      if (decl.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+    }
+    if (ts.isPropertyDeclaration(decl) ||
+        ts.isPropertySignature(decl) ||
+        ts.isMethodDeclaration(decl) ||
+        ts.isMethodSignature(decl)) {
+      if (this.isStaticProperty(decl))
         modifiers.push('static');
     }
     if (ts.isParameter(decl) && decl.dotDotDotToken) {
@@ -1146,6 +1152,26 @@ export default class Parser {
       return true;
     if (this.typeChecker.isArrayType(type))
       return this.typeChecker.getTypeArguments(type).some(this.hasTypeParameter.bind(this));
+    return false;
+  }
+
+  /**
+   * Whether the declaration should be treated as static property/method.
+   *
+   * Some types are interfaces in TypeScript but we want to treate them
+   * as classes in C++, and their properties should become static.
+   */
+  private isStaticProperty(decl: ts.PropertyDeclaration |
+                                 ts.PropertySignature |
+                                 ts.MethodDeclaration |
+                                 ts.MethodSignature) : boolean {
+    if (decl.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword))
+      return true;
+    if (!decl.parent)
+      return false;
+    const type = this.typeChecker.getTypeAtLocation(decl.parent);
+    if (isConstructor(type) || isMathInterface(type))
+      return true;
     return false;
   }
 

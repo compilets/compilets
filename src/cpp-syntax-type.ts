@@ -23,7 +23,8 @@ export type PrintMode = 'impl' | 'header' | 'forward';
  * Optional C++ features used in the code.
  */
 export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
-                      'runtime' | 'type-traits' | 'process' | 'console';
+                      'runtime' | 'type-traits' | 'process' | 'console' |
+                      'math';
 
 /**
  * Control indentation and other formating options when printing AST to C++.
@@ -381,7 +382,10 @@ export class Type {
     if (this.isStdOptional()) {
       ctx.features.add('type-traits');
     }
-    if (this.namespace == 'compilets::nodejs') {
+    if (this.namespace == 'compilets') {
+      if (this.name == 'Math')
+        ctx.features.add('math');
+    } else if (this.namespace == 'compilets::nodejs') {
       ctx.features.add('runtime');
       if (this.name == 'Console')
         ctx.features.add('console');

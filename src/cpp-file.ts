@@ -315,6 +315,7 @@ export default class CppFile {
         case 'console':
         case 'string':
         case 'union':
+        case 'math':
         case 'runtime':
           headers.push({type: 'quoted', path: `runtime/${feature}.h`});
       }

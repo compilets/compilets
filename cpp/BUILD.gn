@@ -6,6 +6,7 @@ config("app_config") {
   if (is_clang || !is_win) {
     cflags_cc = [
       "-Wno-unused-function",
+      "-Wno-unused-result",
     ]
   }
 }
@@ -48,6 +49,7 @@ common_runtime_files = [
   "runtime/console.cc",
   "runtime/console.h",
   "runtime/function.h",
+  "runtime/math.h",
   "runtime/object.h",
   "runtime/process.cc",
   "runtime/process.h",

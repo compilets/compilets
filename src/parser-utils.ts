@@ -106,8 +106,8 @@ export function getNamespaceFromNode(sourceRootDir: string, node?: ts.Node): str
   const sourceFile = node.getSourceFile();
   if (sourceFile.isDeclarationFile) {
     const {fileName} = sourceFile;
-    if (fileName.includes('node_modules/@types/node') ||
-        fileName.endsWith('typescript/lib/lib.dom.d.ts'))
+    if (fileName.includes('/node_modules/@types/node/') ||
+        fileName.endsWith('/node_modules/typescript/lib/lib.dom.d.ts'))
       return 'compilets::nodejs';
     if (fileName.match(/node_modules\/typescript\/lib\/lib\.es.*\.d\.ts$/))
       return 'compilets';
@@ -184,7 +184,7 @@ export function isModuleImports(type: ts.Type): boolean {
 export function isNodeJsDeclaration(decl: ts.Declaration): boolean {
   const sourceFile = decl.getSourceFile();
   return sourceFile.isDeclarationFile &&
-         sourceFile.fileName.includes('node_modules/@types/node');
+         sourceFile.fileName.includes('/node_modules/@types/node/');
 }
 
 /**
@@ -204,6 +204,23 @@ export function isNodeJsType(type: ts.Type): boolean {
   if (!type.symbol || !type.symbol.declarations)
     return false;
   return type.symbol.declarations.some(isNodeJsDeclaration);
+}
+
+/**
+ * Return if the type is the Math interface.
+ */
+export function isMathInterface(type: ts.Type): boolean {
+  if (!isInterface(type))
+    return false;
+  if (!type.symbol || !type.symbol.valueDeclaration)
+    return false;
+  const {valueDeclaration} = type.symbol;
+  const sourceFile = valueDeclaration.getSourceFile();
+  return sourceFile.isDeclarationFile &&
+         sourceFile.fileName.includes('/node_modules/typescript/lib/') &&
+         ts.isVariableDeclaration(valueDeclaration) &&
+         ts.isIdentifier(valueDeclaration.name) &&
+         valueDeclaration.name.text == 'Math';
 }
 
 /**
@@ -252,6 +269,8 @@ export function isTemplateFunctor(type: syntax.Type): boolean {
  */
 export function isClass(type: ts.Type): type is ts.GenericType {
   if (isConstructor(type))
+    return true;
+  if (isMathInterface(type))
     return true;
   if (!(type.flags & ts.TypeFlags.Object))
     return false;
