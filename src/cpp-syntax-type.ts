@@ -8,123 +8,16 @@ import {
 import {
   notTriviallyDestructible,
   createTraceMethod,
-  printTypeNameForDeclaration,
 } from './cpp-syntax-utils';
+import {
+  PrintContext,
+  PrintContextScope,
+  printTypeNameForDeclaration
+} from './print-utils';
 import {
   cloneMap,
   joinArray,
 } from './js-utils';
-
-/**
- * Possible modes for printing the syntax node.
- */
-export type PrintMode = 'impl' | 'header' | 'forward';
-
-/**
- * Optional C++ features used in the code.
- */
-export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
-                      'converters' | 'runtime' | 'type-traits' | 'process' |
-                      'console' | 'math';
-
-/**
- * Control indentation and other formating options when printing AST to C++.
- */
-export class PrintContext {
-  /**
-   * The print mode.
-   */
-  mode: PrintMode;
-  /**
-   * How many spaces for 1 indentation.
-   */
-  indent: number;
-  /**
-   * Current namespace.
-   */
-  namespace: string | undefined;
-  /**
-   * The depth of indentation.
-   */
-  level = 0;
-  /**
-   * Namespaces get aliases with "import * as name".
-   */
-  namespaceAliases = new Map<string, string>();
-  /**
-   * Type names get aliases with "import {x as y}".
-   */
-  typeAliases = new Map<string, string>();
-  /**
-   * Used class/function type names when printing.
-   */
-  usedTypes = new Set<string>();
-  /**
-   * Used C++ features when printing.
-   */
-  features = new Set<Feature>();
-  /**
-   * Used interfaces when printing.
-   */
-  interfaces = new Set<string>();
-  /**
-   * The features that used in the included headers.
-   */
-  includedFeatures?: Set<Feature>;
-  /**
-   * The interfaces that printed in the included headers.
-   */
-  includedInterfaces?: Set<string>;
-  /**
-   * Whether the node should put padding in the beginning.
-   * TODO(zcbenz): This was introduced to handle the formatting of if statement,
-   * consider using a better approach.
-   */
-  concatenateNextLine = false;
-
-  constructor(mode: PrintMode, indent: number = 2) {
-    this.mode = mode;
-    this.indent = indent;
-  }
-
-  get padding() {
-    return ' '.repeat(this.level * this.indent);
-  }
-
-  get prefix() {
-    if (this.concatenateNextLine) {
-      this.concatenateNextLine = false;
-      return '';
-    }
-    return this.padding;
-  }
-
-  join() {
-    this.concatenateNextLine = true;
-    return this;
-  }
-}
-
-/**
- * Helper to change the context's members in a scope.
- */
-export class PrintContextScope implements Disposable {
-  ctx: PrintContext;
-  savedProperties: Partial<PrintContext>;
-
-  constructor(ctx: PrintContext, updates: Partial<PrintContext>) {
-    this.ctx = ctx;
-    this.savedProperties = {};
-    for (const key of Object.getOwnPropertyNames(updates))
-      (this.savedProperties as any)[key] = this.ctx[key as keyof PrintContext];
-    Object.assign(ctx, updates);
-  }
-
-  [Symbol.dispose]() {
-    for (const key of Object.getOwnPropertyNames(this.savedProperties))
-      (this.ctx as any)[key] = this.savedProperties[key as keyof PrintContext];
-  }
-}
 
 export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'method' |

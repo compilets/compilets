@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as ts from 'typescript';
 
 import CppFile from './cpp-file';
+import {PrintContext} from './print-utils';
 import {downloadNodeHeaders} from './gn-utils';
 import * as syntax from './cpp-syntax';
 
@@ -101,10 +102,10 @@ export default class CppProject {
    * Yield filename and printed content at each generation.
    */
   *getPrintedFiles(): Generator<[string, string], void> {
-    const headers = new Map<string, syntax.PrintContext>();
+    const headers = new Map<string, PrintContext>();
     for (const [ name, file ] of this.getFiles()) {
       const mode = name.endsWith('.h') ? 'header' : 'impl';
-      const ctx = new syntax.PrintContext(mode, 2);
+      const ctx = new PrintContext(mode, 2);
       // When printing .cpp files, there is no need to print includes and
       // interfaces which were already printed in .h files.
       if (name.endsWith('.cpp')) {

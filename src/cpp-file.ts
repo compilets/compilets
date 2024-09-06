@@ -1,4 +1,6 @@
 import * as syntax from './cpp-syntax';
+import {Type} from './cpp-syntax-type';
+import {PrintContext, PrintContextScope, Feature} from './print-utils';
 import {uniqueArray} from './js-utils';
 
 /**
@@ -124,10 +126,10 @@ export default class CppFile {
   /**
    * Print the file to C++ source code.
    */
-  print(ctx: syntax.PrintContext): string {
+  print(ctx: PrintContext): string {
     const blocks: NamespaceBlock[] = [];
     // Set the namespace for the PrintContext.
-    using scope = new syntax.PrintContextScope(ctx, {
+    using scope = new PrintContextScope(ctx, {
       namespace: this.namespace,
       ...getImportAliases(this.imports, this.namespace),
     });
@@ -175,7 +177,7 @@ export default class CppFile {
   /**
    * Print declarations for all the function and class declarations.
    */
-  private printDeclarations(ctx: syntax.PrintContext): [NamespaceBlock[], NamespaceBlock[], Set<string>] {
+  private printDeclarations(ctx: PrintContext): [NamespaceBlock[], NamespaceBlock[], Set<string>] {
     let declarations = this.declarations;
     if (ctx.mode == 'header') {
       // In header print exported declarations.
@@ -199,7 +201,7 @@ export default class CppFile {
       fullDeclarations.push({code: statement.print(ctx), namespace});
       // Print its forward declaration if it was used before declaration.
       if (forwardDeclaredTypes.has(statement.type.name)) {
-        using scope = new syntax.PrintContextScope(ctx, {mode: 'forward', interfaces: new Set<string>()});
+        using scope = new PrintContextScope(ctx, {mode: 'forward', interfaces: new Set<string>()});
         forwardDeclarations.push({code: statement.print(ctx), namespace, isForwardDeclaration: true});
         // Save the interfaces used when printing forward declaration.
         usedInterfaces = usedInterfaces.union(ctx.interfaces);
@@ -218,7 +220,7 @@ export default class CppFile {
   /**
    * Print main function.
    */
-  private printMainFunction(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printMainFunction(ctx: PrintContext): NamespaceBlock[] {
     // It is only printed when we are generating the exe/napi main file.
     if (this.body) {
       const namespace = '|global';
@@ -237,7 +239,7 @@ export default class CppFile {
   /**
    * Print used interfaces.
    */
-  private printInterfaces(ctx: syntax.PrintContext, forwardDeclaredInterfaces: Set<string>): [ NamespaceBlock[], NamespaceBlock[] ] {
+  private printInterfaces(ctx: PrintContext, forwardDeclaredInterfaces: Set<string>): [ NamespaceBlock[], NamespaceBlock[] ] {
     // Remove interfaces already included.
     let interfaces = ctx.interfaces;
     if (ctx.includedInterfaces)
@@ -248,14 +250,14 @@ export default class CppFile {
     const forwardDeclarations: NamespaceBlock[] = [];
     // As interfaces are being generated while printing, keep printing until
     // there is no more generated.
-    using scope = new syntax.PrintContextScope(ctx, {namespace: 'compilets::generated'});
+    using scope = new PrintContextScope(ctx, {namespace: 'compilets::generated'});
     const declaredInterfaces = new Set<string>();
     while (interfaces.size > declaredInterfaces.size) {
       // Iterate through the newly generated interfaces.
       for (const name of interfaces.difference(declaredInterfaces)) {
         declaredInterfaces.add(name);
         // Enter a new scope to collect used interfaces when printing this interface.
-        using scope = new syntax.PrintContextScope(ctx, {interfaces: new Set<string>()});
+        using scope = new PrintContextScope(ctx, {interfaces: new Set<string>()});
         // Print the full declaration first.
         const type = this.interfaceRegistry.get(name);
         fullDeclarations.push({
@@ -264,7 +266,7 @@ export default class CppFile {
         });
         // Print its forward declaration if it was used before declaration.
         if (forwardDeclaredInterfaces.has(name)) {
-          using scope = new syntax.PrintContextScope(ctx, {mode: 'forward'});
+          using scope = new PrintContextScope(ctx, {mode: 'forward'});
           forwardDeclarations.push({
             code: type.printDeclaration(ctx),
             namespace: ctx.namespace,
@@ -286,7 +288,7 @@ export default class CppFile {
   /**
    * Print headers introduced by imports.
    */
-  private printImportHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printImportHeaders(ctx: PrintContext): NamespaceBlock[] {
     if (this.imports.length == 0 || (ctx.mode == 'impl' && this.hasExports()))
       return [];
     // Include the headers of imported files.
@@ -305,7 +307,7 @@ export default class CppFile {
   /**
    * Print required runtime headers for this file.
    */
-  private printRuntimeHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printRuntimeHeaders(ctx: PrintContext): NamespaceBlock[] {
     // Add runtime headers depending on file type.
     if (this.type != 'lib')
       ctx.features.add('runtime');
@@ -358,10 +360,10 @@ export default class CppFile {
    */
   private generateExportedBindings(): syntax.Statement[] {
     const bindings: syntax.Statement[] = [];
-    const anyType = syntax.Type.createAnyType();
+    const anyType = Type.createAnyType();
     for (const declaration of this.declarations.statements) {
       bindings.push(new syntax.ExpressionStatement(new syntax.CallExpression(
-        syntax.Type.createVoidType(),
+        Type.createVoidType(),
         new syntax.Identifier(anyType, "Set", "ki"),
         new syntax.CallArguments(
           [ new syntax.Identifier(anyType, "env"),
@@ -376,10 +378,10 @@ export default class CppFile {
   /**
    * Create kizunapi bindings for interfaces.
    */
-  private printInterfaceBindings(ctx: syntax.PrintContext): NamespaceBlock[] {
+  private printInterfaceBindings(ctx: PrintContext): NamespaceBlock[] {
     if (ctx.interfaces.size == 0)
       return [];
-    using scope = new syntax.PrintContextScope(ctx, {namespace: 'ki'});
+    using scope = new PrintContextScope(ctx, {namespace: 'ki'});
     const results: NamespaceBlock[] = [
       {code: 'using namespace compilets::generated;', namespace: 'ki'}
     ];
@@ -521,7 +523,7 @@ function printIncludes(includes: IncludeDirective[]): NamespaceBlock {
 }
 
 // Return the alias settings from imports.
-function getImportAliases(imports: syntax.ImportDeclaration[], currentNamespace?: string): Partial<syntax.PrintContext> {
+function getImportAliases(imports: syntax.ImportDeclaration[], currentNamespace?: string): Partial<PrintContext> {
   const current = currentNamespace ? `${currentNamespace}::` : '';
   const namespaceAliases = new Map<string, string>();
   const typeAliases = new Map<string, string>();
@@ -552,7 +554,7 @@ function getDeclarationNamespace(namespace: string | undefined, decl: syntax.Dec
 }
 
 // Whether the features includes classes that inherits from object.
-function hasHeadersUsingObject(features: Set<syntax.Feature>) {
+function hasHeadersUsingObject(features: Set<Feature>) {
   for (const feature of features) {
     switch (feature) {
       case 'array':
@@ -566,7 +568,7 @@ function hasHeadersUsingObject(features: Set<syntax.Feature>) {
 }
 
 // Whether the features use the type traits.
-function hasHeadersUsingTypeTraits(features: Set<syntax.Feature>) {
+function hasHeadersUsingTypeTraits(features: Set<Feature>) {
   for (const feature of features) {
     switch (feature) {
       case 'array':

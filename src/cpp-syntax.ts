@@ -1,5 +1,4 @@
 import {
-  PrintContext,
   Type,
   FunctionType,
   InterfaceType,
@@ -7,6 +6,12 @@ import {
 import {
   notTriviallyDestructible,
   createTraceMethod,
+  castExpression,
+  castArguments,
+  castOptional,
+} from './cpp-syntax-utils';
+import {
+  PrintContext,
   printClassDeclaration,
   printExpressionValue,
   printTypeTemplateArguments,
@@ -14,10 +19,7 @@ import {
   printTemplateDeclaration,
   printTypeName,
   addNamespace,
-  castExpression,
-  castArguments,
-  castOptional,
-} from './cpp-syntax-utils';
+} from './print-utils';
 import {
   joinArray,
 } from './js-utils';
