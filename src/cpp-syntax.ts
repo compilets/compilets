@@ -1101,9 +1101,9 @@ export class MainFunctionNode extends MainFunction {
     const envType = new Type('napi_env', 'external');
     const valueType = new Type('napi_value', 'external');
     const body = new Block([
-      new VariableStatement(new VariableDeclarationList([
-        new VariableDeclaration('_state', new Type('compilets::StateNode', 'external')),
-      ])),
+      new ExpressionStatement(new NewExpression(
+        new Type('compilets::StateNode', 'external'),
+        new CallArguments([], []))),
       new ReturnStatement(new RawExpression(valueType, 'nullptr')),
     ]);
     super(new FunctionType('function', valueType, [ envType, valueType ]),

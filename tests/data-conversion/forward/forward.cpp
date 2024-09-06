@@ -14,6 +14,8 @@ class Item;
 namespace compilets::generated {
 
 struct Interface1 : public compilets::Object {
+  Interface1() = default;
+
   Interface1(bool success, Holder* result) : success(success), result(result) {}
 
   bool success;
@@ -28,6 +30,8 @@ struct Interface1 : public compilets::Object {
 };
 
 struct Interface2 : public compilets::Object {
+  Interface2() = default;
+
   Interface2(Holder* fallback) : fallback(fallback) {}
 
   cppgc::Member<Holder> fallback;
@@ -40,6 +44,8 @@ struct Interface2 : public compilets::Object {
 };
 
 struct Interface3 : public compilets::Object {
+  Interface3() = default;
+
   Interface3(double id, Item* item) : id(id), item(item) {}
 
   double id;

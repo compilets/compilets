@@ -23,8 +23,8 @@ export type PrintMode = 'impl' | 'header' | 'forward';
  * Optional C++ features used in the code.
  */
 export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
-                      'runtime' | 'type-traits' | 'process' | 'console' |
-                      'math';
+                      'converters' | 'runtime' | 'type-traits' | 'process' |
+                      'console' | 'math';
 
 /**
  * Control indentation and other formating options when printing AST to C++.
@@ -599,6 +599,7 @@ export class InterfaceType extends Type {
     using scope = new PrintContextScope(ctx, {mode: 'impl'});
     // Constructor class members from the type.
     const members: ClassElement[] = [];
+    members.push(new ConstructorDeclaration(this.name, []));
     members.push(this.createConstructor());
     for (const [name, type] of this.properties) {
       members.push(new PropertyDeclaration(name, [ 'abstract' ], type));

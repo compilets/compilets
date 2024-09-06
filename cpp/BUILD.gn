@@ -81,6 +81,7 @@ source_set("runtime_node") {
   deps = [ "simdutf" ]
   sources = common_runtime_files
   sources += [
+    "runtime/node/converters.h",
     "runtime/node/state_node.cc",
     "runtime/node/state_node.h",
   ]

@@ -137,6 +137,8 @@ export default class CppFile {
     blocks.push(...this.printMainFunction(ctx));
     // Then interfaces.
     const [ interfaceDeclarations, forwardInterfaceDeclarations ] = this.printInterfaces(ctx, usedInterfaces);
+    if (this.type == 'napi')
+      interfaceDeclarations.push(...this.printInterfaceBindings(ctx));
     blocks.unshift(...interfaceDeclarations);
     // Then forward declarations.
     blocks.unshift(...forwardDeclarations);
@@ -304,9 +306,14 @@ export default class CppFile {
    * Print required runtime headers for this file.
    */
   private printRuntimeHeaders(ctx: syntax.PrintContext): NamespaceBlock[] {
-    // If this is the main file of an exe, it requires runtime headers.
+    // Add runtime headers depending on file type.
     if (this.type != 'lib')
       ctx.features.add('runtime');
+    if (this.type == 'napi')
+      ctx.features.add('converters');
+    // Interfaces requires object header.
+    if (ctx.interfaces.size > 0)
+      ctx.features.add('object');
     // Remove included headers.
     let features = ctx.features;
     if (ctx.includedFeatures)
@@ -330,6 +337,10 @@ export default class CppFile {
         case 'math':
         case 'runtime':
           headers.push({type: 'quoted', path: `runtime/${feature}.h`});
+          break;
+        case 'converters':
+          headers.push({type: 'quoted', path: `runtime/node/${feature}.h`});
+          break;
       }
     }
     let allFeatures = ctx.features;
@@ -360,6 +371,47 @@ export default class CppFile {
           [ anyType, anyType, anyType, anyType ]))));
     }
     return bindings;
+  }
+
+  /**
+   * Create kizunapi bindings for interfaces.
+   */
+  private printInterfaceBindings(ctx: syntax.PrintContext): NamespaceBlock[] {
+    if (ctx.interfaces.size == 0)
+      return [];
+    using scope = new syntax.PrintContextScope(ctx, {namespace: 'ki'});
+    const results: NamespaceBlock[] = [
+      {code: 'using namespace compilets::generated;', namespace: 'ki'}
+    ];
+    for (const name of ctx.interfaces) {
+      const type = this.interfaceRegistry.get(name)!;
+      const properties = Array.from(type.properties.keys());
+      const setProps = properties.map(prop => `, "${prop}", obj->${prop}`);
+      const getProps = properties.map(prop => `, "${prop}", &obj->${prop}`);
+      const code =
+`template<>
+struct Type<${name}*> {
+  static constexpr const char* name = "${name}";
+
+  static napi_status ToNode(napi_env env, const ${name}* obj, napi_value* result) {
+    napi_status s = napi_create_object(env, result);
+    if (s != napi_ok)
+      return s;
+    if (!ki::Set(env, *result${setProps.join('')}))
+      return napi_generic_failure;
+    return napi_ok;
+  }
+
+  static std::optional<${name}*> FromNode(napi_env env, napi_value value) {
+    ${name}* obj = compilets::MakeObject<${name}>();
+    if (!ki::Get(env, value${getProps.join('')}))
+      return std::nullopt;
+    return obj;
+  }
+};`;
+      results.push({code, namespace: 'ki'});
+    }
+    return results;
   }
 }
 

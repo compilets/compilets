@@ -6,12 +6,16 @@ namespace compilets::generated {
 struct Interface5;
 
 struct Interface1 : public compilets::Object {
+  Interface1() = default;
+
   Interface1(double n) : n(n) {}
 
   double n;
 };
 
 struct Interface2 : public compilets::Object {
+  Interface2() = default;
+
   Interface2(Interface1* i) : i(i) {}
 
   cppgc::Member<Interface1> i;
@@ -24,6 +28,8 @@ struct Interface2 : public compilets::Object {
 };
 
 struct Interface3 : public compilets::Object {
+  Interface3() = default;
+
   Interface3(compilets::Function<Interface1*()>* method, compilets::Function<double(Interface1*)>* func) : method(method), func(func) {}
 
   cppgc::Member<compilets::Function<Interface1*()>> method;
@@ -39,6 +45,8 @@ struct Interface3 : public compilets::Object {
 };
 
 struct Interface4 : public compilets::Object {
+  Interface4() = default;
+
   Interface4(double m, double n) : m(m), n(n) {}
 
   double m;
@@ -47,6 +55,8 @@ struct Interface4 : public compilets::Object {
 };
 
 struct Interface6 : public compilets::Object {
+  Interface6() = default;
+
   Interface6(Interface5* obj) : obj(obj) {}
 
   cppgc::Member<Interface5> obj;
@@ -59,6 +69,8 @@ struct Interface6 : public compilets::Object {
 };
 
 struct Interface5 : public compilets::Object {
+  Interface5() = default;
+
   Interface5(compilets::String name) : name(std::move(name)) {}
 
   compilets::String name;
