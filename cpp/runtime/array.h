@@ -181,7 +181,7 @@ class ArrayBase : public ArrayConstructor {
 
   Array<T>* slice(double start, double end) const {
     return MakeArray<T>(std::vector<T>(arr_.begin() + GetIndex(start),
-                                       arr_.begin() + GetBoundedIndex(end)));
+                                       arr_.begin() + GetIndex(end)));
   }
 
   template<typename... Args>
