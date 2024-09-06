@@ -291,6 +291,8 @@ async function writeFile(target: string, content: string) {
 
 // Filter function used by fs.copy to only write when content has changed.
 async function filter(source: string, target: string) {
+  if (source.startsWith(path.resolve(__dirname, '../cpp/out/')))
+    return false;
   try {
     const newContent = await fs.readFile(source);
     const oldContent = await fs.readFile(target);
