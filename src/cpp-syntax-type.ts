@@ -12,6 +12,7 @@ import {
 } from './cpp-syntax-utils';
 import {
   cloneMap,
+  joinArray,
 } from './js-utils';
 
 /**
@@ -613,7 +614,16 @@ export class InterfaceType extends Type {
     // Print.
     let result = `${ctx.prefix}struct ${this.name} : public compilets::Object {\n`;
     ctx.level++;
-    result += members.map(m => m.print(ctx)).join('\n\n');
+    result += joinArray(
+      members,
+      (m1: ClassElement, m2: ClassElement) => {
+        if (m1 instanceof ConstructorDeclaration && m2 instanceof ConstructorDeclaration)
+          return '\n';
+        if (m1 instanceof PropertyDeclaration && m2 instanceof PropertyDeclaration)
+          return '\n';
+        return '\n\n';
+      },
+      m => m.print(ctx));
     ctx.level--;
     if (members.length > 0)
       result += '\n';

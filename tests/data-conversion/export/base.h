@@ -7,7 +7,6 @@ namespace compilets::generated {
 
 struct Interface1 : public compilets::Object {
   Interface1() = default;
-
   Interface1(bool force) : force(force) {}
 
   bool force;
@@ -15,7 +14,6 @@ struct Interface1 : public compilets::Object {
 
 struct Interface2 : public compilets::Object {
   Interface2() = default;
-
   Interface2(bool redraw) : redraw(redraw) {}
 
   bool redraw;
