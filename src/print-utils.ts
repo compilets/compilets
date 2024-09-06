@@ -200,6 +200,35 @@ export function printClassDeclaration(decl: syntax.ClassDeclaration, ctx: PrintC
 }
 
 /**
+ * Print the kizunapi bindings of interface.
+ */
+export function printInterfaceBinding(type: syntax.InterfaceType, ctx: PrintContext) {
+  const properties = Array.from(type.properties.keys());
+  const setProps = properties.map(prop => `, "${prop}", obj->${prop}`);
+  const getProps = properties.map(prop => `, "${prop}", &obj->${prop}`);
+  return `template<>
+struct Type<${type.name}*> {
+  static constexpr const char* name = "${type.name}";
+
+  static napi_status ToNode(napi_env env, const ${type.name}* obj, napi_value* result) {
+    napi_status s = napi_create_object(env, result);
+    if (s != napi_ok)
+      return s;
+    if (!ki::Set(env, *result${setProps.join('')}))
+      return napi_generic_failure;
+    return napi_ok;
+  }
+
+  static std::optional<${type.name}*> FromNode(napi_env env, napi_value value) {
+    ${type.name}* obj = compilets::MakeObject<${type.name}>();
+    if (!ki::Get(env, value${getProps.join('')}))
+      return std::nullopt;
+    return obj;
+  }
+};`;
+}
+
+/**
  * Print and add parentheses when needed.
  */
 export function printExpressionValue(expr: syntax.Expression, ctx: PrintContext) {

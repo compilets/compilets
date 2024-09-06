@@ -71,10 +71,9 @@ async function runNodeDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
   const project = await generateCppProject(root, target.path);
   await ninjaBuild(target.path, {config: 'Debug'});
-  const binary = `./out/Debug/${project.name}.node`;
+  const binary = `${target.path}/out/Debug/${project.name}.node`;
   assert.doesNotThrow(() => {
-    // Require the module in a sub-process to avoid holding the binary from
-    // getting removed.
-    execFileSync(process.execPath, [ '-e', `require("${binary}")` ], {cwd: target.path});
+    // Run a sub-process to avoid holding the binary from deletion.
+    execFileSync(process.execPath, [ root, binary ], {stdio: 'inherit'});
   });
 }

@@ -1,7 +1,16 @@
 import * as syntax from './cpp-syntax';
-import {Type} from './cpp-syntax-type';
-import {PrintContext, PrintContextScope, Feature} from './print-utils';
-import {uniqueArray} from './js-utils';
+import {
+  Type,
+} from './cpp-syntax-type';
+import {
+  PrintContext,
+  PrintContextScope,
+  Feature,
+  printInterfaceBinding,
+} from './print-utils';
+import {
+  uniqueArray,
+} from './js-utils';
 
 /**
  * Possible types of the CppFile.
@@ -387,31 +396,7 @@ export default class CppFile {
     ];
     for (const name of ctx.interfaces) {
       const type = this.interfaceRegistry.get(name)!;
-      const properties = Array.from(type.properties.keys());
-      const setProps = properties.map(prop => `, "${prop}", obj->${prop}`);
-      const getProps = properties.map(prop => `, "${prop}", &obj->${prop}`);
-      const code =
-`template<>
-struct Type<${name}*> {
-  static constexpr const char* name = "${name}";
-
-  static napi_status ToNode(napi_env env, const ${name}* obj, napi_value* result) {
-    napi_status s = napi_create_object(env, result);
-    if (s != napi_ok)
-      return s;
-    if (!ki::Set(env, *result${setProps.join('')}))
-      return napi_generic_failure;
-    return napi_ok;
-  }
-
-  static std::optional<${name}*> FromNode(napi_env env, napi_value value) {
-    ${name}* obj = compilets::MakeObject<${name}>();
-    if (!ki::Get(env, value${getProps.join('')}))
-      return std::nullopt;
-    return obj;
-  }
-};`;
-      results.push({code, namespace: 'ki'});
+      results.push({code: printInterfaceBinding(type, ctx), namespace: 'ki'});
     }
     return results;
   }
