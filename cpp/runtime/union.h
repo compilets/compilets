@@ -20,7 +20,7 @@ class Union : public std::variant<Ts...> {
   using std::variant<Ts...>::operator=;
 
   template<typename... Us>
-  Union(Union<Us...> value)
+  Union(std::variant<Us...> value)
       : std::variant<Ts...>(std::visit([](auto&& v) {
                               return std::variant<Ts...>(v);
                             }, std::move(value))) {}

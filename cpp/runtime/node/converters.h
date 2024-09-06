@@ -2,6 +2,8 @@
 #define CPP_RUNTIME_NODE_CONVERTERS_H_
 
 #include "runtime/array.h"
+#include "runtime/string.h"
+#include "runtime/union.h"
 #include "kizunapi/kizunapi.h"
 
 namespace ki {
@@ -15,28 +17,50 @@ struct Type<Array<T>*> {
   static napi_status ToNode(napi_env env,
                             const Array<T>* arr,
                             napi_value* result) {
-    const auto& vec = arr->value();
-    napi_status s = napi_create_array_with_length(env, vec.size(), result);
-    if (s != napi_ok) return s;
-    for (size_t i = 0; i < vec.size(); ++i) {
-      napi_value el;
-      s = ConvertToNode(env, vec[i], &el);
-      if (s != napi_ok) return s;
-      s = napi_set_element(env, *result, i, el);
-      if (s != napi_ok) return s;
-    }
-    return napi_ok;
+    return ConvertToNode(env, arr->value(), result);
   }
   static std::optional<Array<T>*> FromNode(napi_env env, napi_value value) {
-    std::vector<T> result;
-    if (!IterateArray<T>(env, value,
-                         [&](uint32_t i, T value) {
-                           result.push_back(std::move(value));
-                           return true;
-                         })) {
+    auto arr = Type<std::vector<T>>::FromNode(env, value);
+    if (arr)
+      return MakeArray<T>(std::move(arr));
+    else
       return std::nullopt;
-    }
-    return MakeArray<T>(std::move(result));
+  }
+};
+
+// Convert String to/from JS.
+template<>
+struct Type<String> {
+  static constexpr const char* name = "String";
+  static napi_status ToNode(napi_env env,
+                            const String& str,
+                            napi_value* result) {
+    return ConvertToNode(env, str.value(), result);
+  }
+  static std::optional<String> FromNode(napi_env env, napi_value value) {
+    auto str = Type<std::u16string>::FromNode(env, value);
+    if (str)
+      return String(std::move(str.value()));
+    else
+      return std::nullopt;
+  }
+};
+
+// Convert Union to/from JS.
+template<typename... Ts>
+struct Type<Union<Ts...>> {
+  static constexpr const char* name = "Union";
+  static napi_status ToNode(napi_env env,
+                            const Union<Ts...>& var,
+                            napi_value* result) {
+    return Type<std::variant<Ts...>>::ToNode(env, var, result);
+  }
+  static std::optional<Union<Ts...>> FromNode(napi_env env, napi_value value) {
+    auto var = Type<std::variant<Ts...>>::FromNode(env, value);
+    if (var)
+      return Union<Ts...>(std::move(var.value()));
+    else
+      return std::nullopt;
   }
 };
 
