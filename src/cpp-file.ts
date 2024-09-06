@@ -94,6 +94,18 @@ export default class CppFile {
   }
 
   /**
+   * The file parsing has ended.
+   */
+  endOfFile() {
+    if (this.type == 'lib')
+      this.pushVariableStatementsToDeclarations();
+    else
+      this.pushVariableStatementsToMainFunction();
+    if (this.type == 'napi')
+      this.body!.addStatement(...this.generateExportedBindings());
+  }
+
+  /**
    * Return whether top-level declarations can be added to this file.
    */
   canAddDeclaration(): boolean {
@@ -328,6 +340,26 @@ export default class CppFile {
     if (features.has('type-traits') && !hasHeadersUsingTypeTraits(allFeatures))
       headers.push({type: 'quoted', path: 'runtime/type_traits.h'});
     return [ printIncludes(headers) ];
+  }
+
+  /**
+   * Create kizunapi bindings for each exported declaration.
+   */
+  private generateExportedBindings(): syntax.Statement[] {
+    const bindings: syntax.Statement[] = [];
+    const anyType = syntax.Type.createAnyType();
+    for (const declaration of this.declarations.statements) {
+      bindings.push(new syntax.ExpressionStatement(new syntax.CallExpression(
+        syntax.Type.createVoidType(),
+        new syntax.Identifier(anyType, "Set", "ki"),
+        new syntax.CallArguments(
+          [ new syntax.Identifier(anyType, "env"),
+            new syntax.Identifier(anyType, "exports"),
+            new syntax.StringLiteral(declaration.name),
+            new syntax.Identifier(anyType, declaration.name) ],
+          [ anyType, anyType, anyType, anyType ]))));
+    }
+    return bindings;
   }
 }
 

@@ -169,6 +169,10 @@ export class Type {
     return new Type(name, 'void', modifiers);
   }
 
+  static createAnyType(modifiers?: TypeModifier[]) {
+    return new Type('_Any', 'any', modifiers);
+  }
+
   constructor(name: string, category: TypeCategory, modifiers?: TypeModifier[]) {
     this.name = name;
     this.category = category;

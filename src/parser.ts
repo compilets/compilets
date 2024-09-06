@@ -84,10 +84,7 @@ export default class Parser {
           cppFile.addStatement(this.parseStatement(node as ts.Statement));
           return;
         case ts.SyntaxKind.EndOfFileToken:
-          if (cppFile.type == 'lib')
-            cppFile.pushVariableStatementsToDeclarations();
-          else
-            cppFile.pushVariableStatementsToMainFunction();
+          cppFile.endOfFile();
           return;
         // The interfaces are parsed on the fly when we see object literals.
         case ts.SyntaxKind.InterfaceDeclaration:

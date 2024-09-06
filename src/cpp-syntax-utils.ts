@@ -220,10 +220,6 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   if (type.category == 'null') {
     return 'std::nullptr_t';
   }
-  // The any type is not supported yet but it shows in signatures.
-  if (type.category == 'any') {
-    return '_Any';
-  }
   // The remainings are class and primitive types.
   let name = type.name;
   // Add namespace.
