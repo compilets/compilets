@@ -278,17 +278,6 @@ inline std::u16string ToStringImpl(Array<T>* arr) {
   return result;
 }
 
-// Convert one array to another.
-template<typename Target, typename T>
-inline Array<Target>* Cast(Array<T>* arr) {
-  if constexpr (std::is_same_v<Target, T>)
-    return arr;
-  std::vector<Target> elements;
-  for (const T& element : arr->value())
-    elements.push_back(Cast<Target>(element));
-  return MakeArray<Target>(std::move(elements));
-}
-
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_ARRAY_H_

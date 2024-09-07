@@ -42,14 +42,6 @@ inline std::u16string ToStringImpl(Object* value) {
   return u"<object>";
 }
 
-// Only enable casting pointers when they have inheritance relationship.
-template<typename Target, typename T>
-inline Target* Cast(T* value) {
-  static_assert(std::is_base_of_v<Target, T> || std::is_base_of_v<T, Target>,
-                "Pointers being casted must have inheritance relationship");
-  return static_cast<Target*>(value);
-}
-
 // Make T* for objects.
 template<typename T>
 struct Value<T, std::enable_if_t<std::is_base_of_v<Object, T>>> {

@@ -54,39 +54,6 @@ inline std::u16string ToString(const T& value) {
   }, value);
 }
 
-// Convert value from one type to another.
-template<typename T>
-inline T Cast(T value) {
-  return std::move(value);
-}
-
-template<typename Target, typename T>
-inline Target Cast(T&& value) {
-  return Target(std::forward<T>(value));
-}
-
-// Whether the type is an optional.
-template<typename T>
-struct IsOptional : std::false_type {};
-
-template<typename T>
-struct IsOptional<std::optional<T>> : std::true_type {};
-
-// Check if a type is cppgc::Member.
-template<typename T>
-struct IsCppgcMember : std::false_type {};
-template<typename T>
-struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
-
-// Read value from optional.
-template<typename T>
-inline T GetOptionalValue(T value) {
-  if constexpr (IsOptional<T>::value)
-    return std::move(value.value());
-  else
-    return std::move(value);
-}
-
 // Determine whether an value should evaluate to true in conditions.
 template<typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
 inline bool IsTrueImpl(T value) { return value; }
@@ -146,6 +113,17 @@ inline bool Equal(const T& left, const U& right) {
   }, left);
 }
 
+// Read value from optional.
+template<typename T>
+inline const T& GetOptionalValue(const std::optional<T>& value) {
+  return std::move(value.value());
+}
+
+template<typename T>
+inline const T& GetOptionalValue(const T& value) {
+  return value;
+}
+
 // Receive the value type for T.
 template<typename T, typename enable = void>
 struct Value {
@@ -181,6 +159,12 @@ struct OptionalCppgcMember {
 
 template<typename T, typename enable = void>
 using OptionalCppgcMemberType = OptionalCppgcMember<T, enable>::Type;
+
+// Check if a type is cppgc::Member.
+template<typename T>
+struct IsCppgcMember : std::false_type {};
+template<typename T>
+struct IsCppgcMember<cppgc::Member<T>> : std::true_type {};
 
 // Check if a type is cppgc::Member or contains one.
 template<typename T>

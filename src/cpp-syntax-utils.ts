@@ -134,11 +134,7 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
   // In C++ interfaces are not compatible with other types.
   if (source.category == 'interface' || target.category == 'interface')
     throw new Error('Can not convert type from/to interfaces');
-  // Use the universal Cast function.
-  return new CustomExpression(target, (ctx) => {
-    expr.type.markUsed(ctx);
-    return `compilets::Cast<${target.print(ctx)}>(${expr.print(ctx)})`;
-  });
+  throw new Error(`Can not convert type "${source.name}" to type "${target.name}"`);
 }
 
 /**
