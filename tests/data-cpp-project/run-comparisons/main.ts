@@ -16,7 +16,9 @@ if (unionNumberString != unionNumberString)
   process.exit(2);
 if (unionNumberString !== unionNumberString)
   process.exit(2);
-if (unionNumberString !== null)
+if (unionNumberString != null)
+  process.exit(2);
+if (unionNumberString === null)
   process.exit(2);
 if (unionNumberString !== undefined)
   process.exit(2);
@@ -28,7 +30,9 @@ if (unionNumberString === optionalNumber)
 optionalNumber = undefined;
 if (optionalNumber)
   process.exit(3);
-if (optionalNumber !== null)
+if (optionalNumber != null)
+  process.exit(3);
+if (optionalNumber === null)
   process.exit(3);
 if (optionalNumber !== undefined)
   process.exit(3);

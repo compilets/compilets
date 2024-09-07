@@ -16,12 +16,10 @@ class LinkNode : public compilets::Object {
 };
 
 void TestUndefined() {
-  std::nullptr_t undef = nullptr;
-  std::nullptr_t nul = nullptr;
   std::optional<double> orUndefined = 123;
   orUndefined = std::nullopt;
-  std::optional<double> orNull;
-  orNull = std::nullopt;
+  compilets::Union<compilets::Null, double> orNull;
+  orNull = compilets::Null{};
   compilets::Union<std::monostate, double, bool> optionalUnion;
   optionalUnion = std::monostate{};
   LinkNode* node = compilets::MakeObject<LinkNode>();

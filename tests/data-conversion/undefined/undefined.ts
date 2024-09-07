@@ -1,12 +1,9 @@
 class LinkNode {
   item: number | boolean | undefined;
-  next: LinkNode | null;
+  next: LinkNode | undefined;
 }
 
 function TestUndefined() {
-  let undef = undefined;
-  let nul = null;
-
   let orUndefined: number | undefined = 123;
   orUndefined = undefined;
   let orNull: number | null;
@@ -17,5 +14,5 @@ function TestUndefined() {
   let node = new LinkNode;
   node.item = true;
   node.next = new LinkNode;
-  node.next = null;
+  node.next = undefined;
 }

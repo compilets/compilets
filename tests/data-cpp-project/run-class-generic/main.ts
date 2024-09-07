@@ -16,6 +16,6 @@ class Owner<T> {
 // compilets: persistent
 const o = new Owner(new Member());
 gc();
-o = null;
+o = undefined;
 gc();
 process.exit(1);

@@ -193,8 +193,8 @@ export function castArguments(args: Expression[], parameters: Type[]) {
 export function castUnion(expr: Expression, target: Type, source: Type): Expression {
   // From non-union to union.
   if (source.category != 'union' && target.category == 'union') {
-    // Convert null to std::monostate.
-    if (source.category == 'null')
+    // Convert undefined to std::monostate.
+    if (source.category == 'undefined')
       return new CustomExpression(target, (ctx) => 'std::monostate{}');
     // Find the target subtype and do an explicit conversion.
     const subtype = target.types.find(t => t.equal(source));
@@ -230,8 +230,8 @@ export function castOptional(expr: Expression, target: Type, source: Type): Expr
       });
     }
   }
-  // Convert null to std::nullopt.
-  if (source.category == 'null' && target.isStdOptional()) {
+  // Convert undefined to std::nullopt.
+  if (source.category == 'undefined' && target.isStdOptional()) {
     if (target.isProperty)
       return expr;
     return new CustomExpression(target, (ctx) => 'std::nullopt');

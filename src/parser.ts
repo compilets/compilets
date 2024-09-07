@@ -118,8 +118,8 @@ export default class Parser {
         return new syntax.StringLiteral((node as ts.StringLiteral).text);
       case ts.SyntaxKind.Identifier: {
         const type = this.typer.parseNodeType(node);
-        const text = type.category == 'null' ? 'nullptr' : node.getText();
-        return new syntax.Identifier(type, text, this.typer.getNodeNamespace(node));
+        const text = type.category == 'undefined' ? 'nullptr' : node.getText();
+        return new syntax.Identifier(type, text, this.typer.getNodeNamespace(node))
       }
       case ts.SyntaxKind.TemplateExpression: {
         // `prefix${value}`

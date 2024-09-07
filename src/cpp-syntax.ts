@@ -65,7 +65,25 @@ export class StringLiteral extends RawExpression {
 
 export class NullKeyword extends RawExpression {
   constructor() {
-    super(new Type('null', 'null'), 'nullptr');
+    super(Type.createNullType(), 'compilets::Null{}');
+  }
+}
+
+export class UndefinedKeyword extends Expression {
+  targetType: Type;
+
+  constructor(targetType: Type) {
+    super(Type.createUndefinedType());
+    this.targetType = targetType;
+  }
+
+  override print(ctx: PrintContext) {
+    if (this.targetType.category == 'undefined' || this.targetType.isStdOptional())
+      return 'std::nullopt';
+    else if (this.targetType.category == 'union')
+      return 'std::monostate{}';
+    else
+      return 'nullptr';
   }
 }
 
@@ -612,7 +630,7 @@ export class VariableDeclaration extends Declaration {
       this.initializer = castExpression(initializer, type);
     } else if (type.isObject()) {
       // Make sure pointers are initialized to nullptr.
-      this.initializer = castExpression(new NullKeyword(), type);
+      this.initializer = new UndefinedKeyword(type);
     }
   }
 

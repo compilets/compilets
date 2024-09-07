@@ -291,11 +291,6 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
       types.unshift('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;
   }
-  // The null means many types in C++, in the occasional cases where it needs
-  // to be printed, use std::nullptr_t.
-  if (type.category == 'null') {
-    return 'std::nullptr_t';
-  }
   // The remainings are class and primitive types.
   let name = type.name;
   // Add namespace.

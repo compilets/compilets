@@ -17,6 +17,6 @@ a.next = b;
 b.next = c;
 c.next = a;
 gc();
-a = null;
+a = undefined;
 gc();
 process.exit(LinkNode.count == 3 ? 0 : 1);

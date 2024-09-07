@@ -20,6 +20,6 @@ let base = new Derived();
 if (base.method() != "derived")
   process.exit(2);
 gc();
-base = null;
+base = undefined;
 gc();
 process.exit(1);

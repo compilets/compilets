@@ -12,6 +12,6 @@ class Owner {
 // compilets: persistent
 let owner = new Owner;
 gc();
-owner = null;
+owner = undefined;
 gc();
 process.exit(1);

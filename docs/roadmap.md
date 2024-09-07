@@ -20,7 +20,6 @@
 
 ## Long term plans
 
-* Differentiate `null` and `undefined`
 * Optional fields in `interface`
 * `namespace`
 * `enum`

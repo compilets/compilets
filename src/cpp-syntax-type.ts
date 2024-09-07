@@ -19,10 +19,11 @@ import {
   joinArray,
 } from './js-utils';
 
-export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
-                           'array' | 'functor' | 'function' | 'method' |
-                           'class' | 'interface' | 'external' | 'super' |
-                           'namespace' | 'template' | 'any';
+export type TypeCategory = 'void' | 'null' | 'undefined' | 'primitive' |
+                           'string' | 'union' | 'array' | 'functor' |
+                           'function' | 'method' | 'class' | 'interface' |
+                           'external' | 'super' | 'namespace' | 'template' |
+                           'any';
 export type TypeModifier = 'variadic' | 'optional' | 'external' | 'property' |
                            'static' | 'element' | 'persistent' | 'not-function';
 
@@ -61,6 +62,14 @@ export class Type {
 
   static createVoidType(name = 'void', modifiers?: TypeModifier[]) {
     return new Type(name, 'void', modifiers);
+  }
+
+  static createNullType(modifiers?: TypeModifier[]) {
+    return new Type('compilets::Null', 'null', modifiers);
+  }
+
+  static createUndefinedType(modifiers?: TypeModifier[]) {
+    return new Type('std::nullopt_t', 'undefined', modifiers);
   }
 
   static createAnyType(modifiers?: TypeModifier[]) {
@@ -142,8 +151,8 @@ export class Type {
     if (this.category == 'array' && other.category == 'array') {
       return this.getElementType().assignableWith(other.getElementType());
     }
-    // Object can always be assigned with null.
-    if (this.isObject() && other.category == 'null') {
+    // Object can always be assigned with undefined.
+    if (this.isObject() && other.category == 'undefined') {
       return true;
     }
     // Derived class can be assigned to base class.
@@ -316,6 +325,7 @@ export class Type {
   isTriviallyDestructible(): boolean {
     return this.category == 'void' ||
            this.category == 'null' ||
+           this.category == 'undefined' ||
            this.category == 'primitive';
   }
 

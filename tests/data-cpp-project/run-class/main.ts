@@ -8,6 +8,6 @@ class A {
 // compilets: persistent
 const a = new A();
 gc();
-a = null;
+a = undefined;
 gc();
 process.exit(1);

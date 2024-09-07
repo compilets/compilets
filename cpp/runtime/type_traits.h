@@ -10,7 +10,8 @@
 
 namespace compilets {
 
-class String;
+// The "null" type in JS.
+struct Null {};
 
 // Check if type is any numeric type but double.
 template<typename T>
@@ -71,6 +72,8 @@ inline bool IsTrue(const T& value) {
 }
 
 // Defines the === operator of TypeScript.
+class String;
+inline bool StrictEqualImpl(Null, Null) { return true; }
 inline bool StrictEqualImpl(std::nullopt_t, std::nullopt_t) { return true; }
 inline bool StrictEqualImpl(const char16_t* left, const String& right);
 
@@ -92,6 +95,8 @@ inline bool StrictEqual(const T& left, const U& right) {
 }
 
 // Defines the == operator of TypeScript.
+inline bool EqualImpl(Null, std::nullopt_t) { return true; }
+inline bool EqualImpl(std::nullopt_t, Null) { return true; }
 inline bool EqualImpl(double left, const String& right);
 inline bool EqualImpl(double left, const char16_t* right);
 inline bool EqualImpl(const char16_t* left, double right);

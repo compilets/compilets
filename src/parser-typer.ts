@@ -123,8 +123,10 @@ export default class Typer {
     // Check builtin types.
     if (flags & (ts.TypeFlags.Never | ts.TypeFlags.Void))
       return syntax.Type.createVoidType(name, modifiers);
-    if (flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined))
-      return new syntax.Type(name, 'null', modifiers);
+    if (flags & ts.TypeFlags.Null)
+      return syntax.Type.createNullType(modifiers);
+    if (flags & ts.TypeFlags.Undefined)
+      return syntax.Type.createUndefinedType(modifiers);
     if (flags & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral))
       return syntax.Type.createBooleanType(modifiers);
     if (flags & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral))
@@ -266,32 +268,24 @@ export default class Typer {
     if (union.types.every(t => t.getFlags() & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)))
       return syntax.Type.createBooleanType(modifiers);
     // Iterate all subtypes and add unique ones to cppType.
-    let hasNull = false;
     let hasUndefined = false;
     let cppType = new syntax.Type(name, 'union', modifiers);
     for (const t of union.types) {
       const subtype = this.parseType(t, location, modifiers?.filter(m => m == 'property' || m == 'element'));
-      if (subtype.category == 'null') {
-        if (subtype.name == 'null')
-          hasNull = true;
-        else if (subtype.name == 'undefined')
-          hasUndefined = true;
-      }
+      if (subtype.category == 'undefined')
+        hasUndefined = true;
       if (!cppType.types.find(s => s.equal(subtype)))
         cppType.types.push(subtype);
     }
-    // Null and undefined are treated as the same thing in C++.
-    if (hasNull && hasUndefined && !cppType.isExternal)
-      throw new Error('Can not include both null and undefined in one union');
-    if (hasNull || hasUndefined) {
+    if (hasUndefined) {
       // Treat as optional type if type is something like "number | undefined".
       if (cppType.types.length == 2)
-        cppType = cppType.types.find(t => t.category != 'null')!;
+        cppType = cppType.types.find(t => t.category != 'undefined')!;
       cppType.isOptional = true;
     }
-    // Make sure optional union type does not have null in the subtypes.
+    // Make sure optional union type does not have undefined in the subtypes.
     if (cppType.category == 'union' && cppType.isOptional)
-      cppType.types = cppType.types.filter(t => t.category != 'null');
+      cppType.types = cppType.types.filter(t => t.category != 'undefined');
     return cppType;
   }
 
