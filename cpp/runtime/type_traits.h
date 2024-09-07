@@ -10,6 +10,14 @@
 
 namespace compilets {
 
+class String;
+
+// Check if type is any numeric type but double.
+template<typename T>
+constexpr bool IsNonDoubleNumericV = std::is_arithmetic_v<T> &&
+                                     !std::is_same_v<T, bool> &&
+                                     !std::is_same_v<T, double>;
+
 // This is similar to std::visit, except that it also walks through scalars and
 // cppgc::Member and std::optional.
 template<typename F, typename T>
@@ -29,8 +37,8 @@ template<typename F, typename T>
 auto Visit(F&& visitor, const cppgc::Member<T>& value) {
   if (value)
     return visitor(value.Get());
-  else
-    return visitor(nullptr);
+  else  // pass nullopt instead of monostate to visitor
+    return visitor(std::nullopt);
 }
 
 // Convert value to string.
@@ -64,12 +72,6 @@ struct IsOptional : std::false_type {};
 template<typename T>
 struct IsOptional<std::optional<T>> : std::true_type {};
 
-// Check if type is any numeric type but double.
-template<typename T>
-constexpr bool IsNonDoubleNumericV = std::is_arithmetic_v<T> &&
-                                     !std::is_same_v<T, bool> &&
-                                     !std::is_same_v<T, double>;
-
 // Check if a type is cppgc::Member.
 template<typename T>
 struct IsCppgcMember : std::false_type {};
@@ -86,70 +88,62 @@ inline T GetOptionalValue(T value) {
 }
 
 // Determine whether an value should evaluate to true in conditions.
+template<typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+inline bool IsTrueImpl(T value) { return value; }
+template<typename T>
+inline bool IsTrueImpl(T* value) { return value; }
+inline bool IsTrueImpl(std::nullopt_t) { return false; }
+
 template<typename T>
 inline bool IsTrue(const T& value) {
-  if constexpr (IsOptional<T>::value)
-    return value && IsTrue(value.value());
-  else
-    return value;
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (requires(const U& t) { IsTrueImpl(t); })
+      return IsTrueImpl(arg);
+    return false;
+  }, value);
 }
 
 // Defines the === operator of TypeScript.
-template<typename T>
-inline bool StrictEqual(const T& left, const T& right) {
-  return left == right;
-}
+inline bool StrictEqualImpl(std::nullopt_t, std::nullopt_t) { return true; }
+inline bool StrictEqualImpl(const char16_t* left, const String& right);
 
 template<typename T, typename U>
 inline bool StrictEqual(const T& left, const U& right) {
-  // Compare the values of optionals.
-  if constexpr (IsOptional<T>::value) {
-    if (left)
-      return StrictEqual(left.value(), right);
-    else
-      return StrictEqual(std::nullopt, right);
-  }
-  if constexpr (IsOptional<U>::value) {
-    return StrictEqual(right, left);
-  }
-  // Handle numeric types other than double.
-  if constexpr (IsNonDoubleNumericV<T>) {
-    return StrictEqual(static_cast<double>(left), right);
-  }
-  if constexpr (IsNonDoubleNumericV<U>) {
-    return StrictEqual(left, static_cast<double>(right));
-  }
-  // Comparing different types defaults to fail.
-  return false;
+  return Visit([&right]<typename A>(const A& a) {
+    return Visit([&a]<typename B>(const B& b) {
+      if constexpr (std::is_same_v<A, std::nullptr_t>)
+        return StrictEqual(std::nullopt, b);
+      if constexpr (std::is_same_v<B, std::nullptr_t>)
+        return StrictEqual(a, std::nullopt);
+      if constexpr (requires(const A& x, const B& y) { StrictEqualImpl(x, y); })
+        return StrictEqualImpl(a, b);
+      if constexpr (requires(const A& x, const B& y) { x == y; })
+        return a == b;
+      return false;
+    }, right);
+  }, left);
 }
 
 // Defines the == operator of TypeScript.
-template<typename T>
-inline bool Equal(const T& left, const T& right) {
-  return StrictEqual(left, right);
-}
+inline bool EqualImpl(double left, const String& right);
+inline bool EqualImpl(double left, const char16_t* right);
+inline bool EqualImpl(const char16_t* left, double right);
 
 template<typename T, typename U>
 inline bool Equal(const T& left, const U& right) {
-  // Compare the values of optionals.
-  if constexpr (IsOptional<T>::value) {
-    if (left)
-      return Equal(left.value(), right);
-    else
-      return Equal(std::nullopt, right);
-  }
-  if constexpr (IsOptional<U>::value) {
-    return Equal(right, left);
-  }
-  // Handle numeric types other than double.
-  if constexpr (IsNonDoubleNumericV<T>) {
-    return Equal(static_cast<double>(left), right);
-  }
-  if constexpr (IsNonDoubleNumericV<U>) {
-    return Equal(left, static_cast<double>(right));
-  }
-  // Comparing different types defaults to fail.
-  return false;
+  return Visit([&right]<typename A>(const A& a) {
+    return Visit([&a]<typename B>(const B& b) {
+      if constexpr (IsNonDoubleNumericV<A>)
+        return Equal(static_cast<double>(a), b);
+      if constexpr (IsNonDoubleNumericV<B>)
+        return Equal(a, static_cast<double>(b));
+      if constexpr (requires(const A& x, const B& y) { EqualImpl(x, y); })
+        return EqualImpl(a, b);
+      if constexpr (requires(const A& x, const B& y) { StrictEqual(x, y); })
+        return StrictEqual(a, b);
+      return false;
+    }, right);
+  }, left);
 }
 
 // Receive the value type for T.
@@ -193,24 +187,5 @@ template<typename T>
 struct HasCppgcMember : IsCppgcMember<T> {};
 
 }  // namespace compilets
-
-namespace std {
-
-// Types that are treated as null.
-//
-// Defined in std namespace so they can be found via argument-dependent lookup,
-// which is visible to template versions of StrictEqual wherever they are
-// defined. If we put it in compilets namespace, these overloads will not be
-// visible to template functions defined before them.
-inline bool StrictEqual(std::nullptr_t, std::nullptr_t) { return true; }
-inline bool StrictEqual(std::nullptr_t, std::nullopt_t) { return true; }
-inline bool StrictEqual(std::nullopt_t, std::nullopt_t) { return true; }
-inline bool StrictEqual(std::nullopt_t, std::nullptr_t) { return true; }
-inline bool Equal(std::nullptr_t, std::nullptr_t) { return true; }
-inline bool Equal(std::nullptr_t, std::nullopt_t) { return true; }
-inline bool Equal(std::nullopt_t, std::nullopt_t) { return true; }
-inline bool Equal(std::nullopt_t, std::nullptr_t) { return true; }
-
-}  // namespace std
 
 #endif  // CPP_RUNTIME_TYPE_TRAITS_H_

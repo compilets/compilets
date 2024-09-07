@@ -12,7 +12,7 @@ class Wrapper : public compilets::Object {
   compilets::CppgcMemberType<T> member;
   compilets::OptionalCppgcMemberType<T> optionalMember;
   compilets::Union<compilets::CppgcMemberType<T>, compilets::CppgcMemberType<U>> unionMember;
-  compilets::Union<compilets::CppgcMemberType<T>, compilets::CppgcMemberType<U>, std::monostate> optionalUnionMember;
+  compilets::Union<std::monostate, compilets::CppgcMemberType<T>, compilets::CppgcMemberType<U>> optionalUnionMember;
   cppgc::Member<compilets::Array<compilets::CppgcMemberType<T>>> arrayMember = compilets::MakeArray<compilets::CppgcMemberType<T>>({});
 
   virtual void method() {
@@ -54,7 +54,7 @@ void TestGenericClass() {
   primitive->take(n);
   std::optional<double> optionalNumber = primitive->optionalMember;
   compilets::Union<double, bool> numberOrBool = primitive->unionMember;
-  compilets::Union<double, bool, std::monostate> numberOrBoolOrNull = primitive->optionalUnionMember;
+  compilets::Union<std::monostate, double, bool> numberOrBoolOrNull = primitive->optionalUnionMember;
   compilets::Array<double>* numberArray = primitive->arrayMember;
   Wrapper<Item, bool>* nested = compilets::MakeObject<Wrapper<Item, bool>>();
   nested->take(compilets::MakeObject<Item>());
@@ -67,7 +67,7 @@ void TestGenericClass() {
   nested->take(item);
   Item* optionalItem = nested->optionalMember;
   compilets::Union<bool, Item*> itemOrBool = nested->unionMember;
-  compilets::Union<bool, Item*, std::monostate> itemOrBoolOrNull = nested->optionalUnionMember;
+  compilets::Union<std::monostate, bool, Item*> itemOrBoolOrNull = nested->optionalUnionMember;
   compilets::Array<cppgc::Member<Item>>* itemArray = nested->arrayMember;
 }
 

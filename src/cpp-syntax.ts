@@ -610,9 +610,8 @@ export class VariableDeclaration extends Declaration {
     if (initializer) {
       // Make sure initializer is casted to the variable type.
       this.initializer = castExpression(initializer, type);
-    } else if (type.isObject() ||
-               (type.category == 'union' && type.isOptional)) {
-      // Make sure pointers and unions are initialized to nullptr.
+    } else if (type.isObject()) {
+      // Make sure pointers are initialized to nullptr.
       this.initializer = castExpression(new NullKeyword(), type);
     }
   }

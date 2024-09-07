@@ -44,7 +44,7 @@ String::ToNumberResult String::ToNumber() const {
   return {error == std::errc(), d};
 }
 
-bool Equal(const String& left, double right) {
+bool EqualImpl(const String& left, double right) {
   auto [success, result] = left.ToNumber();
   if (!success)
     return false;

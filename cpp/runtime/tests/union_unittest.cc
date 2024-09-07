@@ -14,7 +14,7 @@ static_assert(HasCppgcMember<Union<double, bool>>::value == false);
 static_assert(
     HasCppgcMember<Union<double, cppgc::Member<double>>>::value == true);
 
-TEST_F(UnionTest, Equal) {
+TEST_F(UnionTest, UnionEqualNumber) {
   Union<String, double> n = 123.;
   EXPECT_TRUE(Equal(n, n));
   EXPECT_TRUE(Equal(n, 123));
@@ -33,7 +33,7 @@ TEST_F(UnionTest, Equal) {
   EXPECT_TRUE(Equal(o, n));
 }
 
-TEST_F(UnionTest, StrictEqual) {
+TEST_F(UnionTest, UnionStrictEqualNumber) {
   Union<String, double> n = 123.;
   EXPECT_TRUE(StrictEqual(n, n));
   EXPECT_TRUE(StrictEqual(n, 123));
@@ -46,6 +46,14 @@ TEST_F(UnionTest, StrictEqual) {
   std::optional<String> s = u"123";
   EXPECT_FALSE(StrictEqual(n, s));
   EXPECT_FALSE(StrictEqual(s, n));
+}
+
+TEST_F(UnionTest, UnionEqualUnion) {
+  Union<std::monostate, String, double> n;
+  EXPECT_TRUE(Equal(n, n));
+  EXPECT_TRUE(StrictEqual(n, n));
+  EXPECT_TRUE(StrictEqual(n, std::nullopt));
+  EXPECT_TRUE(StrictEqual(n, nullptr));
 }
 
 TEST_F(UnionTest, Ordering) {

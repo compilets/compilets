@@ -90,34 +90,28 @@ inline const std::u16string& ToStringImpl(const String& str) {
 }
 
 // String evaluates true when not empty.
-inline bool IsTrue(const String& str) {
+inline bool IsTrueImpl(const String& str) {
   return str.length > 0;
 }
 
 // Support loose comparisons with numbers.
-bool Equal(const String& left, double right);
-inline bool Equal(double left, const String& right) {
+bool EqualImpl(const String& left, double right);
+inline bool EqualImpl(double left, const String& right) {
   return Equal(right, left);
 }
 
 // Handle string literals for comparisons.
-inline bool Equal(const String& left, const char16_t* right) {
+inline bool StrictEqualImpl(const String& left, const char16_t* right) {
   return left == right;
 }
-inline bool Equal(const char16_t* left, const String& right) {
+inline bool StrictEqualImpl(const char16_t* left, const String& right) {
   return right == left;
 }
-inline bool Equal(double left, const char16_t* right) {
+inline bool EqualImpl(double left, const char16_t* right) {
   return Equal(left, String(right));
 }
-inline bool Equal(const char16_t* left, double right) {
+inline bool EqualImpl(const char16_t* left, double right) {
   return Equal(String(left), right);
-}
-inline bool StrictEqual(const String& left, const char16_t* right) {
-  return left == right;
-}
-inline bool StrictEqual(const char16_t* left, const String& right) {
-  return right == left;
 }
 
 // Operators for string.

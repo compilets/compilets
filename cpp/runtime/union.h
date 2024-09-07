@@ -61,56 +61,15 @@ inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
   }, member);
 }
 
+// Pass compilets::Visit to std::visit.
 template<typename F, typename... Ts>
 auto Visit(F&& visitor, const Union<Ts...>& value) {
+  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
+    // Pass nullopt instead of monostate to visitor.
+    if (std::holds_alternative<std::monostate>(value))
+      return visitor(std::nullopt);
+  }
   return std::visit(visitor, value);
-}
-
-// Whether union evaluates to true depends on its subtypes and monostate.
-inline bool IsTrue(std::monostate) {
-  return false;
-}
-
-template<typename... Ts>
-inline bool IsTrue(const Union<Ts...>& value) {
-  return std::visit([](auto&& arg) { return IsTrue(arg); }, value);
-}
-
-// Comparing unions.
-template<typename... Ts, typename U,
-         typename = std::enable_if_t<!std::is_same_v<Union<Ts...>, U>>>
-inline bool StrictEqual(const Union<Ts...>& left, const U& right) {
-  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
-    if (std::holds_alternative<std::monostate>(left))
-      return StrictEqual(std::monostate(), right);
-  }
-  return std::visit([&right](const auto& arg) {
-    return StrictEqual(arg, right);
-  }, left);
-}
-
-template<typename T, typename... Us,
-         typename = std::enable_if_t<!IsUnion<T>::value>>
-inline bool StrictEqual(const T& left, const Union<Us...>& right) {
-  return StrictEqual(right, left);
-}
-
-template<typename... Ts, typename U,
-         typename = std::enable_if_t<!std::is_same_v<Union<Ts...>, U>>>
-inline bool Equal(const Union<Ts...>& left, const U& right) {
-  if constexpr (IsUnionMember<std::monostate, Union<Ts...>>::value) {
-    if (std::holds_alternative<std::monostate>(left))
-      return Equal(std::monostate(), right);
-  }
-  return std::visit([&right](const auto& arg) {
-    return Equal(arg, right);
-  }, left);
-}
-
-template<typename T, typename... Us,
-         typename = std::enable_if_t<!IsUnion<T>::value>>
-inline bool Equal(const T& left, const Union<Us...>& right) {
-  return Equal(right, left);
 }
 
 // Replace T with cppgc::Member<T>.
@@ -133,23 +92,5 @@ std::partial_ordering operator<=>(const Union<Ts...>& left, const U& right) {
 }
 
 }  // namespace compilets
-
-namespace std {
-
-// Types that are treated as null.
-//
-// Check type_traits.h on why they are defined in std namespace.
-inline bool StrictEqual(std::monostate, std::monostate) { return true; }
-inline bool StrictEqual(std::monostate, std::nullptr_t) { return true; }
-inline bool StrictEqual(std::nullptr_t, std::monostate) { return true; }
-inline bool StrictEqual(std::monostate, std::nullopt_t) { return true; }
-inline bool StrictEqual(std::nullopt_t, std::monostate) { return true; }
-inline bool Equal(std::monostate, std::monostate) { return true; }
-inline bool Equal(std::monostate, std::nullptr_t) { return true; }
-inline bool Equal(std::nullptr_t, std::monostate) { return true; }
-inline bool Equal(std::monostate, std::nullopt_t) { return true; }
-inline bool Equal(std::nullopt_t, std::monostate) { return true; }
-
-}  // namespace std
 
 #endif  // CPP_RUNTIME_UNION_H_

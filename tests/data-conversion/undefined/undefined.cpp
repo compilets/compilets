@@ -5,7 +5,7 @@ namespace {
 
 class LinkNode : public compilets::Object {
  public:
-  compilets::Union<double, bool, std::monostate> item;
+  compilets::Union<std::monostate, double, bool> item;
   cppgc::Member<LinkNode> next;
 
   void Trace(cppgc::Visitor* visitor) const override {
@@ -22,7 +22,7 @@ void TestUndefined() {
   orUndefined = std::nullopt;
   std::optional<double> orNull;
   orNull = std::nullopt;
-  compilets::Union<double, bool, std::monostate> optionalUnion = std::monostate{};
+  compilets::Union<std::monostate, double, bool> optionalUnion;
   optionalUnion = std::monostate{};
   LinkNode* node = compilets::MakeObject<LinkNode>();
   node->item = true;

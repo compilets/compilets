@@ -286,8 +286,9 @@ export function printTypeName(type: Type, ctx: PrintContext): string {
   // Add wrapper for union.
   if (type.category == 'union') {
     const types = type.types!.map(t => printTypeNameForDeclaration(t.noProperty(), ctx));
+    // Make monostate always appear at first so the union defaults to undefined.
     if (type.isOptional)
-      types.push('std::monostate');
+      types.unshift('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;
   }
   // The null means many types in C++, in the occasional cases where it needs
@@ -350,7 +351,7 @@ export function printTypeNameForDeclaration(type: Type, ctx: PrintContext): stri
   if (type.category == 'union') {
     const types = type.types!.map(t => printTypeNameForDeclaration(t, ctx));
     if (type.isOptional)
-      types.push('std::monostate');
+      types.unshift('std::monostate');
     return `compilets::Union<${types.join(', ')}>`;
   }
   // Other types are the same with their formal C++ type name.

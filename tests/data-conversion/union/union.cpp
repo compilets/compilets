@@ -2,7 +2,7 @@
 
 namespace {
 
-void TakeOptionalUnion(compilets::Union<double, bool, std::monostate> a) {
+void TakeOptionalUnion(compilets::Union<std::monostate, double, bool> a) {
   if (!compilets::IsTrue(a)) {}
 }
 
