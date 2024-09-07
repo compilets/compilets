@@ -4,8 +4,10 @@ class LinkNode {
 }
 
 function TestUndefined() {
+  let undef = undefined;
   let orUndefined: number | undefined = 123;
   orUndefined = undefined;
+  orUndefined = undef;
   let orNull: number | null;
   orNull = null;
   let optionalUnion: number | boolean | undefined;

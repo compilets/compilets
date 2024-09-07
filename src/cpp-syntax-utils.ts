@@ -4,6 +4,7 @@ import {
   Expression,
   RawExpression,
   NumericLiteral,
+  UndefinedKeyword,
   ArrayLiteralExpression,
   ConditionalExpression,
   CustomExpression,
@@ -126,6 +127,12 @@ export function castExpression(expr: Expression, target: Type, source?: Type): E
     return new CustomExpression(target, (ctx) => {
       return `static_cast<${target.name}>(${expr.print(ctx)})`;
     });
+  }
+  // Convert undefined to target types.
+  if (source.category == 'undefined') {
+    if (expr instanceof UndefinedKeyword && expr.targetType?.equal(target))
+      return expr;
+    return new UndefinedKeyword(target);
   }
   // Whether the types can be assigned without any explicit conversion.
   if (target.assignableWith(source)) {

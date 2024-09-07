@@ -16,7 +16,9 @@ class LinkNode : public compilets::Object {
 };
 
 void TestUndefined() {
+  std::nullopt_t undef = std::nullopt;
   std::optional<double> orUndefined = 123;
+  orUndefined = std::nullopt;
   orUndefined = std::nullopt;
   compilets::Union<compilets::Null, double> orNull;
   orNull = compilets::Null{};

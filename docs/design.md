@@ -101,15 +101,14 @@ are always pointers regardless they are optional or not.
 
 ## `null` and `undefined`
 
-Unlike JavaScript, there is no undefined state for variables in C++, it is
-possible simulate `undefined` but it would be at the cost of performance.
+While C++ does not have `undefined` states for variables, many types provide a
+default state to represent the `undefined` state. For example `std::nullopt` of `std::optional`, `std::monostate` of `std::variant`, and `std::nullptr` of smart
+and non-smart pointers. The generated C++ code would choose the appropriate type
+for representing `undefined` depending on the context.
 
-Thus in Compilets both `null` and `undefined` are treated as null states of
-types: `std::nullopt` for `std::optional`, `std::monostate` for `std::variant`,
-`std::nullptr` for other pointer types. This will of course break some even
-strictly typed code, and to avoid generating incorrect code, errors will be
-thrown when the TypeScript code needs to strictly distinguish between `null`
-and `undefined`.
+For `null`, in JavaScript it is essentially an unique type not strictly equaling
+to any other type, with a specially `null == undefined` rule. In C++ we retain
+the same semantics by using a custom `compilets::Null` struct for `null`.
 
 ## String
 

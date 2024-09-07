@@ -70,14 +70,16 @@ export class NullKeyword extends RawExpression {
 }
 
 export class UndefinedKeyword extends Expression {
-  targetType: Type;
+  targetType?: Type;
 
-  constructor(targetType: Type) {
+  constructor(targetType?: Type) {
     super(Type.createUndefinedType());
     this.targetType = targetType;
   }
 
   override print(ctx: PrintContext) {
+    if (!this.targetType)
+      return 'nullptr';
     if (this.targetType.category == 'undefined' || this.targetType.isStdOptional())
       return 'std::nullopt';
     else if (this.targetType.category == 'union')
