@@ -84,6 +84,14 @@ class StringBuilder {
   std::u16string value_;
 };
 
+// Convert string to string.
+inline const std::u16string& ValueToString(const String& str) {
+  return str.value();
+}
+inline const char16_t* ValueToString(const char16_t* str) {
+  return str;
+}
+
 // String evaluates true when not empty.
 inline bool IsTrue(const String& str) {
   return str.length > 0;
@@ -127,6 +135,18 @@ std::partial_ordering operator<=>(const char16_t* left, const String& right) {
 }
 std::ostream& operator<<(std::ostream& os, const String& str);
 std::ostream& operator<<(std::ostream& os, const char16_t* str);
+
+// Make the number methods work with strings.
+namespace NumberConstructor {
+double parseFloat(const String& str);
+double parseFloat(const char16_t* str);
+double parseInt(const String& str);
+double parseInt(const char16_t* str);
+}
+using NumberConstructor::parseFloat;
+using NumberConstructor::parseInt;
+inline double Number(const String& str) { return parseFloat(str); }
+inline double Number(const char16_t* str) { return parseFloat(str); }
 
 }  // namespace compilets
 

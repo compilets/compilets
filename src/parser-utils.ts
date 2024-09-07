@@ -161,6 +161,20 @@ export function isExternalDeclaration(decl: ts.Declaration): boolean {
 }
 
 /**
+ * Return whether the declaration is a builtin interface like Math and Number.
+ */
+export function isBuiltinDeclaration(decl: ts.Declaration): boolean {
+  const sourceFile = decl.getSourceFile();
+  return sourceFile.isDeclarationFile &&
+         sourceFile.fileName.includes('/node_modules/typescript/lib/') &&
+         ts.isVariableDeclaration(decl) &&
+         ts.isIdentifier(decl.name) &&
+         (decl.name.text == 'Array' ||
+          decl.name.text == 'Math' ||
+          decl.name.text == 'Number');
+}
+
+/**
  * Return whether the declaration is marked as "export".
  */
 export function isExportedDeclaration(decl: ts.ClassDeclaration | ts.FunctionDeclaration): boolean {
@@ -207,20 +221,14 @@ export function isNodeJsType(type: ts.Type): boolean {
 }
 
 /**
- * Return if the type is the Math interface.
+ * Return if the type is builtin interface like Math and Number.
  */
-export function isMathInterface(type: ts.Type): boolean {
+export function isBuiltinInterfaceType(type: ts.Type): type is ts.InterfaceType {
   if (!isInterface(type))
     return false;
   if (!type.symbol || !type.symbol.valueDeclaration)
     return false;
-  const {valueDeclaration} = type.symbol;
-  const sourceFile = valueDeclaration.getSourceFile();
-  return sourceFile.isDeclarationFile &&
-         sourceFile.fileName.includes('/node_modules/typescript/lib/') &&
-         ts.isVariableDeclaration(valueDeclaration) &&
-         ts.isIdentifier(valueDeclaration.name) &&
-         valueDeclaration.name.text == 'Math';
+  return isBuiltinDeclaration(type.symbol.valueDeclaration);
 }
 
 /**
@@ -250,8 +258,6 @@ export function isFunctionLikeNode(node: ts.Node): node is FunctionLikeNode {
  * Return whether the type is a function.
  */
 export function isFunction(type: ts.Type): boolean {
-  if (isConstructor(type))
-    return false;
   return type.getCallSignatures().length > 0;
 }
 
@@ -268,10 +274,6 @@ export function isTemplateFunctor(type: syntax.Type): boolean {
  * generic class.
  */
 export function isClass(type: ts.Type): type is ts.GenericType {
-  if (isConstructor(type))
-    return true;
-  if (isMathInterface(type))
-    return true;
   if (!(type.flags & ts.TypeFlags.Object))
     return false;
   return ((type as ts.ObjectType).objectFlags & (ts.ObjectFlags.Class | ts.ObjectFlags.Reference)) != 0;

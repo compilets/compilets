@@ -12,7 +12,7 @@ export type PrintMode = 'impl' | 'header' | 'forward';
  */
 export type Feature = 'string' | 'union' | 'array' | 'function' | 'object' |
                       'converters' | 'runtime' | 'type-traits' | 'process' |
-                      'console' | 'math';
+                      'console' | 'math' | 'number';
 
 /**
  * Control indentation and other formating options when printing AST to C++.

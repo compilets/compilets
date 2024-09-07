@@ -12,7 +12,7 @@ class Console : public Object {
  public:
   template<typename... Args>
   void log(Args&&... args) {
-    ((std::cout << std::forward<Args>(args) << ' '), ...);
+    ((std::cout << ValueToString(std::forward<Args>(args)) << ' '), ...);
     std::cout << std::endl;
   }
 
@@ -23,7 +23,7 @@ class Console : public Object {
 
   template<typename... Args>
   void error(Args&&... args) {
-    ((std::cerr << std::forward<Args>(args) << ' '), ...);
+    ((std::cerr << ValueToString(std::forward<Args>(args)) << ' '), ...);
     std::cout << std::endl;
   }
 

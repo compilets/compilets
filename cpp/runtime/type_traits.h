@@ -36,9 +36,10 @@ struct IsOptional : std::false_type {};
 template<typename T>
 struct IsOptional<std::optional<T>> : std::true_type {};
 
-// Check if type is any numeric type but not double.
+// Check if type is any numeric type but double.
 template<typename T>
 constexpr bool IsNonDoubleNumericV = std::is_arithmetic_v<T> &&
+                                     !std::is_same_v<T, bool> &&
                                      !std::is_same_v<T, double>;
 
 // Check if a type is cppgc::Member.

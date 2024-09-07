@@ -13,5 +13,5 @@ export function manyPies() {
 }
 
 export function isPi(value: string | number) {
-  return value == Math.PI;
+  return Number(value) - Math.PI < 0.01;
 }

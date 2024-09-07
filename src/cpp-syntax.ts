@@ -288,6 +288,21 @@ export class ComparisonExpression extends Expression {
   }
 }
 
+export class AssignmentExpression extends Expression {
+  left: Expression;
+  right: Expression;
+
+  constructor(left: Expression, right: Expression) {
+    super(left.type);
+    this.left = left;
+    this.right = castExpression(right, left.type);
+  }
+
+  override print(ctx: PrintContext) {
+    return `${this.left.print(ctx)} = ${this.right.print(ctx)}`;
+  }
+}
+
 export class BinaryExpression extends Expression {
   left: Expression;
   right: Expression;
@@ -299,9 +314,6 @@ export class BinaryExpression extends Expression {
     this.right = right;
     this.operator = operator;
     this.shouldAddParenthesesForPropertyAccess = true;
-    // Assignment requires type conversion.
-    if (operator == '=')
-      this.right = castExpression(right, left.type);
   }
 
   override print(ctx: PrintContext) {
@@ -406,10 +418,12 @@ export class MethodCallExpression extends CallExpression {
     const {expression, member} = this.callee as PropertyAccessExpression;
     if (expression.type.isObject() || expression.type.category == 'string')
       return super.print(ctx);
+    if (expression.type.category == 'namespace')
+      return `${printTypeName(expression.type, ctx)}::${member}(${this.args.print(ctx)})`;
     if (expression.type.category == 'union') {
       // Accessing union's method with std::visit.
       const returnType = (this.callee.type as FunctionType).returnType.print(ctx);
-      return `std::visit([&](auto&& obj) -> ${returnType} { return obj->${member}(${this.args.print(ctx)}); }, ${expression.print(ctx)})`;
+      return `std::visit([&](auto&& _obj) -> ${returnType} { return _obj->${member}(${this.args.print(ctx)}); }, ${expression.print(ctx)})`;
     }
     throw new Error(`Unable to print method call for unsupported type ${expression.type.name}`);
   }
@@ -489,7 +503,7 @@ export class PropertyAccessExpression extends Expression {
     if (type.category == 'union') {
       const expression = this.expression.print(ctx);
       const returnType = this.type.print(ctx);
-      return `std::visit([](auto&& obj) -> ${returnType} { return obj->${this.member}; }, ${expression})`;
+      return `std::visit([](auto&& _obj) -> ${returnType} { return _obj->${this.member}; }, ${expression})`;
     }
     // For other types things fallback to usual C++ property access.
     let dot: string;
@@ -500,6 +514,8 @@ export class PropertyAccessExpression extends Expression {
         dot = '::';
       else
         dot = '->';
+    } else if (type.category == 'namespace') {
+      dot = '::';
     } else {
       dot = '.';
     }

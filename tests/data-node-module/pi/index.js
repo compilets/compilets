@@ -9,3 +9,4 @@ assert.deepStrictEqual(computePi({useCache: true}), {success: true, value: Math.
 assert.deepStrictEqual(manyPies(), new Array(5).fill(Math.PI));
 
 assert.ok(isPi(Math.PI));
+assert.ok(isPi(possiblePi));

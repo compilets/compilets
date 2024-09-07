@@ -23,9 +23,8 @@ export type TypeCategory = 'void' | 'null' | 'primitive' | 'string' | 'union' |
                            'array' | 'functor' | 'function' | 'method' |
                            'class' | 'interface' | 'external' | 'super' |
                            'namespace' | 'template' | 'any';
-export type TypeModifier = 'variadic' | 'optional' | 'property' | 'static' |
-                           'external' | 'element' | 'persistent' |
-                           'not-function';
+export type TypeModifier = 'variadic' | 'optional' | 'external' | 'property' |
+                           'static' | 'element' | 'persistent' | 'not-function';
 
 /**
  * Representing a C++ type.
@@ -39,9 +38,10 @@ export class Type {
   templateArguments?: Type[];
   isVariadic = false;
   isOptional = false;
+  isExternal = false;
+  isBuiltin = false;
   isProperty = false;
   isStatic = false;
-  isExternal = false;
   isElement = false;
   isPersistent = false;
 
@@ -195,12 +195,12 @@ export class Type {
       modifiers.push('variadic');
     if (this.isOptional)
       modifiers.push('optional');
+    if (this.isExternal)
+      modifiers.push('external');
     if (this.isProperty)
       modifiers.push('property');
     if (this.isStatic)
-      modifiers.push('property');
-    if (this.isExternal)
-      modifiers.push('external');
+      modifiers.push('static');
     if (this.isElement)
       modifiers.push('element');
     if (this.isPersistent)
@@ -283,6 +283,8 @@ export class Type {
     if (this.namespace == 'compilets') {
       if (this.name == 'Math')
         ctx.features.add('math');
+      if (this.name == 'Number' || this.name == 'NumberConstructor')
+        ctx.features.add('number');
     } else if (this.namespace == 'compilets::nodejs') {
       ctx.features.add('runtime');
       if (this.name == 'Console')

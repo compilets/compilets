@@ -50,6 +50,7 @@ common_runtime_files = [
   "runtime/console.h",
   "runtime/function.h",
   "runtime/math.h",
+  "runtime/number.h",
   "runtime/object.h",
   "runtime/process.cc",
   "runtime/process.h",
@@ -94,6 +95,7 @@ test("cpp_unittests") {
   sources = [
     "runtime/tests/run_all.cc",
     "runtime/tests/array_unittest.cc",
+    "runtime/tests/number_unittest.cc",
     "runtime/tests/stack_unittest.cc",
     "runtime/tests/string_unittest.cc",
     "runtime/tests/union_unittest.cc",

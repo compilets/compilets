@@ -50,7 +50,7 @@ using std::tanh;
 using std::trunc;
 
 inline double random() {
-  return ::rand() / static_cast<double>(RAND_MAX);
+  return std::rand() / static_cast<double>(RAND_MAX);
 }
 
 }  // namespace Math

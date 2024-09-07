@@ -10,9 +10,10 @@ import {
   hasTypeNode,
   hasQuestionToken,
   isExternalDeclaration,
+  isBuiltinDeclaration,
   isModuleImports,
   isNodeJsType,
-  isMathInterface,
+  isBuiltinInterfaceType,
   isGlobalVariable,
   isConstructor,
   FunctionLikeNode,
@@ -44,8 +45,10 @@ export default class Typer {
    */
   parseNodeType(node: ts.Node): syntax.Type {
     const decls = this.getOriginalDeclarations(node);
-    // Rely on typeChecker for resolving type if there is no declaration.
-    if (!decls)
+    // Rely on typeChecker for resolving type if:
+    // 1) there is no declaration;
+    // 2) builtin types are involved.
+    if (!decls || decls.some(isBuiltinDeclaration))
       return this.parseTypeWithNode(this.typeChecker.getTypeAtLocation(node), node);
     // Parse the types of all declarations.
     let results: syntax.Type[] = [];
@@ -133,8 +136,14 @@ export default class Typer {
     // Check array.
     if (this.typeChecker.isArrayType(type))
       return this.parseArrayType(name, type as ts.TypeReference, location, modifiers);
+    // Check the namespace import and builtin interfaces like Math/Number.
+    if (isModuleImports(type) || isBuiltinInterfaceType(type)) {
+      const cppType = new syntax.Type(type.symbol.name, 'namespace');
+      cppType.namespace = this.getTypeNamespace(type);
+      return cppType;
+    }
     // Check class.
-    if (isClass(type))
+    if (isClass(type) || isConstructor(type))
       return this.parseClassType(type, location, modifiers);
     // Check function.
     if (isFunction(type)) {
@@ -143,9 +152,6 @@ export default class Typer {
       const signature = type.getCallSignatures()[0];
       return this.parseSignatureType(signature, location, modifiers);
     }
-    // Check the namespace import.
-    if (isModuleImports(type))
-      return new syntax.Type(name, 'namespace');
     // Check interface.
     if (isInterface(type))
       return this.parseInterfaceType(type, location, modifiers);
@@ -601,9 +607,6 @@ export default class Typer {
       return true;
     if (!decl.parent)
       return false;
-    const type = this.typeChecker.getTypeAtLocation(decl.parent);
-    if (isConstructor(type) || isMathInterface(type))
-      return true;
-    return false;
+    return isConstructor(this.typeChecker.getTypeAtLocation(decl.parent));
   }
 }

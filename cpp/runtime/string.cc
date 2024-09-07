@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "fastfloat/fast_float.h"
+#include "runtime/number.h"
 #include "simdutf/simdutf.h"
 
 namespace compilets {
@@ -64,5 +65,27 @@ std::ostream& operator<<(std::ostream& os, const String& str) {
 std::ostream& operator<<(std::ostream& os, const char16_t* str) {
   return os << UTF16ToUTF8(str, std::char_traits<char16_t>::length(str));
 }
+
+namespace NumberConstructor {
+
+double parseFloat(const String& str) {
+  auto [success, result] = str.ToNumber();
+  return success ? result : NaN;
+}
+
+double parseFloat(const char16_t* str) {
+  return parseFloat(String(str));
+}
+
+double parseInt(const String& str) {
+  auto [success, result] = str.ToNumber();
+  return success ? parseInt(result) : NaN;
+}
+
+double parseInt(const char16_t* str) {
+  return parseInt(String(str));
+}
+
+}  // namespace NumberConstructor
 
 }  // namespace compilets

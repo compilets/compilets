@@ -262,6 +262,9 @@ export default class Parser {
       case ts.SyntaxKind.ExclamationEqualsEqualsToken:
         // a == b
         return new syntax.ComparisonExpression(cppLeft, cppRight, operator);
+      case ts.SyntaxKind.EqualsToken:
+        // a = b
+        return new syntax.AssignmentExpression(cppLeft, cppRight);
       default:
         return new syntax.BinaryExpression(this.typer.parseNodeType(node),
                                            cppLeft,
@@ -602,6 +605,7 @@ export default class Parser {
     const obj = this.parseExpression(expression);
     if (!obj.type.isObject() &&
         obj.type.category != 'string' &&
+        obj.type.category != 'namespace' &&
         obj.type.category != 'union') {
       throw new UnimplementedError(node, 'Only support accessing properties of objects');
     }
@@ -626,7 +630,8 @@ export default class Parser {
       throw new UnsupportedError(node, 'Can not get resolved signature');
     const resolvedFunctionType = this.typer.parseSignatureType(signature, node);
     // Update function type with resolved signature's name and templates.
-    callee.type.name = resolvedFunctionType.name;
+    if (callee.type.category == 'functor')
+      callee.type.name = resolvedFunctionType.name;
     callee.type.templateArguments = resolvedFunctionType.templateArguments;
     // Method is handled differently from the normal function.
     if (ts.isPropertyAccessExpression(expression) && callee.type.category == 'method')
