@@ -1,5 +1,6 @@
 #include "runtime/number.h"
 #include "runtime/string.h"
+#include "runtime/union.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace compilets {
@@ -33,6 +34,13 @@ TEST_F(NumberTest, Number) {
   EXPECT_EQ(Number(u"1.23"), 1.23);
   EXPECT_EQ(Number(String(u"123")), 123);
   EXPECT_EQ(Number(String(u"1.23")), 1.23);
+}
+
+TEST_F(NumberTest, Union) {
+  Union<String, double> var = 123.;
+  EXPECT_EQ(parseFloat(var), 123);
+  var = u"1.23";
+  EXPECT_EQ(parseFloat(var), 1.23);
 }
 
 }  // namespace compilets

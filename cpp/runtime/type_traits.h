@@ -10,13 +10,41 @@
 
 namespace compilets {
 
-// Convert value to string.
-template<typename T>
-inline std::u16string ValueToString(const T& value) {
-  return u"<value>";
+// This is similar to std::visit, except that it also walks through scalars and
+// cppgc::Member and std::optional.
+template<typename F, typename T>
+auto Visit(F&& visitor, const T& value) {
+  return visitor(value);
 }
 
-std::u16string ValueToString(double value);
+template<typename F, typename T>
+auto Visit(F&& visitor, const std::optional<T>& value) {
+  if (value)
+    return visitor(value.value());
+  else
+    return visitor(std::nullopt);
+}
+
+template<typename F, typename T>
+auto Visit(F&& visitor, const cppgc::Member<T>& value) {
+  if (value)
+    return visitor(value.Get());
+  else
+    return visitor(nullptr);
+}
+
+// Convert value to string.
+std::u16string ToStringImpl(double value);
+inline std::u16string ToStringImpl(const char16_t* str) { return str; }
+
+template<typename T>
+inline std::u16string ToString(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (requires(const U& t) { ToStringImpl(t); })
+      return ToStringImpl(arg);
+    return std::u16string(u"<value>");
+  }, value);
+}
 
 // Convert value from one type to another.
 template<typename T>
@@ -55,25 +83,6 @@ inline T GetOptionalValue(T value) {
     return std::move(value.value());
   else
     return std::move(value);
-}
-
-// Test if the type of arg matches the traits.
-template<template<typename...>typename Traits, typename U,
-         typename = std::enable_if_t<!std::is_pointer_v<U>>>
-inline bool MatchTraits(const U& arg) {
-  if constexpr (IsOptional<U>::value) {
-    if (arg)
-      return MatchTraits<Traits>(arg.value());
-    else
-      return MatchTraits<Traits>(std::nullopt);
-  }
-  if constexpr (IsCppgcMember<U>::value) {
-    if (arg)
-      return MatchTraits<Traits>(*arg);
-    else
-      return MatchTraits<Traits>(nullptr);
-  }
-  return Traits<U>::value;
 }
 
 // Determine whether an value should evaluate to true in conditions.

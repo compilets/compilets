@@ -61,16 +61,9 @@ inline void TraceMember(cppgc::Visitor* visitor, const Union<Ts...>& member) {
   }, member);
 }
 
-// Convert variant to string.
-template<typename... Ts>
-inline std::u16string ValueToString(const Union<Ts...>& value) {
-  return std::visit([](const auto& arg) { return ValueToString(arg); }, value);
-}
-
-// Pass the current held type of union to MatchTraits.
-template<template<typename...>typename Traits, typename... Us>
-inline bool MatchTraits(const Union<Us...>& arg) {
-  return std::visit([](auto&& i) { return MatchTraits<Traits>(i); }, arg);
+template<typename F, typename... Ts>
+auto Visit(F&& visitor, const Union<Ts...>& value) {
+  return std::visit(visitor, value);
 }
 
 // Whether union evaluates to true depends on its subtypes and monostate.
@@ -138,26 +131,6 @@ std::partial_ordering operator<=>(const Union<Ts...>& left, const U& right) {
     return arg <=> right;
   }, left);
 }
-
-// Make union work with numbers.
-namespace NumberConstructor {
-template<typename T>
-inline double parseFloat(T num);
-template<typename... Ts>
-inline double parseFloat(const Union<Ts...>& value) {
-  return std::visit([](const auto& arg) { return parseFloat(arg); }, value);
-}
-template<typename T>
-inline double parseInt(T num);
-template<typename... Ts>
-inline double parseInt(const Union<Ts...>& value) {
-  return std::visit([](const auto& arg) { return parseInt(arg); }, value);
-}
-}  // namespace NumberConstructor
-using NumberConstructor::parseFloat;
-using NumberConstructor::parseInt;
-template<typename... Ts>
-inline double Number(const Union<Ts...>& value) { return parseFloat(value); }
 
 }  // namespace compilets
 

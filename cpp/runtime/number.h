@@ -4,7 +4,11 @@
 #include <cmath>
 #include <limits>
 
+#include "runtime/type_traits.h"
+
 namespace compilets {
+
+class String;
 
 // Check if type is a numeric type (excluding bool).
 template<typename T>
@@ -24,51 +28,58 @@ inline constexpr double NEGATIVE_INFINITY = -limits::quiet_NaN();
 inline constexpr double POSITIVE_INFINITY = limits::infinity();
 
 template<typename T>
-inline bool isFinite(const T& num) {
-  if constexpr (IsNumericV<T>)
-    return std::isfinite(num);
-  else
-    return false;
+inline bool isFinite(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (!IsNumericV<U>)
+      return false;
+    return std::isfinite(arg);
+  }, value);
 }
 
 template<typename T>
-inline bool isInteger(const T& num) {
-  if constexpr (IsNumericV<T>)
-    return std::floor(num) == num;
-  else
-    return false;
+inline bool isInteger(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (!IsNumericV<U>)
+      return false;
+    return std::floor(arg) == arg;
+  }, value);
 }
 
 template<typename T>
-inline bool isNaN(const T& num) {
-  if constexpr (IsNumericV<T>)
-    return std::isnan(num);
-  else
-    return false;
+inline bool isNaN(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (!IsNumericV<U>)
+      return false;
+    return std::isnan(arg);
+  }, value);
 }
 
 template<typename T>
-inline bool isSafeInteger(const T& num) {
-  if constexpr (IsNumericV<T>)
-    return isInteger(num) && num >= MIN_SAFE_INTEGER && num <= MAX_SAFE_INTEGER;
-  else
-    return false;
+inline bool isSafeInteger(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (!IsNumericV<U>)
+      return false;
+    return isInteger(arg) && arg >= MIN_SAFE_INTEGER && arg <= MAX_SAFE_INTEGER;
+  }, value);
 }
 
+double parseFloat(const String& str);
+double parseFloat(const char16_t* str);
+
 template<typename T>
-inline double parseFloat(T num) {
-  if constexpr (IsNumericV<T>)
-    return static_cast<double>(num);
-  else
+inline double parseFloat(const T& value) {
+  return Visit([]<typename U>(const U& arg) {
+    if constexpr (IsNumericV<U>)
+      return static_cast<double>(arg);
+    if constexpr (std::is_same_v<U, String> || std::is_same_v<U, char16_t*>)
+      return parseFloat(arg);
     return NaN;
+  }, value);
 }
 
 template<typename T>
-inline double parseInt(T num) {
-  if constexpr (IsNumericV<T>)
-    return static_cast<double>(static_cast<int64_t>(num));
-  else
-    return NaN;
+inline double parseInt(const T& value) {
+  return static_cast<double>(static_cast<int64_t>(parseFloat(value)));
 }
 
 };
@@ -77,9 +88,7 @@ using NumberConstructor::parseFloat;
 using NumberConstructor::parseInt;
 
 template<typename T>
-inline double Number(const T& value) {
-  return parseFloat(value);
-}
+inline double Number(const T& value) { return parseFloat(value); }
 
 }  // namespace compilets
 

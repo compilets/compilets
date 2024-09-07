@@ -40,7 +40,7 @@ inline Function<Sig>* MakeFunction(std::function<Sig> lambda,
 
 // Convert function to string.
 template<typename Sig>
-inline std::u16string ValueToString(Function<Sig>* value) {
+inline std::u16string ToStringImpl(Function<Sig>* value) {
   return u"<function>";
 }
 

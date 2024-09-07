@@ -17,7 +17,7 @@ std::u16string UTF8ToUTF16(const char* str, size_t length) {
 
 }  // namespace
 
-std::u16string ValueToString(double value) {
+std::u16string ToStringImpl(double value) {
   // Having 16 decimal digits is enough for double.
   // https://stackoverflow.com/questions/9999221
   char buffer[16] = {0};

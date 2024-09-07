@@ -68,15 +68,6 @@ std::ostream& operator<<(std::ostream& os, const char16_t* str) {
 
 namespace NumberConstructor {
 
-double parseFloat(const String& str) {
-  auto [success, result] = str.ToNumber();
-  return success ? result : NaN;
-}
-
-double parseFloat(const char16_t* str) {
-  return parseFloat(String(str));
-}
-
 double parseInt(const String& str) {
   auto [success, result] = str.ToNumber();
   return success ? parseInt(result) : NaN;

@@ -9,26 +9,20 @@
 
 namespace compilets {
 
-class ArrayConstructor;
 template<typename, typename = void>
 class Array;
 template<typename T>
 Array<T>* MakeArray(std::vector<T> elements);
-
-// Type traits to determine whether a type is array.
-template<typename T, typename Enable = void>
-struct IsArrayTrait : std::false_type {};
-template<typename T>
-struct IsArrayTrait<T, std::enable_if_t<std::is_base_of_v<ArrayConstructor, T>>>
-    : std::true_type {};
 
 // In TypeScript there is no Array class but ArrayConstructor interface, we use
 // it to put all the static methods..
 class ArrayConstructor : public Object {
  public:
   template<typename T>
-  static inline bool isArray(const T& arg) {
-    return MatchTraits<IsArrayTrait>(arg);
+  static inline bool isArray(const T& value) {
+    return Visit([]<typename U>(const U& arg) {
+      return std::is_base_of_v<ArrayConstructor, std::remove_pointer_t<U>>;
+    }, value);
   }
 
   template<typename T, typename... Args>
@@ -126,7 +120,7 @@ class ArrayBase : public ArrayConstructor {
   std::u16string join(const std::u16string& separator = u",") const {
     std::u16string result;
     for (size_t i = 0; i < arr_.size(); ++i) {
-      result += ValueToString(arr_[i]);
+      result += ToString(arr_[i]);
       if (i != arr_.size() - 1)
         result += separator;
     }
@@ -274,8 +268,14 @@ inline Array<T>* MakeArray(std::vector<T> elements) {
 
 // Convert array to string.
 template<typename T>
-inline std::u16string ValueToString(Array<T>* value) {
-  return u"<array>";
+inline std::u16string ToStringImpl(Array<T>* arr) {
+  std::u16string result;
+  for (size_t i = 0; i < arr->value().size(); ++i) {
+    result += ToString(arr->value()[i]);
+    if (i != arr->value().size() - 1)
+      result += u',';
+  }
+  return result;
 }
 
 // Convert one array to another.

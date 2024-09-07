@@ -50,6 +50,7 @@ common_runtime_files = [
   "runtime/console.h",
   "runtime/function.h",
   "runtime/math.h",
+  "runtime/number.cc",
   "runtime/number.h",
   "runtime/object.h",
   "runtime/process.cc",
