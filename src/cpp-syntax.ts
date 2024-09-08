@@ -834,6 +834,12 @@ export class MethodDeclaration extends ClassElement {
     this.type.markUsed(ctx);
     const {isFullDeclaraion, isMethodDeclaration, isClassDeclaration} = this.getPrintMode(ctx);
     let result = ctx.prefix;
+    if (this.modifiers.includes('static')) {
+      if (isClassDeclaration)
+        result += 'static ';
+      else if (isMethodDeclaration)
+        result = `${ctx.prefix}// static\n${result}`;
+    }
     if (isClassDeclaration && this.modifiers.includes('virtual'))
       result += 'virtual ';
     result += `${this.type.returnType.print(ctx)} `;

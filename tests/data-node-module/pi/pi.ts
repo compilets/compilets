@@ -2,7 +2,10 @@ export const pi = Math.PI;
 export const possiblePi: number | string = "3.14";
 
 export class Pier {
-  useCache: boolean;
+  static fallbackPi = 3.14;
+  static doesPiExist() { return true; }
+
+  private useCache: boolean;
 
   constructor(useCache: boolean) {
     this.useCache = useCache;

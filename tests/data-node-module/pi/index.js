@@ -11,5 +11,8 @@ assert.deepStrictEqual(manyPies(), new Array(5).fill(Math.PI));
 assert.ok(isPi(Math.PI));
 assert.ok(isPi(possiblePi));
 
+assert.ok(Pier.doesPiExist());
+assert.ok(isPi(Pier.fallbackPi));
+
 const pier = new Pier(true);
 assert.strictEqual(pier.compute(), Math.PI);

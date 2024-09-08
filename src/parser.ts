@@ -526,7 +526,8 @@ export default class Parser {
         // In TypeScript every method is "virtual", while it is possible to
         // lookup all derived classes to decide whether to make the method
         // virtual, it is not worth the efforts.
-        if (!cppModifiers.includes('override') &&
+        if (!cppModifiers.includes('static') &&
+            !cppModifiers.includes('override') &&
             !cppModifiers.includes('destructor')) {
           cppModifiers.push('virtual');
         }

@@ -237,26 +237,49 @@ export function printClassBinding(decl: syntax.ClassDeclaration, ctx: PrintConte
   const constructor = existingConstructor ?? new syntax.ConstructorDeclaration(decl.name, []);
   const constructorParameters = syntax.ParameterDeclaration.printParameters(ctx, constructor.parameters);
   const constructorArguments = constructor.parameters.map(p => p.name).join(', ');
-  // Get information of the properties.
-  let methods = '';
-  let properties = '';
-  for (const member of decl.publicMembers) {
-    if (member instanceof syntax.MethodDeclaration)
-      methods += `, "${member.name}", &${decl.name}::${member.name}`;
-    else if (member instanceof syntax.PropertyDeclaration)
-      properties += `, ki::Property("${member.name}", &${decl.name}::${member.name})`;
-  }
-  return `template<>
+  let result = `template<>
 struct Type<${decl.name}> {
   static constexpr const char* name = "${decl.name}";
   static ${decl.name}* Constructor(${constructorParameters}) {
     return compilets::MakeObject<${decl.name}>(${constructorArguments});
   }
-  static void Define(napi_env env, napi_value constructor, napi_value prototype) {
-    ki::Set(env, prototype${methods});
-    ki::DefineProperties(env, prototype${properties});
+`;
+  // Get information of the properties.
+  const methods: string[] = [];
+  const staticMethods: string[] = [];
+  const properties: string[] = [];
+  const staticProperties: string[] = [];
+  for (const member of decl.publicMembers) {
+    const isStatic = member.modifiers.includes('static');
+    const pair = `"${member.name}", &${decl.name}::${member.name}`;
+    if (member instanceof syntax.MethodDeclaration) {
+      if (isStatic)
+        staticMethods.push(pair);
+      else
+        methods.push(pair);
+    } else if (member instanceof syntax.PropertyDeclaration) {
+      if (isStatic)
+        staticProperties.push(`"${member.name}", ${decl.name}::${member.name}`);
+      else
+        properties.push(`ki::Property(${pair})`);
+    }
   }
-};`;
+  let define = '';
+  if (staticProperties.length > 0)
+    define += `    ki::Set(env, constructor, ${staticProperties.join(', ')});\n`;
+  if (staticMethods.length > 0)
+    define += `    ki::Set(env, constructor, ${staticMethods.join(', ')});\n`;
+  if (methods.length > 0)
+    define += `    ki::Set(env, prototype, ${methods.join(', ')});\n`;
+  if (properties.length > 0)
+    define += `    ki::DefineProperties(env, prototype, ${properties.join(', ')});\n`;
+  if (define) {
+    result += '  static void Define(napi_env env, napi_value constructor, napi_value prototype) {\n'
+    result += define;
+    result += '  }\n';
+  }
+  result += `};`;
+  return result;
 }
 
 /**
