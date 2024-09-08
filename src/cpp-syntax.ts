@@ -757,7 +757,9 @@ export class ConstructorDeclaration extends ClassElement {
     const baseType = this.classDeclaration?.type.base?.name;
     if (!baseType && this.baseCall)
       throw new Error(`There is no base class for "${this.name}" but super is called`);
-    const baseCall = this.baseCall ? ` : ${baseType}(${this.baseCall.print(ctx)})` : '';
+    let baseCall = '';
+    if (this.baseCall && (isFullDeclaraion || isMethodDeclaration))
+      baseCall = ` : ${baseType}(${this.baseCall.print(ctx)})`;
     return `${ctx.prefix}${name}(${parameters})${baseCall}${body}`;
   }
 }

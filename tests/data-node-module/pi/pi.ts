@@ -16,6 +16,16 @@ export class Pier {
   }
 }
 
+export class SuperPier extends Pier {
+  constructor() {
+    super(true);
+  }
+
+  fastCompute() {
+    return pi;
+  }
+}
+
 export function computePi(options?: {useCache: boolean}) {
   return {
     success: true,

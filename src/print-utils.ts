@@ -232,15 +232,20 @@ struct Type<${type.name}*> {
  * Print the kizunapi bindings of class declaration.
  */
 export function printClassBinding(decl: syntax.ClassDeclaration, ctx: PrintContext) {
+  let result = `template<>
+struct Type<${decl.name}> {
+`;
+  // Add base class.
+  if (decl.type.base)
+    result += `  using Base = ${decl.type.base.name};\n`;
+  result += `  static constexpr const char* name = "${decl.name}";\n`;
   // Get information of the constructor.
   const existingConstructor = decl.publicMembers.find(m => m instanceof syntax.ConstructorDeclaration);
   const constructor = existingConstructor ?? new syntax.ConstructorDeclaration(decl.name, []);
   const constructorParameters = syntax.ParameterDeclaration.printParameters(ctx, constructor.parameters);
   const constructorArguments = constructor.parameters.map(p => p.name).join(', ');
-  let result = `template<>
-struct Type<${decl.name}> {
-  static constexpr const char* name = "${decl.name}";
-  static ${decl.name}* Constructor(${constructorParameters}) {
+  result +=
+`  static ${decl.name}* Constructor(${constructorParameters}) {
     return compilets::MakeObject<${decl.name}>(${constructorArguments});
   }
 `;
