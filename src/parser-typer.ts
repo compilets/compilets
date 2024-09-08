@@ -369,6 +369,9 @@ export default class Typer {
         closure.push(node as ts.ThisExpression);
         continue;
       }
+      // Skip property names.
+      if (node.parent && ts.isPropertyAccessExpression(node.parent) && node.parent.name == node)
+        continue;
       // Ignore symbols without definition.
       const symbol = this.typeChecker.getSymbolAtLocation(node);
       if (!symbol)
@@ -386,8 +389,8 @@ export default class Typer {
         continue;
       }
       // Find identifiers not declared inside the function.
-      if (!ts.findAncestor(symbol.valueDeclaration, (n) => n == func)) {
-        if (!isGlobalVariable(symbol.valueDeclaration!))
+      if (!ts.findAncestor(valueDeclaration, (n) => n == func)) {
+        if (!isGlobalVariable(valueDeclaration!))
           closure.push(node as ts.Identifier);
       }
     }

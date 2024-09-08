@@ -7,6 +7,7 @@ import {
   PrintContextScope,
   Feature,
   printInterfaceBinding,
+  printClassBinding,
 } from './print-utils';
 import {
   uniqueArray,
@@ -127,8 +128,6 @@ export default class CppFile {
    * Return whether this file contains exported declarations.
    */
   hasExports(): boolean {
-    if (this.type != 'lib')
-      return false;
     return this.declarations.statements.some(d => d.isExported);
   }
 
@@ -144,19 +143,21 @@ export default class CppFile {
     });
     // Print declarations and main function first.
     const [ fullDeclarations, forwardDeclarations, usedInterfaces ] = this.printDeclarations(ctx);
-    blocks.push(...fullDeclarations);
-    blocks.push(...this.printMainFunction(ctx));
+    const mainFunction = this.printMainFunction(ctx);
     // Then interfaces.
     const [ interfaceDeclarations, forwardInterfaceDeclarations ] = this.printInterfaces(ctx, usedInterfaces);
-    if (this.type == 'napi')
-      interfaceDeclarations.push(...this.printInterfaceBindings(ctx));
-    blocks.unshift(...interfaceDeclarations);
-    // Then forward declarations.
-    blocks.unshift(...forwardDeclarations);
-    blocks.unshift(...forwardInterfaceDeclarations);
-    // Then headers.
-    blocks.unshift(...this.printImportHeaders(ctx));
-    blocks.unshift(...this.printRuntimeHeaders(ctx));
+    // Print in order: headers, interfaces, declarations, bindings, main.
+    blocks.push(...this.printRuntimeHeaders(ctx));
+    blocks.push(...this.printImportHeaders(ctx));
+    blocks.push(...forwardInterfaceDeclarations);
+    blocks.push(...forwardDeclarations);
+    blocks.push(...interfaceDeclarations);
+    blocks.push(...fullDeclarations);
+    if (this.type == 'napi' && ctx.mode == 'impl') {
+      blocks.push(...this.printInterfaceBindings(ctx));
+      blocks.push(...this.printClassBindings(ctx));
+    }
+    blocks.push(...mainFunction);
     // Concatenate results.
     const code = printBlocks(mergeBlocks(blocks));
     // Add header guard.
@@ -231,7 +232,7 @@ export default class CppFile {
    */
   private printMainFunction(ctx: PrintContext): NamespaceBlock[] {
     // It is only printed when we are generating the exe/napi main file.
-    if (this.body) {
+    if (this.body && ctx.mode == 'impl') {
       const namespace = '|global';
       const result = [ {code: this.body.print(ctx), namespace} ];
       // The code in main function share the same namespace scope with the file.
@@ -318,10 +319,12 @@ export default class CppFile {
    */
   private printRuntimeHeaders(ctx: PrintContext): NamespaceBlock[] {
     // Add runtime headers depending on file type.
-    if (this.type != 'lib')
-      ctx.features.add('runtime');
-    if (this.type == 'napi')
-      ctx.features.add('converters');
+    if (ctx.mode == 'impl') {
+      if (this.type != 'lib')
+        ctx.features.add('runtime');
+      if (this.type == 'napi')
+        ctx.features.add('converters');
+    }
     // Interfaces requires object header.
     if (ctx.interfaces.size > 0)
       ctx.features.add('object');
@@ -371,15 +374,18 @@ export default class CppFile {
   private generateExportedBindings(): syntax.Statement[] {
     const bindings: syntax.Statement[] = [];
     const anyType = Type.createAnyType();
-    for (const declaration of this.declarations.statements) {
+    for (const decl of this.declarations.statements) {
+      let name = decl.name;
+      if (decl instanceof syntax.ClassDeclaration)
+        name = `ki::Class<${name}>()`;
       bindings.push(new syntax.ExpressionStatement(new syntax.CallExpression(
         Type.createVoidType(),
         new syntax.Identifier(anyType, "Set", "ki"),
         new syntax.CallArguments(
           [ new syntax.Identifier(anyType, "env"),
             new syntax.Identifier(anyType, "exports"),
-            new syntax.StringLiteral(declaration.name),
-            new syntax.Identifier(anyType, declaration.name) ],
+            new syntax.StringLiteral(decl.name),
+            new syntax.Identifier(anyType, name) ],
           [ anyType, anyType, anyType, anyType ]))));
     }
     return bindings;
@@ -398,6 +404,21 @@ export default class CppFile {
     for (const name of ctx.interfaces) {
       const type = this.interfaceRegistry.get(name)!;
       results.push({code: printInterfaceBinding(type, ctx), namespace: 'ki'});
+    }
+    return results;
+  }
+
+  /**
+   * Create kizunapi bindings for classes.
+   */
+  private printClassBindings(ctx: PrintContext): NamespaceBlock[] {
+    using scope = new PrintContextScope(ctx, {namespace: 'ki'});
+    const results: NamespaceBlock[] = [];
+    if (this.namespace)
+      results.push({code: `using namespace ${this.namespace};`, namespace: 'ki'});
+    for (const decl of this.declarations.statements) {
+      if (decl instanceof syntax.ClassDeclaration)
+        results.push({code: printClassBinding(decl, ctx), namespace: 'ki'});
     }
     return results;
   }
@@ -564,6 +585,7 @@ function hasHeadersUsingTypeTraits(features: Set<Feature>) {
       case 'object':
       case 'string':
       case 'union':
+      case 'number':
         return true;
     }
   }

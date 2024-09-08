@@ -229,6 +229,37 @@ struct Type<${type.name}*> {
 }
 
 /**
+ * Print the kizunapi bindings of class declaration.
+ */
+export function printClassBinding(decl: syntax.ClassDeclaration, ctx: PrintContext) {
+  // Get information of the constructor.
+  const existingConstructor = decl.publicMembers.find(m => m instanceof syntax.ConstructorDeclaration);
+  const constructor = existingConstructor ?? new syntax.ConstructorDeclaration(decl.name, []);
+  const constructorParameters = syntax.ParameterDeclaration.printParameters(ctx, constructor.parameters);
+  const constructorArguments = constructor.parameters.map(p => p.name).join(', ');
+  // Get information of the properties.
+  let methods = '';
+  let properties = '';
+  for (const member of decl.publicMembers) {
+    if (member instanceof syntax.MethodDeclaration)
+      methods += `, "${member.name}", &${decl.name}::${member.name}`;
+    else if (member instanceof syntax.PropertyDeclaration)
+      properties += `, ki::Property("${member.name}", &${decl.name}::${member.name})`;
+  }
+  return `template<>
+struct Type<${decl.name}> {
+  static constexpr const char* name = "${decl.name}";
+  static ${decl.name}* Constructor(${constructorParameters}) {
+    return compilets::MakeObject<${decl.name}>(${constructorArguments});
+  }
+  static void Define(napi_env env, napi_value constructor, napi_value prototype) {
+    ki::Set(env, prototype${methods});
+    ki::DefineProperties(env, prototype${properties});
+  }
+};`;
+}
+
+/**
  * Print and add parentheses when needed.
  */
 export function printExpressionValue(expr: syntax.Expression, ctx: PrintContext) {

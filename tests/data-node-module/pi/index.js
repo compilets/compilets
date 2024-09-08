@@ -1,5 +1,5 @@
 const assert = require('node:assert');
-const {pi, possiblePi, computePi, manyPies, isPi} = require(process.argv[2]);
+const {Pier, pi, possiblePi, computePi, manyPies, isPi} = require(process.argv[2]);
 
 assert.strictEqual(pi, Math.PI);
 
@@ -10,3 +10,6 @@ assert.deepStrictEqual(manyPies(), new Array(5).fill(Math.PI));
 
 assert.ok(isPi(Math.PI));
 assert.ok(isPi(possiblePi));
+
+const pier = new Pier(true);
+assert.strictEqual(pier.compute(), Math.PI);
