@@ -20,6 +20,8 @@ TEST_F(ArrayTest, Constructor) {
   EXPECT_EQ(tenElements->length, 10);
   Array<double>* oneElement = MakeObject<Array<double>>(1.23);
   EXPECT_EQ(oneElement->length, 1);
+  Array<double>* oneDoubleElement = MakeObject<Array<double>>(1.);
+  EXPECT_EQ(oneDoubleElement->length, 1);
   Array<double>* threeElements = MakeObject<Array<double>>(1, 2, 3);
   EXPECT_EQ(threeElements->length, 3);
 }

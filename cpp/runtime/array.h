@@ -2,6 +2,7 @@
 #define CPP_RUNTIME_ARRAY_H_
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "runtime/object.h"
@@ -79,7 +80,7 @@ class ArrayBase : public ArrayConstructor {
   template<typename N,
            typename = std::enable_if_t<std::is_arithmetic_v<N>>>
   ArrayBase(N n) {
-    if constexpr (std::is_integral_v<N>) {
+    if (n >= 0 && std::floor(n) == n) {  // is integer
       length = n;
       arr_ = sane::vector<T>(static_cast<size_t>(n));
     } else {
