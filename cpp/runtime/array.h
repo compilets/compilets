@@ -262,7 +262,7 @@ class ArrayBase : public ArrayConstructor {
                   arr_.begin() + static_cast<size_t>(length),
                   arr_.end());
     }
-    std::initializer_list<T> init;
+    sane::vector<T> init;
     if constexpr (std::is_arithmetic_v<T>)
       init = {static_cast<T>(args)...};
     else

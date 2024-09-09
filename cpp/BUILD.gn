@@ -107,7 +107,9 @@ test("cpp_unittests") {
   ]
 
   include_dirs = [ "cppgc" ]
-  cflags_cc = [ "-Wno-uninitialized-const-reference" ]
+  if (is_clang) {
+    cflags_cc = [ "-Wno-uninitialized-const-reference" ]
+  }
 
   deps = [
     ":runtime_exe",
