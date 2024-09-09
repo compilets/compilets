@@ -8,6 +8,7 @@ export {CppFile, CppProject, Parser};
 export * from './gn-utils';
 
 interface GenerateCppProjectOptions {
+  config?: 'Release' | 'Debug';
   stream?: boolean;
 }
 
@@ -29,6 +30,6 @@ export async function generateCppProject(root: string,
   const parser = new Parser(project);
   parser.parse();
   await project.writeTo(target);
-  await gnGen(target, {config: 'Debug', stream: options?.stream});
+  await gnGen(target, {config: options?.config ?? 'Release', stream: options?.stream});
   return project;
 }

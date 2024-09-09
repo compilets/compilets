@@ -18,7 +18,7 @@ describe('CppProject', function() {
 
   it('project-generation', async () => {
     using target = tempDirSync(`${__dirname}/build-`);
-    const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path);
+    const project = await generateCppProject(`${__dirname}/data-cpp-project/noop`, target.path, {config: 'Debug'});
     assert.deepStrictEqual(fs.readdirSync(target.path),
                            [ '.gn', 'BUILD.gn', 'cpp', 'noop.cpp', 'out' ]);
     await ninjaBuild(target.path, {config: 'Debug'});
@@ -59,7 +59,7 @@ describe('CppProject', function() {
 
 async function runDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
-  const project = await generateCppProject(root, target.path);
+  const project = await generateCppProject(root, target.path, {config: 'Debug'});
   await ninjaBuild(target.path, {config: 'Debug'});
   let exe = `${target.path}/out/Debug/${project.name}`;
   if (process.platform == 'win32')
@@ -69,7 +69,7 @@ async function runDir(root: string) {
 
 async function runNodeDir(root: string) {
   using target = tempDirSync(`${__dirname}/build-`);
-  const project = await generateCppProject(root, target.path);
+  const project = await generateCppProject(root, target.path, {config: 'Debug'});
   await ninjaBuild(target.path, {config: 'Debug'});
   const binary = `${target.path}/out/Debug/${project.name}.node`;
   assert.doesNotThrow(() => {

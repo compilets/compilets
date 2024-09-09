@@ -14,8 +14,8 @@
     "prepack": "tsc",
     "pretest": "tsc --noEmit -p tests/tsconfig.json",
     "test": "tsx tests/run.ts",
-    "gen-cpp-test": "tsx src/cli.ts gn-gen --target cpp",
-    "cpp-test": "tsx src/cli.ts build --target cpp cpp_unittests && ./cpp/out/Debug/cpp_unittests"
+    "gen-cpp-test": "tsx src/cli.ts gn-gen --config Debug --target cpp",
+    "cpp-test": "tsx src/cli.ts build --config Debug --target cpp cpp_unittests && ./cpp/out/Debug/cpp_unittests"
   },
   "author": "zcbenz",
   "license": "MIT",

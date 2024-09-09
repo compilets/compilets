@@ -25,12 +25,13 @@ export class GenCommand extends Command {
   });
 
   root = Option.String('--root', {description: 'The path of TypeScript project, default is $CWD'});
+  config = Option.String('--config', {description: 'Debug or Release'});
   target = Option.String('--target', {description: 'The path of C++ project, default is $CWD/cpp-project'});
 
   async execute() {
     const root = this.root ?? process.cwd();
     const target = this.target ?? `${process.cwd()}/cpp-project`;
-    await generateCppProject(root, target, {stream: true});
+    await generateCppProject(root, target, {config: this.config ?? 'Release', stream: true});
   }
 }
 
@@ -40,10 +41,11 @@ export class GnGenCommand extends Command {
     description: 'Run "gn gen" for the C++ project.',
   });
 
+  config = Option.String('--config', {description: 'Debug or Release'});
   target = Option.String('--target', {required: true, description: 'The path of C++ project'});
 
   async execute() {
-    await gnGen(this.target, {config: 'Debug', stream: true});
+    await gnGen(this.target, {config: this.config ?? 'Release', stream: true});
   }
 }
 
@@ -63,12 +65,13 @@ export class BuildCommand extends Command {
     ]
   });
 
+  config = Option.String('--config', {description: 'Debug or Release'});
   target = Option.String('--target', {description: 'The path of C++ project, default is $CWD/cpp-project'});
   names = Option.Rest();
 
   async execute() {
     const target = this.target ?? `${process.cwd()}/cpp-project`;
-    await ninjaBuild(target, {config: 'Debug', stream: true, targets: this.names});
+    await ninjaBuild(target, {config: this.config ?? 'Release', stream: true, targets: this.names});
   }
 }
 

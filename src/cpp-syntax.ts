@@ -436,6 +436,7 @@ export class MethodCallExpression extends CallExpression {
 
   override print(ctx: PrintContext) {
     const {expression, member} = this.callee as PropertyAccessExpression;
+    expression.type.markUsed(ctx);
     if (expression.type.isObject() || expression.type.category == 'string')
       return super.print(ctx);
     if (expression.type.category == 'namespace')
