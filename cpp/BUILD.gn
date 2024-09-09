@@ -24,7 +24,11 @@ config("runtime_node_config") {
   include_dirs += [ "kizunapi" ]
   defines += [ "NAPI_VERSION=9" ]
   if (is_clang) {
-    cflags_cc = [ "-Wno-misleading-indentation" ]
+    cflags_cc = [
+      "-Wno-misleading-indentation",
+      "-Wno-unused-but-set-variable",
+      "-Wno-unused-private-field",
+    ]
   }
 
   # Config for building Node.js module.

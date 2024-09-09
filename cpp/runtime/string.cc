@@ -3,6 +3,7 @@
 #include <compare>
 #include <iostream>
 
+#include "cppgc/internal/logging.h"
 #include "fastfloat/fast_float.h"
 #include "runtime/number.h"
 #include "simdutf/simdutf.h"
@@ -15,7 +16,7 @@ std::string UTF16ToUTF8(const char16_t* str, size_t length) {
   size_t utf8len = simdutf::utf8_length_from_utf16(str, length);
   std::string utf8(utf8len, '\0');
   size_t written = simdutf::convert_utf16_to_utf8(str, length, utf8.data());
-  assert(utf8len == written);
+  CPPGC_DCHECK(utf8len == written);
   return utf8;
 }
 
