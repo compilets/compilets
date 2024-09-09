@@ -8,6 +8,13 @@ namespace compilets {
 class ArrayTest : public testing::Test {
 };
 
+TEST_F(ArrayTest, VectorBool) {
+  Array<bool>* booleans = MakeArray<bool>({true, true, true});
+  EXPECT_EQ(booleans->value(), std::vector<bool>({true, true, true}));
+  booleans->value()[0] = false;
+  EXPECT_EQ(booleans->value(), std::vector<bool>({false, true, true}));
+}
+
 TEST_F(ArrayTest, Constructor) {
   Array<double>* tenElements = MakeObject<Array<double>>(10);
   EXPECT_EQ(tenElements->length, 10);

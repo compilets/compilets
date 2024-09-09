@@ -9,10 +9,43 @@
 
 namespace compilets {
 
+// The sane::vector is a replacement for std::vector which does not specialize
+// vector<bool> into a non-standard container.
+namespace sane {
+
+class Bool {
+ public:
+  constexpr Bool() : raw_(false) {}
+  constexpr Bool(bool raw) : raw_(raw) {}
+  constexpr operator bool() const { return raw_; }
+  constexpr friend bool operator==(Bool, Bool) = default;
+  constexpr friend auto operator<=>(Bool, Bool) = default;
+ private:
+  bool raw_;
+};
+
+template<typename T>
+class vector : public std::vector<T> {
+ public:
+  using std::vector<T>::vector;
+};
+
+template<>
+class vector<bool> : public std::vector<Bool> {
+ public:
+  using std::vector<Bool>::vector;
+  // Only called by tests.
+  bool operator==(const std::vector<bool>& other) const {
+    return std::vector<bool>(begin(), end()) == other;
+  }
+};
+
+} // namespace sane
+
 template<typename, typename = void>
 class Array;
 template<typename T>
-Array<T>* MakeArray(std::vector<T> elements);
+Array<T>* MakeArray(sane::vector<T> elements);
 
 // In TypeScript there is no Array class but ArrayConstructor interface, we use
 // it to put all the static methods..
@@ -48,7 +81,7 @@ class ArrayBase : public ArrayConstructor {
   ArrayBase(N n) {
     if constexpr (std::is_integral_v<N>) {
       length = n;
-      arr_ = std::vector<T>(static_cast<size_t>(n));
+      arr_ = sane::vector<T>(static_cast<size_t>(n));
     } else {
       length = 1;
       arr_ = {static_cast<T>(n)};
@@ -72,7 +105,7 @@ class ArrayBase : public ArrayConstructor {
         arr_({std::move(args)...}) {}
 
   // Used by helpers.
-  ArrayBase(std::vector<T> elements)
+  ArrayBase(sane::vector<T> elements)
       : length(elements.size()),
         arr_(std::move(elements)) {}
 
@@ -83,7 +116,7 @@ class ArrayBase : public ArrayConstructor {
   }
 
   Array<T>* concat(Array<T>* other) const {
-    std::vector<T> merged;
+    sane::vector<T> merged;
     merged.insert(merged.end(), value().begin(), value().end());
     merged.insert(merged.end(), other->value().begin(), other->value().end());
     return MakeArray<T>(std::move(merged));
@@ -169,18 +202,18 @@ class ArrayBase : public ArrayConstructor {
   }
 
   Array<T>* slice(double start = 0) const {
-    return MakeArray<T>(std::vector<T>(arr_.begin() + GetIndex(start),
-                                       arr_.end()));
+    return MakeArray<T>(sane::vector<T>(arr_.begin() + GetIndex(start),
+                                        arr_.end()));
   }
 
   Array<T>* slice(double start, double end) const {
-    return MakeArray<T>(std::vector<T>(arr_.begin() + GetIndex(start),
-                                       arr_.begin() + GetIndex(end)));
+    return MakeArray<T>(sane::vector<T>(arr_.begin() + GetIndex(start),
+                                        arr_.begin() + GetIndex(end)));
   }
 
   template<typename... Args>
   Array<T>* splice(double start, double count = 0, Args&&... args) {
-    std::vector<T> result;
+    sane::vector<T> result;
     if (count > 0) {
       auto begin = arr_.begin() + GetBoundedIndex(start);
       result.insert(result.end(), begin, begin + count);
@@ -204,7 +237,8 @@ class ArrayBase : public ArrayConstructor {
 
   double length = 0;
 
-  const std::vector<T>& value() const { return arr_; }
+  sane::vector<T>& value() { return arr_; }
+  const sane::vector<T>& value() const { return arr_; }
 
  private:
   size_t GetIndex(double index) const {
@@ -235,7 +269,7 @@ class ArrayBase : public ArrayConstructor {
     std::copy_n(init.begin(), init.size(), arr_.begin() + GetIndex(pos));
   }
 
-  std::vector<T> arr_;
+  sane::vector<T> arr_;
 };
 
 // Array type for primitive types.
@@ -261,7 +295,7 @@ class Array<T, std::enable_if_t<HasCppgcMember<T>::value>> final
 
 // Helper to create the Array from literal.
 template<typename T>
-inline Array<T>* MakeArray(std::vector<T> elements) {
+inline Array<T>* MakeArray(sane::vector<T> elements) {
   return cppgc::MakeGarbageCollected<Array<T>>(GetAllocationHandle(),
                                                std::move(elements));
 }

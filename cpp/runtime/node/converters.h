@@ -17,7 +17,7 @@ struct Type<Array<T>*> {
   static napi_status ToNode(napi_env env,
                             const Array<T>* arr,
                             napi_value* result) {
-    return ConvertToNode(env, arr->value(), result);
+    return Type<std::vector<T>>::ToNode(env, arr->value(), result);
   }
   static std::optional<Array<T>*> FromNode(napi_env env, napi_value value) {
     auto arr = Type<std::vector<T>>::FromNode(env, value);
