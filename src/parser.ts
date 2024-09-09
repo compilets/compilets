@@ -267,6 +267,9 @@ export default class Parser {
       case ts.SyntaxKind.EqualsToken:
         // a = b
         return new syntax.AssignmentExpression(cppLeft, cppRight);
+      case ts.SyntaxKind.PercentToken:
+        // a % b
+        return new syntax.ModExpression(cppLeft, cppRight);
       default:
         return new syntax.BinaryExpression(this.typer.parseNodeType(node),
                                            cppLeft,

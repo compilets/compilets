@@ -323,6 +323,22 @@ export class AssignmentExpression extends Expression {
   }
 }
 
+export class ModExpression extends Expression {
+  left: Expression;
+  right: Expression;
+
+  constructor(left: Expression, right: Expression) {
+    super(Type.createNumberType());
+    this.left = left;
+    this.right = right;
+  }
+
+  override print(ctx: PrintContext) {
+    ctx.features.add('math');
+    return `compilets::Mod(${this.left.print(ctx)}, ${this.right.print(ctx)})`;
+  }
+}
+
 export class BinaryExpression extends Expression {
   left: Expression;
   right: Expression;

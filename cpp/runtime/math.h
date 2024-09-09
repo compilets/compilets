@@ -55,6 +55,16 @@ inline double random() {
 
 }  // namespace Math
 
+template<typename A, typename B,
+         typename = std::enable_if_t<std::is_arithmetic_v<A> &&
+                                     std::is_arithmetic_v<B>>>
+inline double Mod(A a, B b) {
+  if constexpr (std::is_integral_v<A> && std::is_integral_v<B>)
+    return a % b;
+  else
+    return std::fmod(a, b);
+}
+
 }  // namespace compilets
 
 #endif  // CPP_RUNTIME_MATH_H_
