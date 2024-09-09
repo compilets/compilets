@@ -33,6 +33,7 @@ jobs:
         shell: bash  # required by ccache
         run: |
           yarn
+          yarn tsc
           yarn test
           yarn gen-cpp-test
           yarn cpp-test

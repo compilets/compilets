@@ -2,22 +2,17 @@ import path from 'node:path';
 import CppFile from './cpp-file';
 import CppProject from './cpp-project';
 import Parser from './parser';
-import {gnGen} from './gn-utils';
+import {GnGenOptions, gnGen} from './gn-utils';
 
 export {CppFile, CppProject, Parser};
 export * from './gn-utils';
-
-interface GenerateCppProjectOptions {
-  config?: 'Release' | 'Debug';
-  stream?: boolean;
-}
 
 /**
  * Create a project from `root`, parser it and generate build files to `target`.
  */
 export async function generateCppProject(root: string,
                                          target: string,
-                                         options?: GenerateCppProjectOptions): Promise<CppProject> {
+                                         options?: GnGenOptions): Promise<CppProject> {
   const project = new CppProject(root);
   // Make sure an executable is always generated.
   if (!project.mainFileName && !project.executables) {

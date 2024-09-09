@@ -8,15 +8,15 @@ import {unzip} from '@compilets/unzip-url';
 import {untar} from '@compilets/untar-url';
 
 interface CommonGnOptions {
-  config: 'Release' | 'Debug';
+  config: string;
   stream?: boolean;
 }
 
-interface GnGenOptions extends CommonGnOptions {
+export interface GnGenOptions extends CommonGnOptions {
   ccWrapper?: string;
 }
 
-interface NinjaBuildOptions extends CommonGnOptions {
+export interface NinjaBuildOptions extends CommonGnOptions {
   targets?: string[];
 }
 
