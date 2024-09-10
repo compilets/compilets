@@ -34,10 +34,13 @@ import {
  * Utilities around the TypeChecker of typescript.
  */
 export default class Typer {
+  project: CppProject;
+  typeChecker: ts.TypeChecker;
   interfaceRegistry = new syntax.InterfaceRegistry();
 
-  constructor(public project: CppProject,
-              public typeChecker: ts.TypeChecker) {
+  constructor(project: CppProject, typeChecker: ts.TypeChecker) {
+    this.project = project;
+    this.typeChecker = typeChecker;
   }
 
   /**

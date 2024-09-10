@@ -8,16 +8,18 @@ import {uniqueArray} from './js-utils';
  */
 export class UnimplementedError extends Error {
   constructor(node: ts.Node, message: string) {
-    super(`${message}: ${node.getText()}`);
+    const sourceFile = node.getSourceFile();
+    const {line, character} = ts.getLineAndCharacterOfPosition(sourceFile, node.getStart(sourceFile));
+    super(`${path.basename(sourceFile.fileName)} (${line + 1},${character + 1}): ${message}: "${node.getText()}"`);
   }
 }
 
 /**
  * An error indicating a TypeScript feature not supported in C++.
  */
-export class UnsupportedError extends Error {
+export class UnsupportedError extends UnimplementedError {
   constructor(node: ts.Node, message: string) {
-    super(`${message}: ${node.getText()}`);
+    super(node, message);
   }
 }
 

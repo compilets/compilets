@@ -423,6 +423,8 @@ export default class Parser {
         const cppType = this.typer.parseNodeType(type ?? name);
         if (type)  // the type modifiers should come from original declaration
           cppType.setModifiers(this.typer.getTypeModifiers(node));
+        if (cppType.category == 'any')
+          throw new UnsupportedError(node, 'Can not declare a variable type as any');
         if (isTemplateFunctor(cppType))
           throw new UnsupportedError(node, 'Can not declare a variable with type of generic function');
         if (node.initializer) {
@@ -501,8 +503,11 @@ export default class Parser {
     const {name, initializer} = node;
     if (!ts.isIdentifier(name))
       throw new UnimplementedError(node, 'Binding in parameter is not supported');
+    const cppType = this.typer.parseNodeType(name);
+    if (cppType.category == 'any')
+      throw new UnsupportedError(node, 'Can not declare parameter type as any');
     return new syntax.ParameterDeclaration(name.text,
-                                           this.typer.parseNodeType(name),
+                                           cppType,
                                            initializer ? this.parseExpression(initializer) : undefined);
   }
 
