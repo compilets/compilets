@@ -2,16 +2,26 @@
 
 TypeScript to C++ compiler.
 
+Giving a TypeScript project, it can translate the code to C++, and produce
+native executables and Node.js modules.
+
 This project does not plan to support every TypeScript feature - doing so would
 make it downgrade to a JavaScript interpreter - it only translates code that can
 be effiently represented in C++. Code relying on JavaScript's dynamic natures,
 for example `prototype` and `any`, will be rejected.
 
+Currently it is still very early days, and it fails to translate most existing
+TypeScript projects, but it is capable of turning some performance-critical code
+into native Node.js modules.
+
+## Docs
+
+* [A design of translating TypeScript to C++](https://github.com/compilets/compilets/blob/main/docs/design.md)
+* [Roadmap](https://github.com/compilets/compilets/blob/main/docs/roadmap.md)
+* [Creating native Node.js modules](https://github.com/compilets/compilets/blob/main/docs/node-module.md)
+
 There is currently no documentation on which TypeScript syntax and features are
-supported, but you can check
-[Design](https://github.com/compilets/compilets/blob/main/docs/design.md) and
-[Roadmap](https://github.com/compilets/compilets/blob/main/docs/roadmap.md) to
-have some ideas on the project's status.
+supported.
 
 ## CLI
 
@@ -30,13 +40,13 @@ Help:
 
 ━━━ General commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  compilets build [--target #0] ...
+  compilets build [--config #0] [--target #0] ...
     Build C++ project.
 
-  compilets gen [--root #0] [--target #0]
+  compilets gen [--root #0] [--config #0] [--target #0]
     Generate a C++ project from TypeScript project.
 
-  compilets gn-gen <--target #0>
+  compilets gn-gen [--config #0] <--target #0>
     Run "gn gen" for the C++ project.
 ```
 
@@ -57,7 +67,7 @@ When compiling a project, the `tsconfig.json` file under the root directory is
 used for initializing the TypeScript compiler. If such file is not present,
 following `compilerOptions` will be used:
 
-```json
+```js
 {
   noImplicitAny: true,
   strictNullChecks: true,
@@ -91,6 +101,7 @@ An example `package.json` file:
       "download": "cli.ts"
     }
   }
+}
 ```
 
 If there is no `package.json` file, the root directory must contain only one
