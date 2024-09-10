@@ -959,7 +959,7 @@ export class FunctionDeclaration extends DeclarationStatement {
     const templateDeclaration = printTemplateDeclaration(type);
     let result = `${returnType} ${this.name}(${parameters})`;
     if (ctx.mode == 'impl' || (ctx.mode == 'header' && templateDeclaration))
-      result += ' ' + this.body?.print(ctx) ?? '{}';
+      result += ' ' + (this.body?.print(ctx) ?? '{}');
     else
       result += ';';
     if (templateDeclaration)

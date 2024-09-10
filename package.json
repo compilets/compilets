@@ -31,15 +31,15 @@
     "@compilets/using-temp-dir": "1.0.2",
     "@types/fs-extra": "11.0.4",
     "@types/mocha": "10.0.7",
-    "@types/node": "22.5.2",
+    "@types/node": "22.5.4",
     "mocha": "10.7.3",
     "tsx": "4.19.0"
   },
   "dependencies": {
     "@compilets/untar-url": "1.0.0",
     "@compilets/unzip-url": "1.0.5",
-    "clipanion": "4.0.0-rc.3",
+    "clipanion": "4.0.0-rc.4",
     "fs-extra": "11.2.0",
-    "typescript": "5.5.4"
+    "typescript": "5.6.2"
   }
 }

@@ -38,7 +38,7 @@ export async function gnGen(targetDir: string, options: GnGenOptions) {
     args.push(`cc_wrapper="${options.ccWrapper}"`);
   else if (hasCcache())
     args.push('cc_wrapper="ccache"');
-  const outDir = 'out/' + options.config ?? 'Release';
+  const outDir = 'out/' + (options.config ?? 'Release');
   await spawnAsync(gn,
                    [ 'gen', outDir, `--args=${args.join(' ')}` ],
                    {cwd: targetDir, stdio: options.stream ? 'inherit' : 'pipe'});
@@ -52,7 +52,7 @@ export async function ninjaBuild(targetDir: string, options: NinjaBuildOptions) 
   let ninja = `${gnDir}/ninja`;
   if (process.platform == 'win32')
     ninja += '.exe';
-  const outDir = 'out/' + options.config ?? 'Release';
+  const outDir = 'out/' + (options.config ?? 'Release');
   await spawnAsync(ninja,
                    [ '-C', outDir, ...(options.targets ?? [ 'default' ]) ],
                    {cwd: targetDir, stdio: options.stream ? 'inherit' : 'pipe'});
