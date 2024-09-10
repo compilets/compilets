@@ -39,20 +39,21 @@ export default class Parser {
 
   parse() {
     for (const fileName of this.program.getRootFileNames()) {
-      const relativeFileName = path.relative(this.project.sourceRootDir, fileName);
       const sourceFile = this.program.getSourceFile(fileName)!;
-      const cppFile = this.parseSourceFile(relativeFileName, sourceFile);
+      const cppFile = this.parseSourceFile(fileName, sourceFile);
       this.project.addParsedFile(cppFile.name, cppFile);
     }
   }
 
   parseSourceFile(fileName: string, sourceFile: ts.SourceFile): CppFile {
-    const cppFile = new CppFile(fileName,
-                                this.project.getFileType(fileName),
+    const fileNameInProject = path.relative(this.project.sourceRootDir, fileName);
+    const fileNameInFileSystem = path.relative(this.project.rootDir, fileName);
+    const cppFile = new CppFile(fileNameInFileSystem,
+                                this.project.getFileType(fileNameInFileSystem),
                                 this.typer.interfaceRegistry);
     // For multi-file project add namespace for each file.
     if (this.project.fileNames.length > 1)
-      cppFile.namespace = getNamespaceFromFileName(fileName);
+      cppFile.namespace = getNamespaceFromFileName(fileNameInProject);
     // Parse root nodes in the file.
     ts.forEachChild(sourceFile, (node: ts.Node) => {
       switch (node.kind) {

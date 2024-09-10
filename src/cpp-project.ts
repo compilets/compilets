@@ -31,7 +31,10 @@ export default class CppProject {
       // Get the TypeScript files from config.
       const config = ts.readJsonConfigFile(configFileName, (p) => fs.readFileSync(p).toString());
       const parsed = ts.parseJsonSourceFileConfigFileContent(config, ts.sys, rootDir);
-      if (parsed?.options.strictNullChecks !== true)
+      if (!parsed)
+        throw new Error('Can not parse the tsconfig.json file');
+      if (parsed.options.strictNullChecks !== true &&
+          parsed.options.strict !== true)
         throw new Error('The strictNullChecks is required to be set to true');
       this.sourceRootDir = parsed.options.rootDir ?? rootDir;
       this.fileNames = parsed.fileNames;
@@ -122,36 +125,6 @@ export default class CppProject {
   }
 
   /**
-   * Set project info from package.json file.
-   */
-  async initializeWithRootDir(rootDir: string) {
-    try {
-      const {name, compilets} = fs.readJsonSync(`${rootDir}/package.json`);
-      this.name = name;
-      // The "compilets" field stores our configurations.
-      if (typeof compilets == 'object') {
-        const {main, bin} = compilets;
-        // The entry for native module.
-        if (typeof main == 'string' && main.endsWith('.ts'))
-          this.mainFileName = main;
-        // Entries for executables.
-        if (bin) {
-          for (const [key, value] of Object.entries(bin)) {
-            if (typeof value != 'string' || !value.endsWith('.ts'))
-              continue;
-            if (!this.executables)
-              this.executables = {};
-            this.executables[key] = value;
-          }
-        }
-      }
-    } catch {}
-    // Use directory's name as fallback.
-    if (!this.name)
-      this.name = path.basename(rootDir);
-  }
-
-  /**
    * Create a C++ project at `target` directory.
    */
   async writeTo(target: string) {
@@ -210,10 +183,10 @@ ${commonConfig}
     // Create native module target.
     if (this.mainFileName) {
       const name = this.mainFileName.replace(/\.ts$/, '');
-      targets.push(name);
+      targets.push(this.name);
       buildgn.push(
-`loadable_module("${name}") {
-  output_name = "${name}"
+`loadable_module("${this.name}") {
+  output_name = "${this.name}"
   output_extension = "node"
   output_prefix_override = true  # do not add "lib" prefix
 
@@ -263,6 +236,7 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
   ]
 }`);
     // Copy C++ dependencies.
+    await fs.ensureDir(`${target}/cpp`);
     const tasks = [
       writeFile(`${target}/BUILD.gn`, buildgn.join('\n\n')),
       fs.copy(`${__dirname}/../cpp`, `${target}/cpp`, {filter}),
@@ -276,6 +250,39 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
       })());
     }
     await Promise.all(tasks);
+  }
+
+  /**
+   * Set project info from package.json file.
+   */
+  async initializeWithRootDir(rootDir: string) {
+    try {
+      const {name, compilets} = fs.readJsonSync(`${rootDir}/package.json`);
+      if (name?.startsWith('@'))
+        this.name = path.basename(name);
+      else
+        this.name = name;
+      // The "compilets" field stores our configurations.
+      if (typeof compilets == 'object') {
+        const {main, bin} = compilets;
+        // The entry for native module.
+        if (typeof main == 'string' && main.endsWith('.ts'))
+          this.mainFileName = main;
+        // Entries for executables.
+        if (bin) {
+          for (const [key, value] of Object.entries(bin)) {
+            if (typeof value != 'string' || !value.endsWith('.ts'))
+              continue;
+            if (!this.executables)
+              this.executables = {};
+            this.executables[key] = value;
+          }
+        }
+      }
+    } catch {}
+    // Use directory's name as fallback.
+    if (!this.name)
+      this.name = path.basename(rootDir);
   }
 }
 

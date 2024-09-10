@@ -1,0 +1,7 @@
+{
+  "name": "@compilets/deep",
+  "main": "test.js",
+  "compilets": {
+    "main": "src/main.ts"
+  }
+}
