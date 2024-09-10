@@ -51,6 +51,10 @@ export default class CppProject {
         noImplicitAny: true,
         strictNullChecks: true,
         allowImportingTsExtensions: true,
+        // Provide default types working for most code, the target does not
+        // really matter as we do not emit code.
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.CommonJS,
       };
     }
     // Warn about empty directory.
