@@ -12,7 +12,7 @@ process.env.CCACHE_NOHASHDIR = 'true';
 process.env.CCACHE_COMPILERCHECK = 'none';
 
 describe('CppProject', function() {
-  this.slow(10 * 1000);
+  this.slow(15 * 1000);
   // First time compilation can be very slow.
   this.timeout(10 * 60 * 1000);
 

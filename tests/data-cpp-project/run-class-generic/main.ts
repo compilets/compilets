@@ -14,8 +14,8 @@ class Owner<T> {
 }
 
 // compilets: persistent
-const o = new Owner(new Member());
-gc();
+let o: Owner<Member> | undefined = new Owner(new Member());
+gc!();
 o = undefined;
-gc();
+gc!();
 process.exit(1);

@@ -4,8 +4,8 @@ import assert from 'node:assert';
 import {CppProject, Parser} from '../src/index.ts';
 
 describe('Conversion', function() {
-  this.slow(2000);
-  this.timeout(5 * 1000);
+  this.slow(4 * 1000);
+  this.timeout(10 * 1000);
 
   // Every subdir under data-conversion/ is a subtest.
   const dirs = fs.readdirSync(`${__dirname}/data-conversion`);

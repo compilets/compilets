@@ -38,11 +38,31 @@ export default class Parser {
   }
 
   parse() {
+    // Run pre-emit diagnostics.
+    if (!this.project.skipPreEmitDiagnostics)
+      this.runPreEmitDiagnostics();
+    // Start parsing.
     for (const fileName of this.program.getRootFileNames()) {
       const sourceFile = this.program.getSourceFile(fileName)!;
       const cppFile = this.parseSourceFile(fileName, sourceFile);
       this.project.addParsedFile(cppFile.name, cppFile);
     }
+  }
+
+  runPreEmitDiagnostics() {
+    const diagnostics = ts.getPreEmitDiagnostics(this.program);
+    if (diagnostics.length == 0)
+      return;
+    const diagnostic = diagnostics[0];
+    let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+    if (diagnostic.file) {
+      const {line, character} = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start!);
+      let {fileName} = diagnostic.file;
+      if (fileName.startsWith(this.project.rootDir))
+        fileName = fileName.substr(this.project.rootDir.length + 1);
+      message = `${fileName} (${line + 1},${character + 1}): ${message}`;
+    }
+    throw new Error(message);
   }
 
   parseSourceFile(fileName: string, sourceFile: ts.SourceFile): CppFile {
@@ -401,6 +421,8 @@ export default class Parser {
         // let a = xxx;
         const {name, type} = node;
         const cppType = this.typer.parseNodeType(type ?? name);
+        if (type)  // the type modifiers should come from original declaration
+          cppType.setModifiers(this.typer.getTypeModifiers(node));
         if (isTemplateFunctor(cppType))
           throw new UnsupportedError(node, 'Can not declare a variable with type of generic function');
         if (node.initializer) {

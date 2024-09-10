@@ -1,0 +1,10 @@
+{
+  "name": "run-comparisons",
+  "compilets": {
+    "skipPreEmitDiagnostics": true,
+    "bin": {
+      "run-comparisons": "main.ts"
+    }
+  }
+}
+

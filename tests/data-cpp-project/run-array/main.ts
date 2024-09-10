@@ -10,8 +10,8 @@ class Owner {
 }
 
 // compilets: persistent
-let owner = new Owner;
-gc();
+let owner: Owner | undefined = new Owner;
+gc!();
 owner = undefined;
-gc();
+gc!();
 process.exit(1);

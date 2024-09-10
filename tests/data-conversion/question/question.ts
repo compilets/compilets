@@ -15,10 +15,10 @@ function TestQuestionTokenInClass() {
 
   let i = head.item;
   head.next.item = 3;
-  TakeNumber(head.item);
+  TakeNumber(head.item!);
 
-  let n: number = true ? head.item : 0;
-  let l: LinkNode = true ? head : head.next;
+  let n: number = true ? head.item! : 0;
+  let l: LinkNode = true ? head : head.next!;
 
   let memberExam = head.item!;
   let valueExam = i!;

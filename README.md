@@ -69,6 +69,7 @@ following `compilerOptions` will be used:
 
 ```js
 {
+  noEmit: true,
   noImplicitAny: true,
   strictNullChecks: true,
   allowImportingTsExtensions: true

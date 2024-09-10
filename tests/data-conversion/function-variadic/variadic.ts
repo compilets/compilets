@@ -14,5 +14,5 @@ function TestVariadicArgs() {
   variadicArrow(1, 2, 3, 4);
 
   let a: boolean | number | undefined = 123;
-  VariadicArgs(a as boolean, a as number, a as number);
+  VariadicArgs(a as unknown as boolean, a as number, a as number);
 }

@@ -16,10 +16,10 @@ class Derived extends Base {
 }
 
 // compilets: persistent
-let base = new Derived();
+let base: Base | undefined = new Derived();
 if (base.method() != "derived")
   process.exit(2);
-gc();
+gc!();
 base = undefined;
-gc();
+gc!();
 process.exit(1);

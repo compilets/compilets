@@ -1,0 +1,10 @@
+{
+  "name": "run-string",
+  "compilets": {
+    "skipPreEmitDiagnostics": true,
+    "bin": {
+      "run-string": "main.ts"
+    }
+  }
+}
+

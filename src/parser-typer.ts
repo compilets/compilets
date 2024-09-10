@@ -400,7 +400,7 @@ export default class Typer {
   /**
    * Get the type modifiers from the declaration.
    */
-  private getTypeModifiers(decl?: ts.Declaration): syntax.TypeModifier[] {
+  getTypeModifiers(decl?: ts.Declaration): syntax.TypeModifier[] {
     const modifiers: syntax.TypeModifier[] = [];
     if (!decl)
       return modifiers;

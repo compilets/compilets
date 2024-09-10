@@ -6,8 +6,8 @@ class A {
 }
 
 // compilets: persistent
-const a = new A();
-gc();
+let a: A | undefined = new A();
+gc!();
 a = undefined;
-gc();
+gc!();
 process.exit(1);

@@ -130,6 +130,10 @@ export class AsExpression extends Expression {
 
   constructor(type: Type, expression: Expression) {
     super(type);
+    // Make "as unknown as type" work.
+    if (expression instanceof AsExpression && expression.type.category == 'any')
+      expression = expression.expression;
+    // Do conversion.
     this.expression = castExpression(expression, type);
   }
 

@@ -18,6 +18,7 @@ export default class CppProject {
   executables?: Record<string, string>;
   fileNames: string[] = [];
   compilerOptions: ts.CompilerOptions;
+  skipPreEmitDiagnostics = false;
 
   // Key is filename without suffix - both .h and .cpp use the same CppFile.
   private cppFiles = new Map<string, CppFile>();
@@ -46,11 +47,10 @@ export default class CppProject {
                                               .map(p => `${rootDir}/${p}`);
       this.compilerOptions = {
         rootDir,
+        noEmit: true,
         noImplicitAny: true,
         strictNullChecks: true,
         allowImportingTsExtensions: true,
-        target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.CommonJS,
       };
     }
     // Warn about empty directory.
@@ -264,7 +264,7 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
         this.name = name;
       // The "compilets" field stores our configurations.
       if (typeof compilets == 'object') {
-        const {main, bin} = compilets;
+        const {main, bin, skipPreEmitDiagnostics} = compilets;
         // The entry for native module.
         if (typeof main == 'string' && main.endsWith('.ts'))
           this.mainFileName = main;
@@ -278,6 +278,9 @@ ${targets.map(t => `    ":${t}",`).join('\n')}
             this.executables[key] = value;
           }
         }
+        // Whether to skip pre-emit type checking.
+        if (skipPreEmitDiagnostics === true)
+          this.skipPreEmitDiagnostics = true;
       }
     } catch {}
     // Use directory's name as fallback.

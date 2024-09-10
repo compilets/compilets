@@ -4,9 +4,9 @@ namespace compilets {
 
 namespace nodejs {
 
-void gc() {
+std::optional<std::function<void()>> gc = []() {
   State::Get()->PreciseGC();
-}
+};
 
 }  // namespace nodejs
 

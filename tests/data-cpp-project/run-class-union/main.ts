@@ -12,7 +12,7 @@ class Owner {
 // compilets: persistent
 const o = new Owner;
 o.member = new Member;
-gc();
+gc!();
 o.member = 123;
-gc();
+gc!();
 process.exit(1);

@@ -22,7 +22,7 @@ class Derived extends Base {
   }
 }
 
-class NotDerived implements Base {
+class NotDerived {
 }
 
 function TestInheritance() {

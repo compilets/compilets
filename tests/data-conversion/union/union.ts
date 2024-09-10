@@ -21,8 +21,8 @@ function TestUnion() {
   bn = ReturnUnion();
   bn = nb;
 
-  let b: boolean = bn;
-  TakeNumber(bn);
+  let b = bn as boolean;
+  TakeNumber(bn as number);
 
   let numberCast = bn as number;
 }

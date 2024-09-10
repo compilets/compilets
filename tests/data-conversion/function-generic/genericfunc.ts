@@ -7,7 +7,7 @@ function Passthrough<T>(value: T) {
 }
 
 function GetValue<U>(item: Item<U>): U {
-  return item.value;
+  return item.value!;
 }
 
 function CreateItems<U>(): Item<U>[] {
